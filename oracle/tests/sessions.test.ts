@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
 import { defaultLimits } from "../session/domain.js";
 import { atomicJson, createSessionStore } from "../session/index.js";
@@ -109,15 +110,13 @@ test("a second instance refuses the exclusive lock without stealing it", async (
   )();
 });
 
-test("CI waiting requests retain capacity and survive admission pruning after an hour", async (t) => {
+test("queued requests retain capacity and survive admission pruning after an hour", async (t) => {
   let now = testNow;
   const limits = { ...defaultLimits, maxQueuedPerSession: 1, maxSessions: 1 };
   const store = createSessionStore({ directory: await directory(t), limits, now: () => now });
   await store.recover();
   const request = input();
   await store.admit(request);
-  await store.claim(request);
-  assert.equal(await store.defer(request), "notify");
   now += limits.maxEventAgeMs + limits.maxClockSkewMs + 1_000;
   const currentTs = `${Math.floor(now / 1_000)}.000001`;
   assert.equal(
@@ -126,4 +125,30 @@ test("CI waiting requests retain capacity and survive admission pruning after an
   );
   assert.equal(await store.admit(input("New session", { ts: currentTs })), "busy");
   assert.deepEqual(store.pending(), [request]);
+});
+
+test("legacy CI waiters recover as pending with a first attempt", async (t) => {
+  const path = await directory(t);
+  const options = { directory: path, limits: defaultLimits, now: () => testNow };
+  const store = createSessionStore(options);
+  await store.recover();
+  const request = input();
+  await store.admit(request);
+  const document = store.snapshot(request.address);
+  assert.ok(document);
+  const [name] = await readdir(path);
+  assert.ok(name);
+  await atomicJson(join(path, name), {
+    ...document,
+    events: document.events.map(({ attempt: _attempt, ...event }) => ({
+      ...event,
+      status: "waiting_for_ci",
+      waitNotified: true,
+    })),
+  });
+  const recovered = createSessionStore(options);
+  await recovered.recover();
+  assert.deepEqual(recovered.pending(), [request]);
+  await recovered.claim(request);
+  assert.equal(recovered.snapshot(request.address)?.events[0]?.attempt, 0);
 });

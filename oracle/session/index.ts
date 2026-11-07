@@ -16,6 +16,7 @@ import {
   keyOf,
   type Limits,
   type Outcome,
+  type ShutdownMode,
 } from "./domain.js";
 
 const eventSchema = z.object({
@@ -23,7 +24,7 @@ const eventSchema = z.object({
   at: z.number(),
   input: incomingSchema,
   status: z.enum(["queued", "waiting_for_ci", "running", "completed", "interrupted", "cancelled"]),
-  waitNotified: z.boolean().default(false),
+  attempt: z.number().int().nonnegative().default(0),
 });
 const mutationSchema = z.object({
   id: z.string(),
@@ -58,10 +59,9 @@ export interface SessionStore {
   owns(address: Address): boolean;
   admit(input: Incoming): Promise<Admission>;
   claim(input: Incoming): Promise<readonly HistoryItem[]>;
-  defer(input: Incoming): Promise<"notify" | "waiting" | "cancelled">;
   pending(): readonly Incoming[];
   stop(input: Incoming): Promise<Admission>;
-  interrupt(): Promise<void>;
+  interrupt(mode?: ShutdownMode): Promise<void>;
   complete(input: Incoming, outcome: Outcome, status?: EventState): Promise<void>;
   mutation(input: Incoming, path: string, operation: () => Promise<void>): Promise<void>;
   delivery(address: Address, kind: DeliveryKind, text: string): Promise<string>;
@@ -199,7 +199,7 @@ export function createSessionStore(options: {
       at,
       input,
       status: stopping ? "completed" : "queued",
-      waitNotified: false,
+      attempt: 0,
     });
     if (stopping) {
       document.stopped = true;
@@ -237,13 +237,17 @@ export function createSessionStore(options: {
     owns: (address) => documents.has(keyOf(address)),
     admit: (input) => transact(() => admission(input, false)),
     stop: (input) => transact(() => admission(input, true)),
-    interrupt: () =>
+    interrupt: (mode = "shutdown") =>
       transact(async () => {
         for (const address of [...documents.values()].map((document) => document.address)) {
           const document = copy(address);
           if (!document.events.some((event) => event.status === "running")) continue;
           for (const event of document.events) {
-            if (event.status === "running") event.status = "interrupted";
+            if (event.status !== "running") continue;
+            if (mode === "reload" && !document.stopped) {
+              event.status = "queued";
+              event.attempt++;
+            } else event.status = "interrupted";
           }
           await save(document);
         }
@@ -257,17 +261,6 @@ export function createSessionStore(options: {
         event.status = "running";
         await save(document);
         return document.history;
-      }),
-    defer: (input) =>
-      transact(async () => {
-        const document = copy(input.address);
-        const event = document.events.find((item) => item.id === eventId(input));
-        if (!event || event.status !== "running" || document.stopped) return "cancelled";
-        const notify = !event.waitNotified;
-        event.status = "waiting_for_ci";
-        event.waitNotified = true;
-        await save(document);
-        return notify ? "notify" : "waiting";
       }),
     pending: () =>
       [...documents.values()]

@@ -9,11 +9,10 @@ import { createSessionStore } from "../session/index.js";
 import { defaultLimits } from "../session/domain.js";
 import { createT3Runner } from "../session/run.js";
 import { createWorkspace } from "../session/workspace.js";
-import { deferred, directory, input, testNow } from "./helpers.js";
+import { deferred, directory, input, testNow, untilAborted } from "./helpers.js";
 
 const execute = promisify(execFile);
-const workspaceFor = (root: string) =>
-  createWorkspace({ root, branch: "oracle", verifyMain: async () => true });
+const workspaceFor = (root: string) => createWorkspace({ root, branch: "oracle" });
 const git = async (cwd: string, ...args: string[]) => {
   const { stdout } = await execute("git", [
     "-C",
@@ -316,29 +315,6 @@ test("runtime sync proceeds independently and never updates an existing task che
   assert.equal(await workspace.task(first.address), task);
 });
 
-test("unverified main stays out of the workspace until CI succeeds for its exact commit", async (t) => {
-  const { primary, worktree, advance } = await fixture(t);
-  let verified = false;
-  const checked: string[] = [];
-  const workspace = createWorkspace({
-    root: worktree,
-    branch: "oracle",
-    verifyMain: async (commit) => {
-      checked.push(commit);
-      return verified;
-    },
-  });
-  await advance("verified update\n");
-  const commit = await git(primary, "rev-parse", "HEAD");
-  assert.deepEqual(await workspace.sync(), { kind: "waiting_for_ci", commit });
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "initial\n");
-  await assert.rejects(workspace.task(input().address), { code: "workspace_main_unverified" });
-  verified = true;
-  assert.deepEqual(await workspace.sync(), { kind: "updated", commit });
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "verified update\n");
-  assert.ok(checked.every((value) => value === commit));
-});
-
 test("merge setup failures retain their original error and never abort a nonexistent merge", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   await writeFile(join(worktree, "oracle.txt"), "local commit\n");
@@ -356,80 +332,155 @@ test("merge setup failures retain their original error and never abort a nonexis
   assert.equal(await git(worktree, "status", "--porcelain"), "");
 });
 
-test("a concurrent fetch cannot substitute an unverified commit after the CI check", async (t) => {
+test("a Slack request uses latest main without waiting for CI", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
-  await advance("first update\n");
-  const verifiedCommit = await git(primary, "rev-parse", "HEAD");
-  const workspace = createWorkspace({
-    root: worktree,
-    branch: "oracle",
-    verifyMain: async (commit) => {
-      assert.equal(commit, verifiedCommit);
-      await advance("newer unverified update\n");
-      await git(primary, "fetch", "origin", "main");
-      return true;
+  const bin = await directory(t);
+  await writeFile(join(bin, "gh"), '#!/bin/sh\nprintf "[]\\n"\n', { mode: 0o755 });
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${bin}:${originalPath ?? ""}`;
+  t.after(() => {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+  });
+  const workspace = createWorkspace({ root: worktree, branch: "oracle" });
+  await advance("latest main without a successful CI run\n");
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  const replies: string[] = [];
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: {
+      run: async ({ input: request }) => {
+        const task = await workspace.task(request.address);
+        assert.equal(await git(task, "rev-parse", "HEAD"), await git(primary, "rev-parse", "HEAD"));
+        return { kind: "reply", text: "Answered without waiting for CI" };
+      },
+    },
+    publish: async (_, text) => {
+      replies.push(text);
     },
   });
-  assert.deepEqual(await workspace.sync(), { kind: "updated", commit: verifiedCommit });
-  assert.equal(await git(worktree, "rev-parse", "HEAD"), verifiedCommit);
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "first update\n");
+  t.after(() => oracle.close());
+  const request = input("Are you on? Sanity check");
+  await oracle.receive(request);
+  await oracle.idle();
+  assert.deepEqual(replies, ["Answered without waiting for CI"]);
+  assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
 });
 
-test(
-  "the original Slack request survives unavailable CI checks and runs after verified Git sync",
-  { timeout: 5_000 },
-  async (t) => {
-    const { primary, worktree, advance } = await fixture(t);
-    let verified = false;
-    const workspace = createWorkspace({
-      root: worktree,
-      branch: "oracle",
-      verifyMain: async () => {
-        if (!verified) throw new Error("GitHub temporarily unavailable");
-        return true;
-      },
+test("reload cancels the old run and resumes it once in the same T3 thread and worktree", async (t) => {
+  const { worktree, advance } = await fixture(t);
+  const workspace = workspaceFor(worktree);
+  const storeOptions = { directory: await directory(t), limits: defaultLimits, now: () => testNow };
+  const entered = deferred<void>();
+  const sends: { requestId: string; message: string; threadId: string }[] = [];
+  const replies: string[] = [];
+  let boundPath: string | undefined;
+  let activeRun: string | null = null;
+  let launches = 0;
+  let stops = 0;
+  let build = "old build";
+  const client: Parameters<typeof createT3Runner>[0]["client"] = {
+    launch: async ({ workspace: path }) => {
+      launches++;
+      boundPath = path;
+      return { threadId: "reload-thread", projectId: "project", runId: null };
+    },
+    read: async () => ({
+      threadId: "reload-thread",
+      projectId: "project",
+      status: activeRun ? "running" : "idle",
+      activeRunId: activeRun,
+      latestRunId: activeRun,
+      pendingRequestCount: 0,
+      worktreePath: boundPath ?? null,
+    }),
+    send: async ({ threadId, requestId, message }) => {
+      assert.equal(activeRun, null);
+      assert.ok(boundPath);
+      sends.push({ requestId, message, threadId });
+      activeRun = `reload-run-${sends.length}`;
+      if (sends.length === 1) await writeFile(join(boundPath, "progress.txt"), "completed step\n");
+      else
+        assert.equal(await readFile(join(boundPath, "progress.txt"), "utf8"), "completed step\n");
+      return { threadId, runId: activeRun, delivery: "started" };
+    },
+    finish: async ({ signal }) => {
+      if (sends.length === 1) {
+        entered.resolve();
+        await untilAborted(signal);
+        return { kind: "ended", status: "interrupted" };
+      }
+      activeRun = null;
+      return {
+        kind: "completed",
+        reply: JSON.stringify({ kind: "reply", text: "Finished on new build" }),
+      };
+    },
+    stopAndDrain: async () => {
+      stops++;
+      activeRun = null;
+    },
+  };
+  const create = async () => {
+    const sessions = createSessionStore(storeOptions);
+    const runner = createT3Runner({
+      client,
+      sessions,
+      projectId: "project",
+      instanceId: "instance",
+      model: "model",
+      workspace: workspace.task,
+      policy: async () => build,
+      context: async () => ({ kind: "unavailable" }),
+      profiles: async () => ({
+        users: [],
+        unresolved: [],
+        mappings: "available",
+        truncated: false,
+      }),
     });
-    const sessions = createSessionStore({
-      directory: await directory(t),
-      limits: defaultLimits,
-      now: () => testNow,
-    });
-    const finished = deferred<void>();
-    let coding = 0;
-    const messages: string[] = [];
     const oracle = await createOracle({
       sessions,
+      runner,
       limits: defaultLimits,
       now: () => testNow,
-      retryIntervalMs: 10,
-      runner: {
-        run: async ({ input: request }) => {
-          const task = await workspace.task(request.address);
-          assert.equal(
-            await git(task, "rev-parse", "HEAD"),
-            await git(primary, "rev-parse", "HEAD"),
-          );
-          coding++;
-          return { kind: "reply", text: "Completed after verified sync" };
-        },
-      },
       publish: async (_, text) => {
-        messages.push(text);
-        if (text === "Completed after verified sync") finished.resolve();
+        replies.push(text);
       },
     });
     t.after(() => oracle.close());
-    await advance("CI-gated update\n");
-    const request = input("Answer the original Slack request");
-    await oracle.receive(request);
-    await oracle.idle();
-    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
-    assert.equal(coding, 0);
-    verified = true;
-    await finished.promise;
-    await oracle.idle();
-    assert.equal(coding, 1);
-    assert.equal(messages.length, 2);
-    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
-  },
-);
+    return { oracle, sessions };
+  };
+  const old = await create();
+  const request = input("Finish the task");
+  const followup = input("Then check the result", { address: request.address, route: "thread" });
+  await old.oracle.receive(request);
+  await entered.promise;
+  await old.oracle.receive(followup);
+  const originalPath = boundPath;
+  await old.oracle.close("reload");
+  assert.ok(stops > 0);
+  assert.equal(activeRun, null);
+  await advance("new build\n");
+  build = "new build";
+  const next = await create();
+  next.oracle.retryPending();
+  next.oracle.retryPending();
+  await next.oracle.idle();
+  assert.equal(sends.length, 3);
+  assert.equal(launches, 1);
+  assert.equal(boundPath, originalPath);
+  assert.ok(sends.every((sent) => sent.threadId === "reload-thread"));
+  assert.equal(new Set(sends.map((sent) => sent.requestId)).size, 3);
+  assert.ok(sends[1]?.message.startsWith("new build"));
+  assert.deepEqual(replies, ["Finished on new build", "Finished on new build"]);
+  assert.equal(await next.oracle.receive(request), "duplicate");
+  assert.equal(sends.length, 3);
+  assert.deepEqual(next.sessions.pending(), []);
+});

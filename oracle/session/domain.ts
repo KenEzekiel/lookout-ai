@@ -14,6 +14,7 @@ export const incomingSchema = z.object({
   route: z.enum(["direct", "thread"]),
 });
 export type Incoming = z.infer<typeof incomingSchema>;
+export type ShutdownMode = "shutdown" | "reload";
 export const keyOf = (address: Address): string => `${address.channel}:${address.rootTs}`;
 export const eventId = (input: Incoming): string => `${input.address.channel}:${input.ts}`;
 
