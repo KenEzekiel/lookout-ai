@@ -19,21 +19,23 @@ Local browser QA retains traces and screenshots after failures. Open traces with
 
 ## Verify frontend user journeys
 
-The implementation agent performs this check before marking the work complete or opening a ready PR. A separate QA agent is not required.
+One contained QA subagent performs this check before marking the work complete or opening a ready PR. The main agent owns implementation, fixes, and PR updates.
+
+Give the subagent a bounded brief with the affected journey, expected outcomes, build or commit to test, runtime setup, and an evidence location. Follow the repository runtime contract for delegation tools and model selection. The subagent may run the app and browser and produce disposable evidence, but must not edit source, tests, configuration, or documentation, publish or merge PRs, or delegate further. Use isolated test data and storage, keep captures in a dedicated location, and clean up only the processes and browser resources it starts. Return the tested build, steps, expected and observed results, findings, evidence paths, and blockers to the main agent. The main agent reviews the report, applies fixes, and sends the affected journey back for verification after changes.
 Documentation-only changes and backend-only changes do not require browser QA. A frontend change affects a journey when it changes what a user sees, enters, navigates, or can complete, including layout or shared component changes in that flow.
 
 1. Identify the affected journey and its expected outcome. For a bug fix, reproduce the reported failure in the browser before editing when possible. If reproduction is unavailable, record why and use the reported steps for post-fix verification.
 2. Run the current production build locally and exercise it in a real browser with Playwright or a browser-control tool permitted by the host. If the production runtime is unavailable, identify the runtime used and the resulting verification gap.
 3. Complete the changed flow through its visible controls. Check the successful outcome and the relevant error or recovery path. Inspect loading, empty, validation, and permission states when the change affects them. For a bug fix, repeat the original failing steps and a nearby successful path.
-4. Inspect the rendered result, browser console errors, and failed requests. Check keyboard interaction and narrow-screen layout when the changed flow supports them. Fix failures caused by the change and rerun the affected steps.
-5. Add a manual QA section to the PR description with the build or commit tested, runtime, journey steps, expected and observed results, and any mocked services or remaining gaps. Use short bullets under Setup, Steps and results, Evidence, and Gaps and blockers, as shown in the PR template. Give each action or scenario its own bullet with the expected and observed result. Keep automated coverage separate from manually exercised steps. Embed screenshots captured during that manual QA run, with captions identifying the step or state and observed result. Cover the changed flow and its relevant success, error, or recovery states.
+4. Inspect the rendered result, browser console errors, and failed requests. Check keyboard interaction and narrow-screen layout when the changed flow supports them. Return failures to the main agent for fixes, then rerun the affected steps against the updated build.
+5. The main agent uses the returned report to add a manual QA section to the PR description with the build or commit tested, runtime, journey steps, expected and observed results, and any mocked services or remaining gaps. Use short bullets under Setup, Steps and results, Evidence, and Gaps and blockers, as shown in the PR template. Give each action or scenario its own bullet with the expected and observed result. Keep automated coverage separate from manually exercised steps. Embed screenshots captured during that manual QA run, with captions identifying the step or state and observed result. Cover the changed flow and its relevant success, error, or recovery states.
 6. Add a short demo video when screenshots cannot adequately show the behavior, such as a multi-step interaction, animation, or timing issue. Embed or link the recording in the PR description and explain what it demonstrates. Traces may supplement this evidence.
 
 Use attachments or stable URLs that PR reviewers can open. Local filesystem paths and screenshots kept only in chat do not satisfy this requirement. Verify that the media renders or opens from the PR description. If capture or publication is blocked, document the exact gap and keep the PR in draft under the verification rule below.
 
 Use safe test data and identify any HTTP mocks in the evidence. Do not claim to have verified an integration that was mocked.
 Vitest results, a successful build, and `pnpm qa:browser` alone do not satisfy journey verification. The generic smoke suite does not exercise a newly implemented flow.
-If browser tools, credentials, or services prevent verification, report the exact blocker and keep the PR in draft. Do not claim completion or silently waive the requirement. The user may explicitly waive a documented verification gap.
+If delegation, browser tools, credentials, or services prevent verification, report the exact blocker and keep the PR in draft. Do not claim completion or silently waive the requirement. The user may explicitly waive a documented verification gap.
 
 ## Place code at its boundary
 
