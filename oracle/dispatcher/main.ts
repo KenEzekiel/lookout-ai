@@ -89,6 +89,7 @@ async function main(): Promise<void> {
     policy: () => readFile(join(oracleRoot, "session", "operating.md"), "utf8"),
     context: slack.context,
     profiles: slack.profiles,
+    files: slack.files,
     projectId: config.t3.projectId,
     instanceId: config.t3.instanceId,
     model: config.t3.model,

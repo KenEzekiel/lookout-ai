@@ -6,12 +6,27 @@ export const addressSchema = z.object({
 });
 export type Address = z.infer<typeof addressSchema>;
 
+export const slackFileSchema = z.object({ id: z.string().regex(/^F[A-Z0-9]+$/) });
+export const outputFileSchema = z.object({
+  path: z.string().min(1).max(4096),
+  title: z.string().min(1).max(255).optional(),
+});
+export type OutputFile = z.infer<typeof outputFileSchema>;
+export type FileContext = {
+  outputDirectory: string;
+  attachments: (
+    | { id: string; status: "available"; name: string; mimetype: string; path: string }
+    | { id: string; status: "unavailable"; reason: string }
+  )[];
+};
+
 export const incomingSchema = z.object({
   address: addressSchema,
   ts: z.string().regex(/^\d{10,}\.\d{1,6}$/),
   actor: z.string().regex(/^[UW][A-Z0-9]+$/),
   text: z.string(),
   route: z.enum(["direct", "thread"]),
+  files: z.array(slackFileSchema).max(100).optional(),
 });
 export type Incoming = z.infer<typeof incomingSchema>;
 export type ShutdownMode = "shutdown" | "reload";
@@ -23,7 +38,12 @@ export type HistoryItem = z.infer<typeof historySchema>;
 export type ThreadContext =
   | {
       kind: "available";
-      messages: readonly { actor: string; ts: string; text: string }[];
+      messages: readonly {
+        actor: string;
+        ts: string;
+        text: string;
+        files?: z.infer<typeof slackFileSchema>[];
+      }[];
       truncated: boolean;
     }
   | { kind: "unavailable" };
@@ -40,7 +60,11 @@ export type UserProfiles = {
   truncated: boolean;
 };
 export const outcomeSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("reply"), text: z.string().min(1).max(6000) }),
+  z.object({
+    kind: z.literal("reply"),
+    text: z.string().min(1).max(6000),
+    files: z.array(outputFileSchema).min(1).max(10).optional(),
+  }),
   z.object({ kind: z.literal("silent") }),
 ]);
 export type Outcome = z.infer<typeof outcomeSchema>;
