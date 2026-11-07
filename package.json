@@ -17,7 +17,8 @@
     "verify": "pnpm check && python3 scripts/check-harness.py && pnpm build",
     "test": "pnpm -r --if-present test",
     "qa:browser": "pnpm build && playwright test",
-    "oracle": "pnpm --filter @lookout/oracle start"
+    "oracle": "pnpm --filter @lookout/oracle start",
+    "oracle:service": "node scripts/oracle-service.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",

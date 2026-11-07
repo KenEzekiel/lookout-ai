@@ -9,6 +9,7 @@ import { createWorkspace } from "../session/workspace.js";
 import { deferred, directory } from "./helpers.js";
 
 const execute = promisify(execFile);
+const workspaceFor = (root: string) => createWorkspace({ root, verifyMain: async () => true });
 const git = async (cwd: string, ...args: string[]) => {
   const { stdout } = await execute("git", [
     "-C",
@@ -28,6 +29,9 @@ async function fixture(t: TestContext) {
   const worktree = join(root, "oracle");
   await git(root, "init", "--bare", origin);
   await git(root, "init", "-b", "main", primary);
+  await git(primary, "config", "user.name", "Workspace Test");
+  await git(primary, "config", "user.email", "test@example.invalid");
+  await git(primary, "config", "user.useConfigOnly", "true");
   await writeFile(join(primary, "file.txt"), "initial\n");
   await git(primary, "add", ".");
   await git(primary, "commit", "-m", "initial");
@@ -51,7 +55,7 @@ test("sync includes latest main and preserves Oracle commits and the primary che
   await advance("latest main\n");
   const mainCommit = await git(primary, "rev-parse", "HEAD");
   await writeFile(join(primary, "file.txt"), "uncommitted user work\n");
-  await createWorkspace(worktree).sync();
+  await workspaceFor(worktree).sync();
   await git(worktree, "merge-base", "--is-ancestor", mainCommit, "HEAD");
   await git(worktree, "merge-base", "--is-ancestor", oracleCommit, "HEAD");
   assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "latest main\n");
@@ -63,17 +67,17 @@ test("sync includes latest main and preserves Oracle commits and the primary che
 
 test("sync refuses primary, main and detached checkouts", async (t) => {
   const { primary, worktree } = await fixture(t);
-  await assert.rejects(createWorkspace(primary).sync(), { code: "workspace_must_be_isolated" });
+  await assert.rejects(workspaceFor(primary).sync(), { code: "workspace_must_be_isolated" });
   await git(primary, "checkout", "-b", "human");
   await git(worktree, "checkout", "main");
-  await assert.rejects(createWorkspace(worktree).sync(), { code: "workspace_must_be_isolated" });
+  await assert.rejects(workspaceFor(worktree).sync(), { code: "workspace_must_be_isolated" });
   await git(worktree, "checkout", "--detach");
-  await assert.rejects(createWorkspace(worktree).sync());
+  await assert.rejects(workspaceFor(worktree).sync());
 });
 
 test("uncertain backend shutdown prevents queued Git updates", async (t) => {
   const { worktree, advance } = await fixture(t);
-  const workspace = createWorkspace(worktree);
+  const workspace = workspaceFor(worktree);
   await assert.rejects(
     workspace.run(async () => {
       throw new BoundaryError("backend_work_uncertain");
@@ -87,7 +91,7 @@ test("uncertain backend shutdown prevents queued Git updates", async (t) => {
 
 test("dirty updates and merge conflicts preserve files and leave no merge in progress", async (t) => {
   const { worktree, advance } = await fixture(t);
-  const workspace = createWorkspace(worktree);
+  const workspace = workspaceFor(worktree);
   await writeFile(join(worktree, "file.txt"), "local change\n");
   await advance("remote change\n");
   await assert.rejects(workspace.sync(), { code: "workspace_sync_dirty" });
@@ -103,7 +107,7 @@ test("dirty updates and merge conflicts preserve files and leave no merge in pro
 
 test("background sync waits for a complete coding turn and the next turn starts current", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
-  const workspace = createWorkspace(worktree);
+  const workspace = workspaceFor(worktree);
   const started = deferred<void>();
   const release = deferred<void>();
   const turn = workspace.run(async () => {
@@ -120,4 +124,68 @@ test("background sync waits for a complete coding turn and the next turn starts 
   await workspace.run(async () => {
     assert.equal(await git(worktree, "rev-parse", "HEAD"), await git(primary, "rev-parse", "HEAD"));
   });
+});
+
+test("unverified main stays out of the workspace until CI succeeds for its exact commit", async (t) => {
+  const { primary, worktree, advance } = await fixture(t);
+  let verified = false;
+  const checked: string[] = [];
+  const workspace = createWorkspace({
+    root: worktree,
+    verifyMain: async (commit) => {
+      checked.push(commit);
+      return verified;
+    },
+  });
+  await advance("verified update\n");
+  const commit = await git(primary, "rev-parse", "HEAD");
+  assert.deepEqual(await workspace.sync(), { kind: "waiting_for_ci", commit });
+  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "initial\n");
+  let ran = false;
+  await assert.rejects(
+    workspace.run(async () => {
+      ran = true;
+    }),
+    { code: "workspace_main_unverified" },
+  );
+  assert.equal(ran, false);
+  verified = true;
+  assert.deepEqual(await workspace.sync(), { kind: "updated", commit });
+  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "verified update\n");
+  assert.ok(checked.every((value) => value === commit));
+});
+
+test("merge setup failures retain their original error and never abort a nonexistent merge", async (t) => {
+  const { primary, worktree, advance } = await fixture(t);
+  await writeFile(join(worktree, "oracle.txt"), "local commit\n");
+  await git(worktree, "add", ".");
+  await git(worktree, "commit", "-m", "local commit");
+  await advance("remote commit\n");
+  await git(primary, "config", "user.email", "");
+  await git(primary, "config", "user.name", "");
+  await assert.rejects(workspaceFor(worktree).sync(), (error: unknown) => {
+    assert.ok(error instanceof Error);
+    assert.match(error.message, /empty ident|identity unknown|no email/i);
+    assert.doesNotMatch(error.message, /There is no merge to abort/);
+    return true;
+  });
+  assert.equal(await git(worktree, "status", "--porcelain"), "");
+});
+
+test("a concurrent fetch cannot substitute an unverified commit after the CI check", async (t) => {
+  const { primary, worktree, advance } = await fixture(t);
+  await advance("first update\n");
+  const verifiedCommit = await git(primary, "rev-parse", "HEAD");
+  const workspace = createWorkspace({
+    root: worktree,
+    verifyMain: async (commit) => {
+      assert.equal(commit, verifiedCommit);
+      await advance("newer unverified update\n");
+      await git(primary, "fetch", "origin", "main");
+      return true;
+    },
+  });
+  assert.deepEqual(await workspace.sync(), { kind: "updated", commit: verifiedCommit });
+  assert.equal(await git(worktree, "rev-parse", "HEAD"), verifiedCommit);
+  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "first update\n");
 });

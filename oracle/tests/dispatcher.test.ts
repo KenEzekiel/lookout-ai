@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createOracle } from "../dispatcher/index.js";
 import { routeSlack } from "../dispatcher/slack.js";
-import { defaultLimits } from "../session/domain.js";
+import { BoundaryError, defaultLimits } from "../session/domain.js";
 import { createSessionStore } from "../session/index.js";
 import { deferred, directory, input, testNow, untilAborted } from "./helpers.js";
 
@@ -345,4 +345,31 @@ test("shutdown clears processing for both active and queued conversations", asyn
   await oracle.close();
   assert.equal(statuses.get(first.address.rootTs), "active");
   assert.equal(statuses.get(second.address.rootTs), "active");
+});
+
+test("a newer unverified main commit explains why a coding request must wait", async (t) => {
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  const messages: string[] = [];
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: {
+      run: async () => {
+        throw new BoundaryError("workspace_main_unverified");
+      },
+    },
+    publish: async (_, text) => {
+      messages.push(text);
+    },
+  });
+  await oracle.receive(input());
+  await oracle.idle();
+  assert.deepEqual(messages, [
+    "A newer main commit is waiting for successful CI. Oracle will update automatically when Verify passes. Send a fresh request after that.",
+  ]);
 });
