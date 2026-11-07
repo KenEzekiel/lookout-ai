@@ -6,6 +6,7 @@ import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { getRouter } from "../../src/router";
 import { server } from "../support/server";
+import { healthReportSchema, type HealthReport } from "../../src/lib/device-health";
 
 const originals = {
   mediaDevices: Object.getOwnPropertyDescriptor(navigator, "mediaDevices"),
@@ -23,9 +24,11 @@ const originals = {
 
 let cameraError: DOMException | null;
 let tracksStopped: number;
+let cameraRequests: (MediaStreamConstraints | undefined)[];
 let recordersStopped: number;
 let urlsRevoked: number;
 let endCameraTrack: () => void;
+let healthReports: HealthReport[];
 
 class BrowserRecorder {
   state: RecordingState = "inactive";
@@ -43,7 +46,12 @@ class BrowserRecorder {
 }
 
 beforeEach(() => {
+  healthReports = [];
   server.use(
+    http.post("/api/health/report", async ({ request }) => {
+      healthReports.push(healthReportSchema.parse(await request.json()));
+      return HttpResponse.json({ receivedAt: Date.now() });
+    }),
     http.get("/api/config/device", () => HttpResponse.json({ sources: [], rules: [] })),
     http.get("/api/access/principal", () =>
       HttpResponse.json({
@@ -56,6 +64,7 @@ beforeEach(() => {
     ),
   );
   cameraError = null;
+  cameraRequests = [];
   tracksStopped = 0;
   recordersStopped = 0;
   urlsRevoked = 0;
@@ -77,7 +86,8 @@ beforeEach(() => {
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: {
-      getUserMedia: async () => {
+      getUserMedia: async (constraints?: MediaStreamConstraints) => {
+        cameraRequests.push(constraints);
         if (cameraError) throw cameraError;
         return {
           getTracks: () => [track],
@@ -159,6 +169,28 @@ test("a camera starts, retains samples, and releases its tracks on Stop", async 
   expect(screen.getByText("Samples retained").parentElement).toHaveTextContent("0");
 });
 
+test("switching rear and front cameras releases the previous capture and starts a new run", async () => {
+  await renderDevice();
+  await userEvent.click(screen.getByRole("button", { name: "Start" }));
+  expect(cameraRequests.at(-1)).toEqual({
+    video: { facingMode: { ideal: "environment" } },
+    audio: false,
+  });
+  await userEvent.click(screen.getByLabelText("Camera direction"));
+  await userEvent.click(await screen.findByRole("option", { name: "Front camera" }));
+  await waitFor(() => expect(screen.getByText("Capture run").parentElement).toHaveTextContent("2"));
+  expect(tracksStopped).toBe(1);
+  expect(cameraRequests.at(-1)).toEqual({ video: { facingMode: { ideal: "user" } }, audio: false });
+  await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+  await userEvent.click(screen.getByLabelText("Camera direction"));
+  await userEvent.click(await screen.findByRole("option", { name: "Rear camera" }));
+  expect(cameraRequests).toHaveLength(2);
+  cameraError = new DOMException("Denied", "NotAllowedError");
+  await userEvent.click(screen.getByRole("button", { name: "Start" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Allow access in your browser");
+  expect(screen.getByRole("button", { name: "Start" })).toBeEnabled();
+});
+
 test("a local video starts and seeking or restarting creates a new capture epoch", async () => {
   await renderDevice();
   await userEvent.click(screen.getByLabelText("Source type"));
@@ -233,8 +265,10 @@ const monitoringRule = {
     condition: { kind: "template", template: "fall" },
     durationSeconds: null,
     severity: "critical",
-    recipientIds: ["owner-one"],
-    escalationDelaySeconds: 30,
+    escalationLevels: [
+      { recipientIds: ["owner-one"], acknowledgmentTimeoutSeconds: 30 },
+      { recipientIds: ["owner-one"], acknowledgmentTimeoutSeconds: null },
+    ],
   },
 };
 const configuredSource = { id: "source-one", name: "Living room", kind: "camera" };
@@ -249,20 +283,37 @@ function monitoringApi({
   outcome = "positive",
   failReport = false,
   durationSeconds = null,
+  ruleCount = 1,
 }: {
   outcome?: "positive" | "rejected" | "need_more_evidence" | "unavailable";
   failReport?: boolean;
   durationSeconds?: number | null;
+  ruleCount?: number;
 } = {}) {
   const reports: Report[] = [];
-  const observations: { stage: string; frames: { id: string; mediaTimeMs: number }[] }[] = [];
+  const observations: {
+    ruleId: string;
+    stage: string;
+    frames: { id: string; mediaTimeMs: number }[];
+  }[] = [];
   const ended: string[] = [];
   const sessionId = crypto.randomUUID();
   let rule = { ...monitoringRule, definition: { ...monitoringRule.definition, durationSeconds } };
-  let probability = 0.9;
+  let probability: number | null = 0.9;
+  let assessmentUnavailable = false;
   server.use(
     http.get("/api/config/device", () =>
-      HttpResponse.json({ sources: [configuredSource], rules: [rule] }),
+      HttpResponse.json({
+        sources: [configuredSource],
+        rules: [
+          rule,
+          ...Array.from({ length: ruleCount - 1 }, (_, index) => ({
+            ...rule,
+            id: `other-rule-${index}`,
+            definition: { ...rule.definition, name: `Other rule ${index}` },
+          })),
+        ],
+      }),
     ),
     http.post("/api/incidents/sessions", () =>
       HttpResponse.json({
@@ -284,19 +335,29 @@ function monitoringApi({
       if (!image || typeof image === "string") throw new Error("Missing captured JPEG.");
       expect(image.type).toBe("image/jpeg");
       expect(new Uint8Array(await image.arrayBuffer())).toEqual(new Uint8Array([0, 0, 0]));
-      observations.push(metadata.observation);
-      if (metadata.observation.stage === "assessment")
+      observations.push({ ruleId: metadata.rule.id, ...metadata.observation });
+      if (metadata.observation.stage === "assessment") {
+        if (assessmentUnavailable || (metadata.rule.id === rule.id && probability === null))
+          return HttpResponse.json({ kind: "unavailable", reason: "provider_error" });
         return HttpResponse.json({
           kind: "assessment",
-          matchProbability: probability,
+          matchProbability: metadata.rule.id === rule.id ? probability : 0.01,
           unclearProbability: 0.1,
         });
+      }
       return HttpResponse.json(
         outcome === "unavailable"
           ? { kind: "unavailable", reason: "provider_error" }
           : { kind: "review", outcome, explanation: "Reviewed supplied footage." },
       );
     }),
+    http.post("/api/incidents/evidence-unavailable/:id", () =>
+      HttpResponse.json({
+        evidenceStatus: "unavailable",
+        evidenceReason: "No footage",
+        evidenceExpiresAt: null,
+      }),
+    ),
     http.post("/api/incidents/reports", async ({ request }) => {
       const report = (await request.json()) as Report;
       reports.push(report);
@@ -324,9 +385,15 @@ function monitoringApi({
   );
   return {
     reports,
+    unavailable: () => {
+      assessmentUnavailable = true;
+    },
     observations,
     ended,
     sessionId,
+    interrupt: (kind: string) => {
+      probability = kind === "unavailable" ? null : 0.5;
+    },
     clear: () => {
       probability = 0.01;
     },
@@ -348,12 +415,106 @@ async function startMonitoring() {
   return video;
 }
 
+test("capture reports metadata-only applied assessment state, stop and resume", async () => {
+  monitoringApi({ outcome: "rejected" });
+  await startMonitoring();
+  await screen.findByText(/Candidate rejected/, {}, { timeout: 4000 });
+  await waitFor(() =>
+    expect(
+      healthReports.some((report) => report.capture === "running" && report.assessment === "ready"),
+    ).toBe(true),
+  );
+  const ready = healthReports.find(
+    (report) => report.capture === "running" && report.assessment === "ready",
+  );
+  expect(ready).toMatchObject({
+    sourceId: configuredSource.id,
+    appliedRules: [{ id: monitoringRule.id, version: 1 }],
+    configurationAvailable: true,
+  });
+  expect(ready?.lastObservationAt).toBeTypeOf("number");
+  expect(ready?.lastAssessmentAt).toBeTypeOf("number");
+  expect(JSON.stringify(ready)).not.toContain("image");
+  await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+  await waitFor(() =>
+    expect(healthReports.at(-1)).toMatchObject({
+      capture: "stopped",
+      assessment: "unavailable",
+      appliedRules: [{ id: monitoringRule.id, version: 1 }],
+    }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Start" }));
+  await waitFor(() => expect(healthReports.at(-1)?.capture).toBe("running"));
+  expect(
+    healthReports.some(
+      (report) => report.capture === "running" && report.assessment === "unavailable",
+    ),
+  ).toBe(true);
+});
+
+test("assessment failures report degradation and unavailable configuration is never acknowledged", async () => {
+  monitoringApi({ outcome: "unavailable" });
+  await startMonitoring();
+  await screen.findByText(/Review unavailable/, {}, { timeout: 4000 });
+  await waitFor(() => expect(healthReports.at(-1)?.assessment).toBe("degraded"));
+  server.use(
+    http.get("/api/config/device", () =>
+      HttpResponse.json({ message: "Offline" }, { status: 503 }),
+    ),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Refresh assigned rules" }));
+  await waitFor(() =>
+    expect(healthReports.at(-1)).toMatchObject({
+      configurationAvailable: false,
+      appliedRules: [],
+      assessment: "unavailable",
+    }),
+  );
+});
+
+test("one successful rule cannot hide another rule's failed assessment", async () => {
+  monitoringApi();
+  const second = {
+    ...monitoringRule,
+    id: "second-rule",
+    definition: { ...monitoringRule.definition, name: "Second rule" },
+  };
+  const seen = new Set<string>();
+  server.use(
+    http.get("/api/config/device", () =>
+      HttpResponse.json({ sources: [configuredSource], rules: [monitoringRule, second] }),
+    ),
+    http.post("/api/assessment", async ({ request }) => {
+      const metadata = JSON.parse(String((await request.formData()).get("metadata")));
+      seen.add(metadata.rule.id);
+      return HttpResponse.json(
+        metadata.rule.id === monitoringRule.id
+          ? { kind: "unavailable", reason: "provider_error" }
+          : { kind: "assessment", matchProbability: 0.01, unclearProbability: 0.1 },
+      );
+    }),
+  );
+  await startMonitoring();
+  await waitFor(() => expect(seen.size).toBe(2), { timeout: 4000 });
+  await screen.findByText("Monitoring. No candidate in the latest observation.");
+  expect(healthReports.at(-1)?.assessment).toBe("degraded");
+  expect(healthReports.some((report) => report.assessment === "ready")).toBe(false);
+});
+
 test("a confirmed candidate reports one stable event, retries delivery and does not recreate a dismissed incident", async () => {
   const api = monitoringApi({ failReport: true });
   const video = await startMonitoring();
   await screen.findByText(/request unavailable/, {}, { timeout: 4000 });
   video.currentTime = 1;
   await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+  expect(screen.getByText("90.0%")).toBeVisible();
+  expect(screen.getByText("10.0%")).toBeVisible();
+  expect(screen.getByText("Latest review · Confirmed")).toBeVisible();
+  expect(screen.getByText("Reviewed supplied footage.")).toBeVisible();
+  expect(screen.getByText("Frames assessed").parentElement).toHaveTextContent("1");
+  expect(screen.getByText("Result received")).toBeVisible();
+
+  expect(screen.getByText("Preparing incident video…")).toBeVisible();
   expect(api.reports).toHaveLength(2);
   expect(api.reports[1]).toEqual(api.reports[0]);
   expect(api.reports[0]?.eventTime).toBeLessThanOrEqual(Date.now());
@@ -371,7 +532,26 @@ test("a confirmed candidate reports one stable event, retries delivery and does 
   await userEvent.click(screen.getByRole("button", { name: "Stop" }));
   await waitFor(() => expect(api.ended).toEqual([api.sessionId]));
   expect(screen.getByText("AI monitoring stopped.")).toBeVisible();
+  expect(screen.queryByText("90.0%")).not.toBeInTheDocument();
 }, 15000);
+
+test("assessment failure retains labeled last-completed scores until camera switching clears the run", async () => {
+  const api = monitoringApi();
+  const video = await startMonitoring();
+  await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+  api.unavailable();
+  video.currentTime = 1;
+  await screen.findByText(/Assessment unavailable: provider_error/, {}, { timeout: 4000 });
+  expect(screen.getByText("90.0%")).toBeVisible();
+  expect(
+    screen.getByText("Latest completed assessment. AI estimates, not confirmation."),
+  ).toBeVisible();
+  await userEvent.click(screen.getByLabelText("Camera direction"));
+  await userEvent.click(await screen.findByRole("option", { name: "Front camera" }));
+  await waitFor(() => expect(screen.queryByText("90.0%")).not.toBeInTheDocument());
+  expect(screen.queryByText("Latest incident reported")).not.toBeInTheDocument();
+  expect(screen.getByText(/Waiting for the first assessment/)).toBeVisible();
+});
 
 for (const outcome of ["rejected", "need_more_evidence", "unavailable"] as const) {
   test(`review ${outcome} remains distinct and never reports an incident`, async () => {
@@ -416,6 +596,8 @@ test("a delayed assessment stays bounded and Stop invalidates its late positive 
   await waitFor(() => expect(requests).toBe(1));
   video.currentTime = 9;
   await screen.findByText(/assessment is behind capture/, {}, { timeout: 6500 });
+  expect(screen.getByText(/Waiting for the first assessment/)).toBeVisible();
+  expect(screen.queryByText("90.0%")).not.toBeInTheDocument();
   expect(requests).toBe(1);
   await userEvent.click(screen.getByRole("button", { name: "Stop" }));
   release();
@@ -480,6 +662,83 @@ test("configured duration requires fresh positive observations before review", a
     "review",
   ]);
 }, 10000);
+
+for (const ruleCount of [4, 8]) {
+  test(`${ruleCount} enabled rules preserve duration across fresh positive windows and report once`, async () => {
+    const api = monitoringApi({ durationSeconds: 3, ruleCount });
+    const video = await startMonitoring();
+    const started = performance.now();
+    const playback = setInterval(() => {
+      video.currentTime = (performance.now() - started) / 1000;
+    }, 100);
+    try {
+      await screen.findByText("Latest incident reported", {}, { timeout: 18000 });
+      expect(api.reports).toHaveLength(1);
+      expect(new Set(api.observations.map(({ ruleId }) => ruleId)).size).toBe(ruleCount);
+      const positives = api.observations.filter(
+        ({ ruleId, stage }) => ruleId === monitoringRule.id && stage === "assessment",
+      );
+      expect(positives).toHaveLength(2);
+      expect(
+        (positives[1]?.frames.at(-1)?.mediaTimeMs ?? 0) -
+          (positives[0]?.frames.at(-1)?.mediaTimeMs ?? 0),
+      ).toBeGreaterThan(5000);
+      expect(api.observations.at(-1)?.stage).toBe("review");
+      await screen.findByText(
+        "Event still present. Initial alert will not repeat.",
+        {},
+        { timeout: 15000 },
+      );
+      expect(api.reports).toHaveLength(1);
+    } finally {
+      clearInterval(playback);
+    }
+  }, 35000);
+}
+
+test("a genuine gap inside a positive observation window restarts duration", async () => {
+  const api = monitoringApi({ durationSeconds: 3 });
+  const video = await startMonitoring();
+  await screen.findByText(
+    "Candidate observed. Checking the configured duration.",
+    {},
+    { timeout: 4000 },
+  );
+  video.currentTime = 6;
+  await waitFor(() => expect(api.observations).toHaveLength(2), { timeout: 4000 });
+  expect(api.reports).toHaveLength(0);
+  expect(api.observations.at(-1)?.stage).toBe("assessment");
+  video.currentTime = 9;
+  await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+  expect(api.reports).toHaveLength(1);
+  expect(api.observations[1]?.frames.every(({ mediaTimeMs }) => mediaTimeMs >= 6000)).toBe(true);
+}, 12000);
+
+for (const interruption of ["unavailable", "uncertain"]) {
+  test(`${interruption} assessment interrupts duration even with overlapping frames`, async () => {
+    const api = monitoringApi({ durationSeconds: 3 });
+    const video = await startMonitoring();
+    await screen.findByText(
+      "Candidate observed. Checking the configured duration.",
+      {},
+      { timeout: 4000 },
+    );
+    api.interrupt(interruption);
+    video.currentTime = 3;
+    await screen.findByText(
+      interruption === "unavailable" ? /Assessment unavailable:/ : /Observation uncertain/,
+      {},
+      { timeout: 4000 },
+    );
+    api.positive();
+    video.currentTime = 6;
+    await waitFor(() => expect(api.observations).toHaveLength(3), { timeout: 4000 });
+    expect(api.reports).toHaveLength(0);
+    video.currentTime = 9;
+    await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+    expect(api.reports).toHaveLength(1);
+  }, 15000);
+}
 
 test("fresh clear observations rearm the source and a new event gets a new identity", async () => {
   const api = monitoringApi();
@@ -546,4 +805,54 @@ test("seeking invalidates late review and starts a fresh capture session", async
   await waitFor(() => expect(screen.getByText("Capture run").parentElement).toHaveTextContent("2"));
   expect(api.reports).toHaveLength(0);
   await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+});
+
+test("unplayable incident footage reports unavailable without losing the incident or stopping monitoring", async () => {
+  const api = monitoringApi();
+  const unavailable: unknown[] = [];
+  server.use(
+    http.get("/api/config/device", () =>
+      HttpResponse.json({
+        sources: [{ ...configuredSource, kind: "replay" }],
+        rules: [monitoringRule],
+      }),
+    ),
+    http.post("/api/incidents/evidence-unavailable/:id", async ({ request }) => {
+      unavailable.push(await request.json());
+      return HttpResponse.json({
+        evidenceStatus: "unavailable",
+        evidenceReason: "Invalid media",
+        evidenceExpiresAt: null,
+      });
+    }),
+  );
+  await renderDevice();
+  await userEvent.click(screen.getByLabelText("Assigned source"));
+  await userEvent.click(await screen.findByRole("option", { name: "Living room" }));
+  await userEvent.click(screen.getByLabelText("Source type"));
+  await userEvent.click(await screen.findByRole("option", { name: "Local video" }));
+  await userEvent.upload(
+    screen.getByLabelText("Video file"),
+    new File(["invalid media"], "fall.mp4", { type: "video/mp4" }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Start" }));
+  await screen.findByText(/Incident video unavailable/, {}, { timeout: 4000 });
+  expect(screen.getByText("Latest incident reported")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Retry video upload" })).not.toBeInTheDocument();
+  expect(unavailable).toEqual([
+    expect.objectContaining({
+      sessionId: api.sessionId,
+      eventId: api.reports[0]?.eventId,
+      reason: expect.any(String),
+    }),
+  ]);
+  const video = screen.getByLabelText("Source video") as HTMLVideoElement;
+  video.currentTime = 2;
+  await screen.findByText(
+    "Event still present. Initial alert will not repeat.",
+    {},
+    { timeout: 4000 },
+  );
+  expect(api.reports).toHaveLength(1);
 });

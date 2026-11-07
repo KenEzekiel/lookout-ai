@@ -10,8 +10,7 @@ const creationSchema = z.object({
   now: z.number().int(),
 });
 const scheduleSchema = z.object({
-  dueAt: z.number().int(),
-  attemptedAt: z.number().int().nullable(),
+  dueAt: z.number().int().nullable(),
   status: z.string(),
 });
 
@@ -30,11 +29,11 @@ export class IncidentFollowUp extends DurableObject<Cloudflare.Env> {
 
   private async insert({ id, actor, input, now }: z.infer<typeof creationSchema>) {
     const inserted =
-      await this.env.DB.prepare(`INSERT INTO incident(id,workspace_id,device_id,session_id,event_id,rule_id,event_time,received_at,context,status,version,owner,timeline,follow_up_due_at)
+      await this.env.DB.prepare(`INSERT INTO incident(id,workspace_id,device_id,session_id,event_id,rule_id,event_time,received_at,context,status,version,owner,timeline,follow_up_due_at,escalation_activations)
     SELECT ?1,?2,?3,?4,?5,r.id,?6,?7,
       json_object('source',json_object('id',s.id,'name',s.name,'kind',s.kind),
         'rule',json_object('id',r.id,'sourceId',r.source_id,'version',r.version,'enabled',json('true'),'definition',json(r.definition))),
-      'open',1,NULL,json_array(json(?8)),?7+json_extract(r.definition,'$.escalationDelaySeconds')*1000
+      'open',1,NULL,json_array(json(?8)),?7+json_extract(r.definition,'$.escalationLevels[0].acknowledgmentTimeoutSeconds')*1000,json_array(?7)
     FROM monitoring_rule r JOIN source s ON s.id=r.source_id AND s.workspace_id=r.workspace_id
       JOIN incident_capture_session c ON c.source_id=s.id AND c.workspace_id=r.workspace_id
     WHERE r.id=?9 AND r.workspace_id=?2 AND r.version=?10 AND r.enabled=1
@@ -64,7 +63,7 @@ export class IncidentFollowUp extends DurableObject<Cloudflare.Env> {
 
   private async schedule(id: string) {
     const row = await this.env.DB.prepare(
-      "SELECT follow_up_due_at AS dueAt,follow_up_attempted_at AS attemptedAt,status FROM incident WHERE id=?",
+      "SELECT follow_up_due_at AS dueAt,status FROM incident WHERE id=?",
     )
       .bind(id)
       .first();
@@ -73,7 +72,7 @@ export class IncidentFollowUp extends DurableObject<Cloudflare.Env> {
       return;
     }
     const schedule = scheduleSchema.parse(row);
-    if (schedule.status === "open" && schedule.attemptedAt === null) {
+    if (schedule.status === "open" && schedule.dueAt !== null) {
       await this.ctx.storage.setAlarm(Math.max(Date.now(), schedule.dueAt));
     } else {
       await this.ctx.storage.deleteAlarm();
@@ -102,9 +101,13 @@ export class IncidentFollowUp extends DurableObject<Cloudflare.Env> {
     const id = z.string().parse(await this.ctx.storage.get("incidentId"));
     const now = Date.now();
     await this.env.DB.prepare(`UPDATE incident SET follow_up_attempted_at=?1,
+        escalation_activations=json_insert(escalation_activations,'$[#]',?1),
+        follow_up_due_at=?1+json_extract(context,'$.rule.definition.escalationLevels[' || json_array_length(escalation_activations) || '].acknowledgmentTimeoutSeconds')*1000,
         timeline=json_insert(timeline,'$[#]',json_object('kind','follow-up-attempted',
+          'level',json_array_length(escalation_activations)+1,
           'at',?1,'actorId','system','actorName','Lookout'))
-      WHERE id=?2 AND status='open' AND follow_up_due_at<=?1 AND follow_up_attempted_at IS NULL`)
+      WHERE id=?2 AND status='open' AND follow_up_due_at<=?1
+        AND json_array_length(escalation_activations)<json_array_length(context,'$.rule.definition.escalationLevels')`)
       .bind(now, id)
       .run();
     await this.schedule(id);

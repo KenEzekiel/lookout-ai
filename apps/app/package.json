@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3000",
-    "build": "vite build",
+    "dev": "node ../../scripts/prepare-pitchdeck.mjs && vite --port 3000",
+    "build": "node ../../scripts/prepare-pitchdeck.mjs && vite build",
     "preview": "vite preview --port 3000",
     "typecheck": "tsr generate && tsc --noEmit",
     "cf-typegen": "wrangler types --include-runtime=false",
@@ -49,6 +49,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.2.1",
     "drizzle-kit": "^0.31.11",
+    "eventsource": "^5.1.4",
     "jsdom": "31.0.0",
     "miniflare": "5.20261104.0-beta",
     "msw": "3.0.4",

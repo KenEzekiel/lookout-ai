@@ -26,14 +26,18 @@ const incident = {
       condition: { kind: "template", template: "fall" },
       durationSeconds: null,
       severity: "critical",
-      recipientIds: [actor.userId],
-      escalationDelaySeconds: 60,
+      escalationLevels: [
+        { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 60 },
+        { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+      ],
     },
   },
   status: "open",
   version: 1,
   owner: null,
-  evidenceStatus: "pending",
+  evidenceStatus: "preparing",
+  evidenceReason: null,
+  evidenceExpiresAt: null,
   notificationStatus: "not-sent",
   timeline: [],
 };
@@ -52,10 +56,13 @@ test("operator opts into the original three-pulse alarm and can test, disable an
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/incidents");
-  await expect(page.getByRole("article", { name: "Incoming incident" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Incoming incident" })).toBeVisible();
   await expect(page.getByText(/Incoming alerts connected/)).toContainText("Sound off.");
   const download = page.waitForResponse("**/sounds/incident-alert.wav");
-  await page.getByRole("button", { name: "Enable sound and test" }).click();
+  await page
+    .getByRole("dialog", { name: "Incoming incident" })
+    .getByRole("button", { name: "Enable sound and test" })
+    .click();
   const response = await download;
   expect(response.ok()).toBe(true);
   const wav = await response.body();
@@ -79,9 +86,12 @@ test("operator opts into the original three-pulse alarm and can test, disable an
   await page.getByRole("button", { name: "Test sound", exact: true }).click();
   await page.getByRole("button", { name: "Turn sound off" }).click();
   await expect(page.getByText(/Incoming alerts connected/)).toContainText("Sound off.");
-  await page.getByRole("button", { name: "Enable sound and test" }).click();
+  await page
+    .getByRole("dialog", { name: "Incoming incident" })
+    .getByRole("button", { name: "Enable sound and test" })
+    .click();
   await page.getByRole("button", { name: "Silence here" }).click();
-  await expect(page.getByRole("article", { name: "Incoming incident" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Incoming incident" })).toHaveCount(0);
   await expect(
     page.getByText("Silenced in this browser. The incident still needs acknowledgment."),
   ).toBeVisible();
@@ -91,12 +101,26 @@ test("operator opts into the original three-pulse alarm and can test, disable an
 test("unavailable audio keeps the incident actionable and can be retried", async ({ page }) => {
   await page.route("**/sounds/incident-alert.wav", (route) => route.fulfill({ status: 503 }));
   await page.goto("/incidents");
-  await page.getByRole("button", { name: "Enable sound and test" }).click();
-  await expect(page.getByText(/Sound playback is unavailable or blocked/)).toBeVisible();
+  await page
+    .getByRole("dialog", { name: "Incoming incident" })
+    .getByRole("button", { name: "Enable sound and test" })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Incoming incident" })
+      .getByText(/Sound playback is unavailable or blocked/),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Acknowledge alert" })).toBeEnabled();
-  await expect(page.getByRole("article", { name: "Incoming incident" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Incoming incident" })).toBeVisible();
   await page.unroute("**/sounds/incident-alert.wav");
-  await page.getByRole("button", { name: "Enable sound and test" }).click();
+  await page
+    .getByRole("dialog", { name: "Incoming incident" })
+    .getByRole("button", { name: "Enable sound and test" })
+    .click();
   await expect(page.getByText(/Incoming alerts connected/)).toContainText("Sound enabled.");
-  await expect(page.getByText(/Sound playback is unavailable or blocked/)).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("dialog", { name: "Incoming incident" })
+      .getByText(/Sound playback is unavailable or blocked/),
+  ).toHaveCount(0);
 });

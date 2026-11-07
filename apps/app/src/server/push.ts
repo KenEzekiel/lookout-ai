@@ -105,7 +105,7 @@ export async function deliverIncidentPush(incidentId: string) {
   const rows = await env.DB.prepare(`SELECT p.id,p.endpoint,p.p256dh,p.auth FROM push_subscription p
     JOIN incident i ON i.workspace_id=p.workspace_id
     WHERE i.id=?1 AND i.status='open' AND EXISTS
-      (SELECT 1 FROM json_each(i.context,'$.rule.definition.recipientIds') WHERE value=p.user_id)`)
+      (SELECT 1 FROM json_each(i.context,'$.rule.definition.escalationLevels[0].recipientIds') WHERE value=p.user_id)`)
     .bind(incidentId)
     .all();
   await Promise.all(

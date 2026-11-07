@@ -6,11 +6,15 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+Trigger cards in the same desktop row have equal heights with actions aligned at the bottom. Descriptions remain fully visible. On narrow screens, cards stack with natural content heights.
+
+Rules now store escalationLevels as the sole ordered recipient policy. Each level has recipientIds and acknowledgmentTimeoutSeconds; only the final timeout is null. Level 1 owns initial recipients. The editor supports one to six levels. Membership removal checks all levels before disabling and versioning affected rules. Issue [#87](https://github.com/KenEzekiel/lookout-ai/issues/87) defines sequential escalation; the migration preserves existing rules as two same-recipient levels. Consumer wiring includes device configuration, incident snapshots, initial push, durable escalation and incoming delivery.
+
 Reload triggers and New trigger share the same default button size, with reload and add icons respectively. Reload is outlined as a secondary action. The toolbar wraps at narrow widths. Source creation, save, edit, disable, and cancel also have decorative action icons; pending forms keep descriptive labels and reject repeat submissions.
 
 Initial operator and device configuration reads show card skeletons. Source and trigger submissions and manual reloads use the shared busy button while keeping existing configuration visible.
 
-Workspace owners and operators create named camera or replay sources, then define incidents in plain language with optional exclusions. The editor starts blank instead of offering a fixed event catalog. Existing template definitions remain readable and open as editable text; saving converts them to custom definitions without changing their observable condition. Each trigger selects one source, warning/critical severity, current workspace recipients, and one escalation delay. The owner is the default recipient. Duration is optional and never imposed on falls or crashes. Duration and escalation delay accept whole seconds from 1 to 3600.
+Workspace owners and operators create named camera or replay sources, then define incidents in plain language with optional exclusions. The editor starts blank instead of offering a fixed event catalog. Existing template definitions remain readable and open as editable text; saving converts them to custom definitions without changing their observable condition. Each trigger selects one source, warning/critical severity, current workspace recipients, and one escalation delay. The owner is the default recipient. Duration is optional and never imposed on falls or crashes. Duration and escalation delay accept whole seconds from 1 to 3600. F-DETECT-REVIEW applies duration independently per enabled rule, supporting up to eight rules per source. Overlapping positive evidence windows preserve duration continuity across rule scheduling; genuine source gaps and interrupted observations still reset it.
 
 Triggers save enabled or disabled. Every edit, disable, or re-enable increments the version. A stale edit cannot overwrite another save. Invalid conditions, cross-workspace sources, and unauthorized recipients reject the entire save. Removing an operator disables and version-bumps every rule naming that recipient in the same D1 transaction.
 
@@ -28,7 +32,7 @@ Members open `/triggers` from the shared navigation. Add a named source, choose 
 
 F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` protects device reads, including revocation on every request. Workspace IDs come from the principal, never the request body. All paired devices in a workspace receive its sources and rules; other workspaces cannot. Per-source device access remains deferred by the accepted access decision.
 
-[Shared contract](../../../apps/app/src/lib/rules.ts) owns `sourceSchema`, `ruleInputSchema`, `ruleSchema`, and `deviceConfigurationSchema`. A rule has `id`, `sourceId`, `version`, `enabled`, and `definition`. The definition owns `name`, a template/custom condition, nullable `durationSeconds`, `severity`, `recipientIds`, and `escalationDelaySeconds`. Custom conditions accept optional `exclusions` (up to 1000 characters). `conditionText` includes these exclusions for summaries and consumers. Existing definitions without exclusions remain valid. `conditionText` also resolves stored template text. Downstream callers import this contract instead of inventing a second format.
+[Shared contract](../../../apps/app/src/lib/rules.ts) owns `sourceSchema`, `ruleInputSchema`, `ruleSchema`, and `deviceConfigurationSchema`. A rule has `id`, `sourceId`, `version`, `enabled`, and `definition`. The definition owns `name`, a template/custom condition, nullable `durationSeconds`, `severity`, ordered `escalationLevels` with `recipientIds` and `acknowledgmentTimeoutSeconds`. Custom conditions accept optional `exclusions` (up to 1000 characters). `conditionText` includes these exclusions for summaries and consumers. Existing definitions without exclusions remain valid. `conditionText` also resolves stored template text. Downstream callers import this contract instead of inventing a second format.
 
 `GET /api/config/operator` returns sources, rules, and current recipient choices. `GET /api/config/device` returns sources and rules without the member directory. Device snapshots include disabled rules and their versions so clients can stop obsolete work. The device UI refreshes every five seconds and on request, and hides configuration on access or transport failure. Receiving a version does not acknowledge application by a capture or assessment loop.
 
@@ -36,15 +40,23 @@ F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` pr
 
 F-DETECT-REVIEW connects `/device` capture to a selected configured source and polls current enabled rule versions. F-AI-RELAY now uses the authoritative source/rule/version contract to authorize remote assessment requests and derives condition text from stored definitions. F-INCIDENT-RESPONSE now checks source/rule IDs and current versions when accepting device reports and snapshots the rule definition. F-ALERT-INAPP routes only to those snapshotted recipients; later edits do not rewrite an existing incident. Assessment submission and initial background notifications are connected; durable in-app escalation is also connected. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Saving settings does not send an alert or start capture.
 
-F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to schedule one in-app follow-up. Later rule edits do not reschedule it. F-ALERT-PUSH preserves the independent initial background-delivery path.
+F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to advance through in-app escalation levels while unacknowledged. Later rule edits do not reschedule it. F-ALERT-PUSH preserves the independent initial background-delivery path.
+
+F-DEVICE-HEALTH compares authoritative source rule versions, including disabled rules, with versions applied by the capture controller. Receipt on `/monitor` remains distinct from application. Operator health reads use the current stored configuration, so edits and disables are visible as mismatches until applied.
 
 ## Implementation
+
+The trigger workspace uses the shared 30 px page-title role and a level-one heading, matching Devices and Incidents. The editor dialog uses the shared 20 px panel-title role, and inherited body text follows the 15 px app default. [Typography browser journeys](../../../tests/e2e/typography.spec.ts) check the title, editor, Escape dismissal, and focus return at desktop and narrow widths. This PR changes presentation only; rule schemas and save semantics remain unchanged.
 
 [Shared schemas](../../../apps/app/src/lib/rules.ts), [configuration handlers](../../../apps/app/src/server/rules.ts), [route adapter](../../../apps/app/src/routes/api/config/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [migration](../../../apps/app/migrations/0002_rule_configuration.sql) implement storage and delivery. [Workspace operations](../../../apps/app/src/server/workspaces.ts) disable rules when recipients leave.
 
 [Trigger route](../../../apps/app/src/routes/_workspace.triggers.tsx), [workspace screen](../../../apps/app/src/components/rules/workspace.tsx), [editor and summaries](../../../apps/app/src/components/rules/editor.tsx), and [device screen](../../../apps/app/src/components/access/monitor.tsx) connect the operator-to-device configuration journey. [Monitoring controls](../../../apps/app/src/components/device-monitoring.tsx) apply configured sources and rules to local assessment. Status stays partial while deployment and remaining downstream consumers are unverified.
 
 ## Verification
+
+[Card layout browser coverage](../../../tests/e2e/trigger-cards.spec.ts) checks unequal description lengths, equal desktop card and action positions, natural mobile heights, overflow, and editor focus return. Run `pnpm exec playwright test tests/e2e/trigger-cards.spec.ts` against the production build. Manual QA evidence belongs in the PR.
+
+[Device route integration tests](../../../apps/app/tests/integration/device.test.tsx) cover three-second duration delivery with four and eight enabled rules on one source, second-stage review, one incident report per event, and duration resets after genuine capture gaps or uncertain/unavailable assessments. The rule schema and configuration endpoints are unchanged by [issue #102](https://github.com/KenEzekiel/lookout-ai/issues/102).
 
 [Loading journey integration tests](../../../apps/app/tests/integration/loading.test.tsx) cover delayed access, lists, configuration, navigation away, submission failure, and refresh retention. [Incident integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover pending responses and replay loading, buffering, failure, and retry. Existing feature tests remain the regression checks for this consumer. Browser observations and evidence for the current change belong in its PR.
 
@@ -66,6 +78,8 @@ The Sources, assessment help, inline source creation, and timing sections use th
 
 ## Decisions and sources
 
+The current PR addresses the user's screenshot of uneven trigger cards. The [workspace grid](../../../apps/app/src/components/rules/workspace.tsx) stretches each row, and [summary cards](../../../apps/app/src/components/rules/editor.tsx) use a flex column with automatic space above actions. No fixed height or truncation is introduced. Configuration, authentication, and downstream rule contracts remain unchanged.
+
 Kenneth requested consistent button sizes and action icons. [Trigger actions](../../../apps/app/src/components/rules/workspace.tsx), [editor actions](../../../apps/app/src/components/rules/editor.tsx), and [device configuration refresh](../../../apps/app/src/components/access/monitor.tsx) inherit F-APP-SHELL sizing and icons. [Complete-route tests](../../../apps/app/tests/integration/rules.test.tsx) exercise visible action icons, accessible labels, pending reload, failed reload, duplicate-submit prevention, and successful retry. No configuration schema, version, or consumer-wiring contract changes.
 
 The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.
@@ -76,7 +90,7 @@ Ken approved the revised issue #18 flow in the implementation conversation: inci
 
 The trigger-dialog follow-up replaces the inline editor with the shared modal component so editing remains visible from any card and on narrow screens. It preserves the configuration API and explicitly restores focus to the opening button.
 
-The configuration slice introduces this contract. Synthesis decision: keep sources and rules in D1 and share one Zod definition across forms, handlers, and consumers. Store the definition as JSON instead of duplicating condition variants across relational columns. A single write checks source/recipient membership, and optimistic versions reject concurrent overwrites. Poll complete snapshots for the demo rather than adding a push transport. Escalation settings describe one follow-up to the same recipients; executing that policy remains F-ALERT-ESCALATE.
+The configuration slice introduces this contract. Synthesis decision: keep sources and rules in D1 and share one Zod definition across forms, handlers, and consumers. Store the definition as JSON instead of duplicating condition variants across relational columns. A single write checks source/recipient membership, and optimistic versions reject concurrent overwrites. Poll complete snapshots for the demo rather than adding a push transport. Escalation settings describe sequential recipient levels and acknowledgment windows; F-ALERT-ESCALATE owns their execution.
 
 The current interface-refinement PR follows Ken's request to use shadcn in-app dropdowns. No new component dependency or backend contract is introduced.
 

@@ -23,7 +23,7 @@ const storedRuleSchema = z
   .pipe(ruleSchema);
 const ruleColumns = "id,source_id AS sourceId,version,enabled,definition";
 const validAssignment = `EXISTS (SELECT 1 FROM source WHERE id=?1 AND workspace_id=?2)
-  AND NOT EXISTS (SELECT 1 FROM json_each(?3,'$.recipientIds') r
+  AND NOT EXISTS (SELECT 1 FROM json_each(?3,'$.escalationLevels') level, json_each(level.value,'$.recipientIds') r
     WHERE NOT EXISTS (SELECT 1 FROM membership m WHERE m.user_id=r.value AND m.workspace_id=?2))`;
 
 async function configuration(workspaceId: string) {

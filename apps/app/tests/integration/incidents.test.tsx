@@ -41,8 +41,10 @@ function reportedIncident(): Incident {
         condition: { kind: "template", template: "fall" },
         durationSeconds: null,
         severity: "critical",
-        recipientIds: ["owner"],
-        escalationDelaySeconds: 60,
+        escalationLevels: [
+          { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: 60 },
+          { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: null },
+        ],
       },
     },
     status: "open",
@@ -279,11 +281,13 @@ test("evidence moves from preparing to uploading, unavailable, and ready replay 
 test("detail shows the scheduled follow-up and cancellation after acknowledgment", async () => {
   incident = incidentSchema.parse({
     ...incident,
+    escalationActivations: [incident.receivedAt],
+    escalationDueAt: incident.receivedAt + 60_000,
     followUp: { kind: "scheduled", dueAt: incident.receivedAt + 60_000 },
   });
   const user = await open("/incidents/fall");
-  expect(await screen.findByText(/One in-app follow-up due/)).toBeVisible();
-  expect(screen.getByText(/Acknowledge to cancel it/)).toBeVisible();
+  expect(await screen.findByText(/Next level due/)).toBeVisible();
+  expect(screen.getByText(/Acknowledge to stop escalation/)).toBeVisible();
   server.use(
     http.post("/api/incidents/commands/fall", async () => {
       incident = incidentSchema.parse({
@@ -298,13 +302,14 @@ test("detail shows the scheduled follow-up and cancellation after acknowledgment
   );
   await user.click(screen.getByRole("button", { name: "Acknowledge" }));
   expect(
-    await screen.findByText("Pending follow-up cancelled by the incident response."),
+    await screen.findByText("Pending escalation cancelled by the incident response."),
   ).toBeVisible();
 });
 
 test("an attempted follow-up is visibly distinct from operator acknowledgment", async () => {
   incident = incidentSchema.parse({
     ...incident,
+    escalationActivations: [incident.receivedAt, incident.receivedAt + 60_010],
     followUp: {
       kind: "attempted",
       dueAt: incident.receivedAt + 60_000,
@@ -321,8 +326,9 @@ test("an attempted follow-up is visibly distinct from operator acknowledgment", 
     ],
   });
   await open("/incidents/fall");
-  expect(await screen.findByText(/This does not confirm anyone saw it/)).toBeVisible();
-  expect(screen.getByText("In-app follow-up attempted by Lookout")).toBeVisible();
+  expect(await screen.findByText("Level 2: Active")).toBeVisible();
+  expect(screen.getAllByText(/Display is not confirmed/)).toHaveLength(2);
+  expect(screen.getByText("Level 2 escalation published by Lookout")).toBeVisible();
   expect(screen.getByText("No owner yet")).toBeVisible();
   expect(screen.queryByText("Acknowledged by Lookout")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();

@@ -1,3 +1,5 @@
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AccordionPanel } from "@/components/ui/accordion-panel";
 import { CircleStop, Pencil, Plus, Save, X } from "lucide-react";
 import {
@@ -57,12 +59,15 @@ export function RuleEditor({
   const [showSource, setShowSource] = useState(configuration.sources.length === 0);
   const [severity, setSeverity] = useState(rule?.definition.severity ?? "critical");
   const [duration, setDuration] = useState(String(rule?.definition.durationSeconds ?? ""));
-  const [delay, setDelay] = useState(String(rule?.definition.escalationDelaySeconds ?? 60));
-  const [recipients, setRecipients] = useState(
-    rule?.definition.recipientIds ??
-      configuration.recipients
-        .filter((person) => person.role === "owner")
-        .map((person) => person.userId),
+  const [levels, setLevels] = useState(
+    rule?.definition.escalationLevels ?? [
+      {
+        recipientIds: configuration.recipients
+          .filter((person) => person.role === "owner")
+          .map((person) => person.userId),
+        acknowledgmentTimeoutSeconds: null,
+      },
+    ],
   );
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
   const sources = configuration.sources.map((source) => ({
@@ -85,8 +90,7 @@ export function RuleEditor({
               condition: { kind: "custom", text, exclusions },
               durationSeconds: data.get("duration") ? Number(data.get("duration")) : null,
               severity: data.get("severity"),
-              recipientIds: data.getAll("recipientIds"),
-              escalationDelaySeconds: Number(data.get("escalationDelay")),
+              escalationLevels: levels,
             },
           });
           if (!parsed.success) {
@@ -242,53 +246,136 @@ export function RuleEditor({
           </div>
         </AccordionPanel>
         <h3 className="border-t pt-5 text-base font-semibold">3. Choose who gets notified</h3>
-        <fieldset className="grid gap-3 rounded-lg border border-border p-4">
-          <legend className="px-1 text-sm font-medium">Alert recipients</legend>
-          {configuration.recipients.map((person) => (
-            <label key={person.userId} className="flex min-h-9 items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                name="recipientIds"
-                value={person.userId}
-                checked={recipients.includes(person.userId)}
-                onChange={(event) =>
-                  setRecipients((current) =>
-                    event.target.checked
-                      ? [...current, person.userId]
-                      : current.filter((id) => id !== person.userId),
-                  )
-                }
-                className="size-4 accent-primary"
-              />
-              {person.name} ({person.role})
-            </label>
-          ))}
-          {rule?.definition.recipientIds.some(
-            (id) => !configuration.recipients.some((person) => person.userId === id),
-          ) && (
-            <p className="text-sm text-destructive">
-              A previous recipient left this workspace. Review recipients before enabling.
-            </p>
-          )}
-        </fieldset>
-        <label className="grid gap-2 text-sm font-medium">
-          Notify again if nobody acknowledges (seconds)
-          <input
-            className={control}
-            name="escalationDelay"
-            type="number"
-            required
-            min={1}
-            max={3600}
-            step={1}
-            value={delay}
-            onChange={(event) => setDelay(event.target.value)}
-          />
-        </label>
         <p className="text-sm text-muted-foreground">
-          One follow-up to these recipients if nobody acknowledges. Follow-up delivery is not
-          connected yet.
+          Level 1 receives the incident immediately. Each next level is notified only if nobody
+          acknowledges.
         </p>
+        {levels.map((level, index) => (
+          <fieldset key={index} className="grid gap-3 rounded-lg border border-border p-4">
+            <legend className="px-1 text-sm font-medium">Level {index + 1}</legend>
+            {configuration.recipients.map((person) => (
+              <label key={person.userId} className="flex min-h-9 items-center gap-3 text-sm">
+                <Checkbox
+                  checked={level.recipientIds.includes(person.userId)}
+                  onCheckedChange={(checked) =>
+                    setLevels((current) =>
+                      current.map((item, position) =>
+                        position === index
+                          ? {
+                              ...item,
+                              recipientIds: checked
+                                ? [...item.recipientIds, person.userId]
+                                : item.recipientIds.filter((id) => id !== person.userId),
+                            }
+                          : item,
+                      ),
+                    )
+                  }
+                />
+                {person.name} ({person.role})
+              </label>
+            ))}
+            {level.recipientIds.some(
+              (id) => !configuration.recipients.some((person) => person.userId === id),
+            ) && (
+              <p className="text-sm text-destructive">
+                A previous recipient left this workspace. Remove them before saving.
+              </p>
+            )}
+            {level.recipientIds
+              .filter((id) => !configuration.recipients.some((person) => person.userId === id))
+              .map((id) => (
+                <Button
+                  key={id}
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setLevels((current) =>
+                      current.map((item, position) =>
+                        position === index
+                          ? {
+                              ...item,
+                              recipientIds: item.recipientIds.filter(
+                                (recipient) => recipient !== id,
+                              ),
+                            }
+                          : item,
+                      ),
+                    )
+                  }
+                >
+                  Remove unavailable recipient
+                </Button>
+              ))}
+            {index < levels.length - 1 ? (
+              <label htmlFor={`level-timeout-${index}`} className="grid gap-2 text-sm font-medium">
+                Wait for acknowledgment before escalating (seconds)
+                <Input
+                  id={`level-timeout-${index}`}
+                  type="number"
+                  required
+                  min={1}
+                  max={3600}
+                  step={1}
+                  value={level.acknowledgmentTimeoutSeconds ?? ""}
+                  onChange={(event) =>
+                    setLevels((current) =>
+                      current.map((item, position) =>
+                        position === index
+                          ? { ...item, acknowledgmentTimeoutSeconds: Number(event.target.value) }
+                          : item,
+                      ),
+                    )
+                  }
+                />
+              </label>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Final level. The incident stays open until someone responds.
+              </p>
+            )}
+            {levels.length > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                aria-label={`Remove level ${index + 1}`}
+                onClick={(event) => {
+                  const section = event.currentTarget.closest("section");
+                  setLevels((current) =>
+                    current
+                      .filter((_, position) => position !== index)
+                      .map((item, position) => ({
+                        ...item,
+                        acknowledgmentTimeoutSeconds:
+                          position === current.length - 2
+                            ? null
+                            : item.acknowledgmentTimeoutSeconds,
+                      })),
+                  );
+                  section?.querySelector<HTMLButtonElement>("[data-add-level]")?.focus();
+                }}
+              >
+                Remove level
+              </Button>
+            )}
+          </fieldset>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          data-add-level
+          disabled={levels.length >= 6}
+          onClick={() =>
+            setLevels((current) => [
+              ...current.map((item, index) =>
+                index === current.length - 1 ? { ...item, acknowledgmentTimeoutSeconds: 60 } : item,
+              ),
+              { recipientIds: [], acknowledgmentTimeoutSeconds: null },
+            ])
+          }
+        >
+          Add escalation level
+        </Button>
         <AccordionPanel title="Timing and urgency">
           <div className="mt-3 grid gap-3">
             {" "}
@@ -337,7 +424,7 @@ export function RuleEditor({
             {name.trim()
               ? `When “${name}” is confirmed at ${configuration.sources.find((source) => source.id === sourceId)?.name ?? "your selected source"}, create a ${severity} incident and notify ${
                   configuration.recipients
-                    .filter((person) => recipients.includes(person.userId))
+                    .filter((person) => levels[0]?.recipientIds.includes(person.userId))
                     .map((person) => person.name)
                     .join(", ") || "your selected recipients"
                 }.`
@@ -346,7 +433,10 @@ export function RuleEditor({
           <p className="whitespace-pre-wrap break-words">{text || "No incident defined yet."}</p>
           {exclusions && <p className="whitespace-pre-wrap break-words">Exclude: {exclusions}</p>}
           <p>{duration ? `Required duration: ${duration} seconds.` : "No minimum duration."}</p>
-          <p>One follow-up after {delay || "…"} seconds without acknowledgment.</p>
+          <p>
+            {levels.length} notification level{levels.length === 1 ? "" : "s"}. Any acknowledgment
+            stops escalation.
+          </p>
           <p className="text-muted-foreground">
             Saving configures this trigger. It does not start capture, assessment, or alert
             delivery.
@@ -385,7 +475,7 @@ export function RuleSummary({
   return (
     <article
       aria-label={rule.definition.name}
-      className="grid gap-4 rounded-xl border border-border bg-card p-6"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6"
     >
       <div className="flex flex-wrap justify-between gap-3">
         <h3 className="font-semibold">{rule.definition.name}</h3>
@@ -405,13 +495,11 @@ export function RuleSummary({
         <div>
           <dt className="inline text-muted-foreground">Recipients </dt>
           <dd className="inline">
-            {rule.definition.recipientIds
-              .map(
-                (id) =>
-                  configuration.recipients.find((person) => person.userId === id)?.name ??
-                  "Unavailable recipient",
-              )
-              .join(", ")}
+            {rule.definition.escalationLevels[0]!.recipientIds.map(
+              (id) =>
+                configuration.recipients.find((person) => person.userId === id)?.name ??
+                "Unavailable recipient",
+            ).join(", ")}
           </dd>
         </div>
         <div>
@@ -423,13 +511,13 @@ export function RuleSummary({
           </dd>
         </div>
         <div>
-          <dt className="inline text-muted-foreground">Follow-up </dt>
+          <dt className="inline text-muted-foreground">Escalation </dt>
           <dd className="inline">
-            After {rule.definition.escalationDelaySeconds} seconds without acknowledgment
+            {rule.definition.escalationLevels.length} levels; advance only without acknowledgment
           </dd>
         </div>
       </dl>
-      <div className="flex flex-wrap gap-3">
+      <div className="mt-auto flex flex-wrap gap-3">
         <Button
           variant="outline"
           icon={Pencil}

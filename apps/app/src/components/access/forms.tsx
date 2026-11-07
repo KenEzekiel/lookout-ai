@@ -6,7 +6,7 @@ import { message } from "@/lib/api";
 export function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mx-auto w-full max-w-sm py-8 sm:py-14">
-      <h1 className="mb-3 text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="mb-3 text-access-title">{title}</h1>
       {children}
     </section>
   );

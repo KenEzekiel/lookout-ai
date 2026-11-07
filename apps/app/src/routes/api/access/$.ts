@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 async function handle(request: Request) {
   const { principal } = await import("@/server/access");
   const { endpoint, json } = await import("@/server/http");
+  const { teamEvents } = await import("@/server/team-events");
   const { createWorkspace, team, createInvitation, joinWorkspace, removeMember } =
     await import("@/server/workspaces");
   const {
@@ -16,6 +17,7 @@ async function handle(request: Request) {
   const handlers: Record<string, (request: Request) => Promise<Response>> = {
     "GET principal": async (request) => json(await principal(request)),
     "GET team": team,
+    "GET team/events": teamEvents,
     "POST workspace": createWorkspace,
     "POST invitations": createInvitation,
     "POST join": joinWorkspace,

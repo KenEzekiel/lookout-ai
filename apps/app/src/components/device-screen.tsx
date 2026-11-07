@@ -15,6 +15,7 @@ import { LiveSource } from "@/components/live-source";
 import { Brand } from "@/components/access/brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SourcePreviewFrame } from "@/components/source-preview-frame";
 import {
   CaptureSession,
   initialCaptureSnapshot,
@@ -40,6 +41,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
   }, []);
   const [snapshot, setSnapshot] = useState<CaptureSnapshot>(initialCaptureSnapshot);
   const [sourceChoice, setSourceChoice] = useState<SourceChoice>("camera");
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("environment");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const running = snapshot.state === "running";
   const paused = snapshot.state === "paused";
@@ -75,7 +77,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
   }
 
   function start() {
-    if (sourceChoice === "camera") void sessionRef.current?.startCamera();
+    if (sourceChoice === "camera") void sessionRef.current?.startCamera(cameraFacing);
     else if (selectedFile) void sessionRef.current?.startFile(selectedFile);
   }
 
@@ -110,9 +112,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
 
       <main className="mx-auto max-w-[1680px] px-4 pt-7 pb-10 sm:px-6 sm:pt-9 lg:px-9">
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-[34px] leading-tight font-semibold tracking-[-0.02em] sm:text-[36px]">
-            Capture station
-          </h1>
+          <h1 className="text-page-title">Capture station</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             Connect a camera or play a local video on this device.
           </p>
@@ -124,8 +124,8 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               <span className="grid size-7 place-items-center rounded-lg bg-surface-raised text-muted-foreground">
                 <Camera size={17} />
               </span>
-              <h2 className="text-sm font-semibold">Source preview</h2>
-              <span className="rounded-lg bg-surface-raised px-2 py-1 text-[11px] text-muted-foreground">
+              <h2 className="text-panel-title">Source preview</h2>
+              <span className="rounded-lg bg-surface-raised px-2 py-1 text-xs text-muted-foreground">
                 {sourceChoice === "camera"
                   ? running
                     ? "Live camera"
@@ -134,13 +134,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               </span>
             </div>
 
-            <div
-              className={cn(
-                "relative isolate aspect-[1.35] min-h-[260px] w-full overflow-hidden rounded-[18px]",
-                "border border-white/10 bg-[radial-gradient(ellipse_at_65%_25%,#354b50,#172126_60%,#10171b)]",
-                "shadow-[0_22px_60px_#0003] sm:aspect-[1.56] sm:min-h-[420px]",
-              )}
-            >
+            <SourcePreviewFrame className="aspect-video min-h-[180px]">
               <video
                 ref={videoRef}
                 aria-label="Source video"
@@ -182,7 +176,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               <div
                 className={cn(
                   "absolute top-4 right-4 z-10 rounded-lg border border-white/10",
-                  "bg-[#0d1114]/75 px-3 py-2 text-[11px] text-white backdrop-blur-sm",
+                  "bg-[#0d1114]/75 px-3 py-2 text-xs text-white backdrop-blur-sm",
                 )}
               >
                 {starting
@@ -193,7 +187,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                       ? "Playback paused"
                       : "Capture stopped"}
               </div>
-            </div>
+            </SourcePreviewFrame>
 
             <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="grid size-9 place-items-center rounded-xl bg-surface-raised">
@@ -220,21 +214,25 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
             className="grid min-w-0 gap-4 md:grid-cols-2 lg:mt-11 lg:flex lg:flex-col"
             aria-label="Capture controls and status"
           >
-            <section className={cn(panelClass, "md:row-span-2 lg:row-auto")}>
+            <section className={panelClass}>
+              <MonitoringControls
+                session={sessionRef}
+                snapshot={snapshot}
+                onController={onMonitoringController}
+              />
+            </section>
+            <section className={panelClass}>
               <div className="flex items-center gap-2.5 text-muted-foreground">
                 <Activity size={16} />
-                <h2 className="text-sm font-semibold text-foreground">Capture controls</h2>
+                <h2 className="text-panel-title text-foreground">Capture controls</h2>
               </div>
               <div className="mt-6 flex items-center justify-between gap-3">
-                <strong
-                  key={statusTitle}
-                  className="motion-feedback text-[19px] font-semibold tracking-[-0.025em]"
-                >
+                <strong key={statusTitle} className="motion-feedback text-panel-title">
                   {statusTitle}
                 </strong>
                 <Badge
                   className={cn(
-                    "h-[23px] px-2 text-[11px]",
+                    "h-[23px] px-2 text-xs",
                     running
                       ? "bg-resolved/10 text-resolved"
                       : hasError
@@ -257,14 +255,14 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               </div>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                 {running
-                  ? "Authorized operators can view the active source. Choose an assigned source below to enable AI monitoring."
+                  ? "Authorized operators can view the active source. Choose an assigned source to enable AI monitoring."
                   : paused
                     ? "Playback is paused. Resume in the video controls or stop capture."
                     : (snapshot.error ?? "Select a source and start capture when it is ready.")}
               </p>
 
               <div className="mt-5 flex flex-col gap-2">
-                <label className="text-xs text-muted-foreground" htmlFor="source-kind">
+                <label className="text-sm text-muted-foreground" htmlFor="source-kind">
                   Source type
                 </label>
                 <Select<SourceChoice>
@@ -283,9 +281,36 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                   </SelectContent>
                 </Select>
               </div>
+              {sourceChoice === "camera" && (
+                <div className="mt-4 flex flex-col gap-2">
+                  <label className="text-xs text-muted-foreground" htmlFor="camera-facing">
+                    Camera direction
+                  </label>
+                  <Select<"user" | "environment">
+                    value={cameraFacing}
+                    items={{ environment: "Rear camera", user: "Front camera" }}
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      setCameraFacing(value);
+                      if (running || starting) void sessionRef.current?.startCamera(value);
+                    }}
+                  >
+                    <SelectTrigger id="camera-facing" className={selectClass}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="environment">Rear camera</SelectItem>
+                      <SelectItem value="user">Front camera</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Switching restarts capture. If unavailable, your browser uses another camera.
+                  </p>
+                </div>
+              )}
               {sourceChoice === "file" && (
                 <div className="motion-reveal mt-4 flex flex-col gap-2">
-                  <label className="text-xs text-muted-foreground" htmlFor="video-file">
+                  <label className="text-sm text-muted-foreground" htmlFor="video-file">
                     Video file
                   </label>
                   <input
@@ -326,11 +351,6 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                   </Button>
                 )}
               </div>
-              <MonitoringControls
-                session={sessionRef}
-                snapshot={snapshot}
-                onController={onMonitoringController}
-              />
               {hasError && (
                 <p role="alert" className="mt-3 text-xs text-critical">
                   {snapshot.error}
@@ -342,7 +362,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
             <section className={panelClass}>
               <div className="flex items-center gap-2.5 text-muted-foreground">
                 <Clock3 size={16} />
-                <h2 className="text-sm font-semibold text-foreground">Recent footage</h2>
+                <h2 className="text-panel-title text-foreground">Recent footage</h2>
               </div>
               <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
                 Kept in this browser while capture runs.

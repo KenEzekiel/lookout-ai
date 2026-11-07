@@ -48,3 +48,7 @@ The builder sorts HTML files and embeds their markup, the shared stylesheet, and
 Bundling the HTML avoids runtime fetches and permits direct file opening. Separate iframe pages would isolate styling but complicate keyboard navigation and offline packaging. The shared document keeps the hackathon workflow small.
 
 Run `pnpm --filter @lookout/pitchdeck test` for complete-deck integration tests with Vitest, React Testing Library, and jsdom. They build the actual HTML and exercise its controls with the real player. Root `pnpm verify` also builds and checks this package. Fullscreen and visual layout require a real browser check.
+
+## Visual identity
+
+The deck uses Lookout’s Geist Variable font and graphite, warm white, and periwinkle palette from [the design reference](../../DESIGN.md). The build embeds the variable font directly in the exported HTML. Slides retain their responsive presentation scale; toolbar metadata uses the app’s 13 px minimum.

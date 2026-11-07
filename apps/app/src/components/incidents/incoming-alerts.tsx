@@ -1,4 +1,5 @@
 import { BellOff, BellRing, ExternalLink, Hand, RotateCw, Volume2, VolumeX } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LoadingIndicator } from "@/components/ui/loading";
 import { ActionForm } from "@/components/access/forms";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -179,6 +180,26 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       if (active.current) setPending(false);
     }
   }
+  const soundControls = (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        icon={Volume2}
+        variant="outline"
+        loading={soundLoading}
+        onClick={() => void testSound()}
+      >
+        {soundLoading ? "Loading sound…" : sound === "on" ? "Test sound" : "Enable sound and test"}
+      </Button>
+      {sound === "on" && (
+        <Button icon={VolumeX} variant="ghost" onClick={() => setSound("off")}>
+          Turn sound off
+        </Button>
+      )}
+      {sound === "blocked" && (
+        <output>Sound playback is unavailable or blocked. Visible alerts still work.</output>
+      )}
+    </div>
+  );
   return (
     <section aria-label="Incoming alerts" className="mt-6 grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -233,70 +254,89 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       <p aria-live="polite" className={notice ? "text-sm" : "sr-only"}>
         {notice}
       </p>
-      {actionError && (
+      {actionError && !incident && (
         <p role="alert" className="text-sm text-destructive">
           {actionError}
         </p>
       )}
       <div aria-live="assertive" aria-atomic="true" className="sr-only">
         {incident
-          ? `${incident.followUp.kind === "attempted" ? "Incident follow-up" : "Incoming incident"}. ${incident.rule.definition.name}. ${incident.source.name}.`
+          ? `${(incident.deliveryLevel ?? (incident.followUp.kind === "attempted" ? 2 : 1)) > 1 ? "Incident follow-up" : "Incoming incident"}. ${incident.rule.definition.name}. ${incident.source.name}.`
           : ""}
       </div>
       {incident && (
-        <article
-          aria-label="Incoming incident"
-          className="rounded-2xl border-2 border-incident bg-card p-5 sm:p-7"
+        <Dialog
+          open
+          onOpenChange={(open, details) => {
+            if (!open && details.reason === "escape-key") silence(incidentAlertKey(incident));
+          }}
         >
-          <p className="flex items-center gap-2 text-sm font-semibold text-incident">
-            <BellRing aria-hidden="true" className="size-5" />
-            {incident.followUp.kind === "attempted" ? "Incident follow-up" : "Incoming incident"}
-            {incoming.length > 1 ? ` · ${incoming.length} waiting` : ""}
-          </p>
-          <h2 className="mt-3 text-2xl font-semibold break-words sm:text-3xl">
-            {incident.rule.definition.name}
-          </h2>
-          <p className="mt-2 break-words">
-            {incident.source.name} ·{" "}
-            {incident.source.kind === "replay" ? "Replayed footage" : "Camera"}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            <time dateTime={new Date(incident.eventTime).toISOString()}>
-              {new Date(incident.eventTime).toLocaleString()}
-            </time>{" "}
-            · {incident.rule.definition.severity === "critical" ? "Critical" : "Warning"} · Evidence{" "}
-            {incident.evidenceStatus}
-          </p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            No owner yet. Acknowledge to let your team know you are handling it.
-          </p>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <Button icon={Hand} loading={pending} onClick={() => void acknowledge()}>
-              {pending ? "Acknowledging…" : "Acknowledge alert"}
-            </Button>
-            <Link
-              to="/incidents/$incidentId"
-              params={{ incidentId: incident.id }}
-              onClick={() => silence(incidentAlertKey(incident))}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              <ExternalLink aria-hidden="true" />
-              Open incident
-            </Link>
-            <Button
-              icon={BellOff}
-              variant="ghost"
-              onClick={() => {
-                silence(incidentAlertKey(incident));
-              }}
-            >
-              Silence here
-            </Button>
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Opening or silencing leaves the incident unacknowledged.
-          </p>
-        </article>
+          <DialogContent
+            showCloseButton={false}
+            aria-label="Incoming incident"
+            className="inset-0 z-[100] h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none bg-card p-6 sm:max-w-none sm:p-12"
+          >
+            <article className="m-auto w-full max-w-2xl min-w-0 break-words [overflow-wrap:anywhere]">
+              {soundControls}
+              {actionError && (
+                <p role="alert" className="mt-4 text-destructive">
+                  {actionError}
+                </p>
+              )}
+              <p className="flex items-center gap-2 text-sm font-semibold text-incident">
+                <BellRing aria-hidden="true" className="size-5" />
+                {(incident.deliveryLevel ?? (incident.followUp.kind === "attempted" ? 2 : 1)) > 1
+                  ? "Incident follow-up"
+                  : "Incoming incident"}
+                {incoming.length > 1 ? ` · ${incoming.length} waiting` : ""}
+              </p>
+              <DialogTitle className="sr-only">Incoming incident</DialogTitle>
+              <h2 className="mt-3 text-2xl font-semibold break-words sm:text-3xl">
+                {incident.rule.definition.name}
+              </h2>
+              <p className="mt-2 break-words">
+                {incident.source.name} ·{" "}
+                {incident.source.kind === "replay" ? "Replayed footage" : "Camera"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                <time dateTime={new Date(incident.eventTime).toISOString()}>
+                  {new Date(incident.eventTime).toLocaleString()}
+                </time>{" "}
+                · {incident.rule.definition.severity === "critical" ? "Critical" : "Warning"} ·
+                Evidence {incident.evidenceStatus}
+              </p>
+              <p className="mt-3 text-sm text-muted-foreground">
+                No owner yet. Acknowledge to let your team know you are handling it.
+              </p>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <Button icon={Hand} loading={pending} onClick={() => void acknowledge()}>
+                  {pending ? "Acknowledging…" : "Acknowledge alert"}
+                </Button>
+                <Link
+                  to="/incidents/$incidentId"
+                  params={{ incidentId: incident.id }}
+                  onClick={() => silence(incidentAlertKey(incident))}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <ExternalLink aria-hidden="true" />
+                  Open incident
+                </Link>
+                <Button
+                  icon={BellOff}
+                  variant="ghost"
+                  onClick={() => {
+                    silence(incidentAlertKey(incident));
+                  }}
+                >
+                  Silence here
+                </Button>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Opening or silencing leaves the incident unacknowledged.
+              </p>
+            </article>
+          </DialogContent>
+        </Dialog>
       )}
     </section>
   );
