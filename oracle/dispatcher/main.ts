@@ -107,6 +107,7 @@ async function main(): Promise<void> {
   });
   await syncWorkspace();
   await slack.listen(oracle);
+  oracle.retryPending();
   syncTimer = setInterval(() => {
     if (syncing || closing) return;
     syncing = syncWorkspace()

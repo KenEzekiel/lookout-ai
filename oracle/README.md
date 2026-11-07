@@ -27,6 +27,9 @@ seconds while idle. It applies an update only after the `Verify` workflow succee
 for that exact commit on `main`. CI already runs on pull requests and pushes to
 `main`, including merges. Pending, failed, missing, or unreadable checks leave the
 current checkout in place. Coding requests wait when a newer commit is unverified.
+Oracle saves the original request, acknowledges the wait once, and retries every
+30 seconds. It continues in the same Slack thread after verification succeeds.
+Users do not need to resend. Waiting does not consume the coding turn timeout.
 Logs identify the main commit and whether the checkout is current or waiting for CI.
 
 Sync and complete coding turns share one queue, so Git never updates files during
@@ -89,7 +92,13 @@ automatically poll GitHub or Linear or handle agent-container onboarding.
 An instance started with the previous one-shot launcher needs one restart to
 enter the supervised lifecycle. Future dispatcher updates reload automatically.
 
-Interrupted turns retain context and require a fresh request. Ambiguous Slack sends
+Queued and CI-waiting requests survive service updates and restarts. Requests
+already running when the service stops retain context and require a fresh request.
+Only work that has not started coding is retried automatically. A `stop` request
+cancels both waiting and queued work. Pending requests remain protected from
+age-based pruning and session eviction until they finish or are cancelled.
+
+Ambiguous Slack sends
 are recorded without automatic resending. Cancellation waits for T3 to confirm the
 turn stopped; uncertain cancellation faults the factory and retains its instance
 lock. A stale lock is never stolen automatically.
