@@ -347,29 +347,51 @@ test("shutdown clears processing for both active and queued conversations", asyn
   assert.equal(statuses.get(second.address.rootTs), "active");
 });
 
-test("a newer unverified main commit explains why a coding request must wait", async (t) => {
-  const sessions = createSessionStore({
-    directory: await directory(t),
-    limits: defaultLimits,
-    now: () => testNow,
-  });
-  const messages: string[] = [];
-  const oracle = await createOracle({
-    sessions,
-    limits: defaultLimits,
-    now: () => testNow,
-    runner: {
-      run: async () => {
-        throw new BoundaryError("workspace_main_unverified");
+test(
+  "a request waits for CI and resumes automatically without resending",
+  { timeout: 2_000 },
+  async (t) => {
+    const sessions = createSessionStore({
+      directory: await directory(t),
+      limits: defaultLimits,
+      now: () => testNow,
+    });
+    const messages: string[] = [];
+    const finished = deferred<void>();
+    let verified = false;
+    let codingTurns = 0;
+    const oracle = await createOracle({
+      sessions,
+      limits: defaultLimits,
+      now: () => testNow,
+      retryIntervalMs: 10,
+      runner: {
+        run: async () => {
+          if (!verified) throw new BoundaryError("workspace_main_unverified");
+          codingTurns++;
+          return { kind: "reply", text: "Finished the original request." };
+        },
       },
-    },
-    publish: async (_, text) => {
-      messages.push(text);
-    },
-  });
-  await oracle.receive(input());
-  await oracle.idle();
-  assert.deepEqual(messages, [
-    "A newer main commit is waiting for successful CI. Oracle will update automatically when Verify passes. Send a fresh request after that.",
-  ]);
-});
+      publish: async (_, text) => {
+        messages.push(text);
+        if (text === "Finished the original request.") finished.resolve();
+      },
+    });
+    t.after(() => oracle.close());
+    const request = input("What can we work on while waiting?");
+    await oracle.receive(request);
+    await oracle.idle();
+    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
+    assert.equal(sessions.snapshot(request.address)?.history.length, 0);
+    assert.deepEqual(messages, [
+      "I'm keeping this request queued while main finishes CI. I'll continue here automatically when it's ready.",
+    ]);
+    verified = true;
+    await finished.promise;
+    await oracle.idle();
+    assert.equal(codingTurns, 1);
+    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
+    assert.equal(await oracle.receive(request), "duplicate");
+    assert.equal(messages.length, 2);
+  },
+);
