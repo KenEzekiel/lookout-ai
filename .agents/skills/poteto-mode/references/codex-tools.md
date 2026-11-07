@@ -16,6 +16,14 @@ Read referenced skill files on demand. Use the host's skill-authoring guidance f
 
 For frontend features and bug fixes that affect a user journey, the Feature and Bug fix workflows must include manual verification in a real browser before completion or a ready PR. The implementation agent owns this step; no separate QA agent is required. Follow `docs/verification.md` at the repository root and the host's browser-tool restrictions. Record the exercised journey and observed results in the PR. Automated checks alone are insufficient. If verification is blocked, report the blocker and keep the PR in draft unless the user explicitly waives the documented gap.
 
+## Lookout feature compatibility
+
+For Lookout product work, read the [feature-map guide](../../../../docs/features/README.md) before planning or implementation. Load the relevant product-area files together, then follow prerequisite codes and search reverse references for consumers. Carry affected `F-` codes into the plan and any authorized issue or PR. Oracle and harness-only work do not need product feature records; explain their lack of product impact in the PR.
+
+During implementation, preserve the recorded contracts and complete the required connections to existing features. Update affected records in the same PR for behavior, decisions, source locations, dependencies, or verification changes. Use the guide's statuses and keep incomplete integration explicit. Do not claim a planned prerequisite works because a fixture or isolated component passes.
+
+Before publication, verify the affected features and consumers, run `pnpm check:features`, and include feature impact and remaining wiring gaps in the PR template. Structural validation does not replace behavior tests or required browser verification. Read-only investigation and conversation-only planning consult the records but do not authorize editing them or publishing issues.
+
 ## Delegation and models
 
 The main agent owns all implementation: source code, tests, configuration, documentation, generated project changes, refactors, and fixes. Never delegate implementation, including through nested agents, arena candidates, or PR owners. Subagents may research, review, or verify existing work and return findings; the main agent applies every change.
