@@ -15,6 +15,7 @@ import { LiveSource } from "@/components/live-source";
 import { Brand } from "@/components/access/brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SourcePreviewFrame } from "@/components/source-preview-frame";
 import {
   CaptureSession,
   initialCaptureSnapshot,
@@ -133,13 +134,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               </span>
             </div>
 
-            <div
-              className={cn(
-                "relative isolate aspect-video min-h-[180px] w-full overflow-hidden rounded-[18px]",
-                "border border-white/10 bg-[radial-gradient(ellipse_at_65%_25%,#354b50,#172126_60%,#10171b)]",
-                "shadow-[0_22px_60px_#0003] sm:aspect-[1.56] sm:min-h-[420px]",
-              )}
-            >
+            <SourcePreviewFrame className="aspect-video min-h-[180px]">
               <video
                 ref={videoRef}
                 aria-label="Source video"
@@ -192,7 +187,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                       ? "Playback paused"
                       : "Capture stopped"}
               </div>
-            </div>
+            </SourcePreviewFrame>
 
             <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="grid size-9 place-items-center rounded-xl bg-surface-raised">

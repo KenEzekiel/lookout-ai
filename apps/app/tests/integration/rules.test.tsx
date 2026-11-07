@@ -280,7 +280,7 @@ test("a paired device displays received versions, refreshes disabled rules and h
 
 test("members navigate between workspace access and triggers with one active destination", async () => {
   server.use(http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })));
-  const user = await open("/");
+  const user = await open("/devices");
   expect(await screen.findByRole("heading", { name: "Devices" })).toBeVisible();
   await user.click(screen.getByRole("link", { name: "Triggers" }));
   expect(await screen.findByRole("heading", { name: "Triggers" })).toBeVisible();
