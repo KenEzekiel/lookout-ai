@@ -35,11 +35,11 @@ test("presents the built HTML deck with bounded navigation and a slide picker", 
   const user = userEvent.setup();
   expect(screen.getAllByRole("group")).toHaveLength(1);
   expect(screen.getByRole("heading", { level: 1 }).textContent.replace(/\s+/g, " ")).toContain(
-    "moments that matter",
+    "Someone still has to watch",
   );
   expect(screen.getByRole("button", { name: "Previous slide" }).disabled).toBe(true);
   await user.click(screen.getByRole("button", { name: "Next slide" }));
-  expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Cameras record");
+  expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Meet Lookout");
   await user.selectOptions(screen.getByRole("combobox"), "5");
   expect(screen.getByRole("button", { name: "Next slide" }).disabled).toBe(true);
   expect(screen.getByRole("status").textContent).toBe("6 / 6");
@@ -68,9 +68,9 @@ test("notes are opt-in and follow the current slide", async () => {
   const user = userEvent.setup();
   expect(screen.queryByRole("complementary", { name: "Speaker notes" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Notes" }));
-  expect(screen.getByRole("complementary").textContent).toContain("Introduce Lesgo Heketon");
+  expect(screen.getByRole("complementary").textContent).toContain("Start with the problem");
   await user.click(screen.getByRole("button", { name: "Next slide" }));
-  expect(screen.getByRole("complementary").textContent).toContain("parking-area example");
+  expect(screen.getByRole("complementary").textContent).toContain("three possible scenarios");
   await user.click(screen.getByRole("button", { name: "Notes" }));
   expect(screen.queryByRole("complementary")).toBeNull();
 });
@@ -100,7 +100,7 @@ test("audience mode exposes only slides and cannot reveal speaker notes", async 
   const user = userEvent.setup();
   expect(screen.queryByRole("button")).toBeNull();
   expect(screen.queryByRole("complementary")).toBeNull();
-  expect(screen.getByRole("heading").textContent).toContain("Cameras record");
+  expect(screen.getByRole("heading").textContent).toContain("Meet Lookout");
   expect(document.querySelectorAll("aside[data-notes]")).toHaveLength(0);
   await user.keyboard("n");
   expect(screen.queryByRole("complementary")).toBeNull();
