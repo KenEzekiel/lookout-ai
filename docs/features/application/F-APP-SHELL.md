@@ -6,17 +6,19 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
-Visitors open Lookout AI to sign in or register. Authenticated people see onboarding or workspace access controls. Devices see their restricted authorization status and a link to local capture. Unknown routes still show Not Found. This is not yet a monitoring dashboard.
+Visitors open Lookout AI to sign in or register. Authenticated people see onboarding or workspace access controls. Devices see their restricted authorization status and a link to local capture. Members can open trigger configuration. Unknown routes still show Not Found. This is not yet a monitoring dashboard.
 
 ## Entry points
 
-Open `/`, `/join`, `/monitor`, `/device`, or an unknown URL. The paired-device capture route has its own video-led header; access routes retain the shared access header and unknown-route fallback.
+Open `/`, `/join`, `/monitor`, `/device`, `/triggers`, or an unknown URL. The paired-device capture route has its own video-led header; access routes retain the shared access header and unknown-route fallback.
 
 ## Wiring and compatibility
 
 The shell uses the completed account/session portion of F-AUTH-ACCESS through same-origin HTTP requests. A paired device can reach capture from its access screen; visitors and human members do not see capture controls. The capture screen still does not assess incidents.
 
 ## Implementation
+
+[Trigger route](../../../apps/app/src/routes/triggers.tsx) and [rule-screen integration tests](../../../apps/app/tests/integration/rules.test.tsx) add authenticated configuration navigation under F-RULE-CONFIG.
 
 [Home route](../../../apps/app/src/routes/index.tsx), [capture route](../../../apps/app/src/routes/device.tsx), [root route](../../../apps/app/src/routes/__root.tsx), [router](../../../apps/app/src/router.tsx), and [access UI](../../../apps/app/src/components/access/app.tsx).
 

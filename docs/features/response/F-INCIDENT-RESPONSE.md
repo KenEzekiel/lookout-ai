@@ -14,6 +14,8 @@ Open an incident from the dashboard or alert. A cleared scene adds evidence with
 
 ## Wiring and compatibility
 
+F-RULE-CONFIG now owns [rule, source, and recipient references](../../../apps/app/src/lib/rules.ts). Future event handlers must validate `sourceId`, rule `id`, current `version`, and `enabled` against stored workspace configuration, and use its recipient IDs and severity. Disabled rule versions are retained. Incident handling and stale-report rejection remain unimplemented.
+
 Use F-AUTH-ACCESS members for human response actions and paired device identities for event submission. Derive workspace scope server-side. Devices cannot acknowledge, dismiss, resolve, or choose recipients. Incident endpoints and these authorization tests remain unimplemented.
 
 Deduplicate event reports and repeated observations. Share authoritative incident state with alerts, escalation, replay, and MCP. Keep severity, response status, notification state, and evidence readiness separate.

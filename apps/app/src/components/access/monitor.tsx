@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import {
-  type DevicePrincipal,
-  devicePrincipalSchema,
-  pairingSchema,
-  pairingStatusSchema,
-} from "@/lib/access";
+import { type DevicePrincipal, pairingSchema, pairingStatusSchema } from "@/lib/access";
+import { type DeviceConfiguration, deviceConfigurationSchema } from "@/lib/rules";
 import { mutate, request, message } from "@/lib/api";
 import { ActionForm, Panel } from "./forms";
 
@@ -69,14 +65,21 @@ export function PairBrowser({ onPaired }: { onPaired: () => Promise<void> }) {
 }
 export function Monitor({ actor }: { actor: DevicePrincipal }) {
   const [error, setError] = useState("");
+  const [configuration, setConfiguration] = useState<DeviceConfiguration>();
   useEffect(() => {
     let stopped = false;
     async function check() {
       try {
-        await request("/api/access/devices/status", devicePrincipalSchema);
-        if (!stopped) setError("");
+        const next = await request("/api/config/device", deviceConfigurationSchema);
+        if (!stopped) {
+          setConfiguration(next);
+          setError("");
+        }
       } catch (error) {
-        if (!stopped) setError(message(error));
+        if (!stopped) {
+          setConfiguration(undefined);
+          setError(message(error));
+        }
       }
     }
     void check();
@@ -97,9 +100,57 @@ export function Monitor({ actor }: { actor: DevicePrincipal }) {
           </p>
         ) : (
           <output className="mb-5 text-sm">
-            Authorized for this workspace’s sources. Source capture is not connected yet. Keep this
-            browser active when monitoring is available.
+            Authorized for this workspace’s sources. Open Capture station for local camera or video.
+            Trigger assessment is not connected yet.
           </output>
+        )}
+        {!error && (
+          <section aria-label="Device configuration" className="mb-6 grid gap-4">
+            <h3 className="font-semibold">Sources and trigger versions</h3>
+            {!configuration ? (
+              <output>Loading configuration…</output>
+            ) : configuration.sources.length === 0 ? (
+              <p className="text-sm">No sources configured yet.</p>
+            ) : (
+              configuration.sources.map((source) => (
+                <article key={source.id} className="rounded-lg border border-border p-4">
+                  <h4 className="font-medium">{source.name}</h4>
+                  <p className="mb-3 text-sm text-muted-foreground">
+                    {source.kind === "camera" ? "Live camera" : "Replayed footage"}
+                  </p>
+                  {configuration.rules.filter((rule) => rule.sourceId === source.id).length ===
+                    0 && <p className="text-sm">No triggers assigned.</p>}
+                  <ul className="grid gap-3 text-sm">
+                    {configuration.rules
+                      .filter((rule) => rule.sourceId === source.id)
+                      .map((rule) => (
+                        <li key={rule.id}>
+                          {rule.definition.name} · {rule.enabled ? "Enabled" : "Disabled"} · Version{" "}
+                          {rule.version}
+                        </li>
+                      ))}
+                  </ul>
+                </article>
+              ))
+            )}
+            <p className="text-sm text-muted-foreground">
+              Configuration refreshes every five seconds. These are received settings, not
+              confirmation of active monitoring.
+            </p>
+            <ActionForm
+              submit="Refresh configuration"
+              action={async () => {
+                try {
+                  setConfiguration(await request("/api/config/device", deviceConfigurationSchema));
+                  setError("");
+                } catch (error) {
+                  setConfiguration(undefined);
+                  setError(message(error));
+                  throw error;
+                }
+              }}
+            />
+          </section>
         )}
         <ActionForm
           submit="Return to sign in"

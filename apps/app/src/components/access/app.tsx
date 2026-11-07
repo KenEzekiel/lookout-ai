@@ -8,15 +8,18 @@ import { Onboarding } from "./onboarding";
 import { Workspace } from "./workspace";
 import { Monitor, PairBrowser } from "./monitor";
 import { ActionForm } from "./forms";
+import { RuleWorkspace } from "@/components/rules/workspace";
 
 export function AccessApp({
   pairing = false,
   capture = false,
   invitation,
+  triggers = false,
 }: {
   pairing?: boolean;
   capture?: boolean;
   invitation?: string;
+  triggers?: boolean;
 }) {
   const [actor, setActor] = useState<Principal>();
   const [error, setError] = useState("");
@@ -63,6 +66,11 @@ export function AccessApp({
           <Link to="/" className="underline underline-offset-4">
             Workspace
           </Link>
+          {actor?.kind === "member" && (
+            <Link to="/triggers" className="underline underline-offset-4">
+              Triggers
+            </Link>
+          )}
           <Link to="/monitor" className="underline underline-offset-4">
             Pair a monitoring browser
           </Link>
@@ -103,6 +111,8 @@ export function AccessApp({
         <Account onSignedIn={refresh} />
       ) : actor.kind === "unassigned-user" ? (
         <Onboarding invitation={invitation} onJoined={refresh} />
+      ) : triggers ? (
+        <RuleWorkspace key={actor.workspaceId} />
       ) : (
         <Workspace key={actor.workspaceId + actor.role} actor={actor} onChanged={refresh} />
       )}
