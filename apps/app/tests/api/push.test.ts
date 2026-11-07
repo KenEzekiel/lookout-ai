@@ -293,7 +293,7 @@ test("reports send one encrypted minimal alert per subscribed recipient and pres
     status: "open",
     version: 1,
     owner: null,
-    evidenceStatus: "pending",
+    evidenceStatus: "preparing",
   });
   expect((await outsider.request(`/api/incidents/detail/${detail.id}`)).status).toBe(404);
 });

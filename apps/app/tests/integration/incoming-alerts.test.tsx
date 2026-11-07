@@ -40,7 +40,9 @@ const reported = incidentSchema.parse({
   status: "open",
   version: 1,
   owner: null,
-  evidenceStatus: "pending",
+  evidenceStatus: "preparing",
+  evidenceReason: null,
+  evidenceExpiresAt: null,
   notificationStatus: "not-sent",
   timeline: [],
 });
@@ -89,7 +91,7 @@ test("a connected operator receives context once, silences locally and keeps it 
   expect(alert).toHaveTextContent("Possible fall");
   expect(alert).toHaveTextContent("Living room");
   expect(alert).toHaveTextContent("Replayed footage");
-  expect(alert).toHaveTextContent("Evidence pending");
+  expect(alert).toHaveTextContent("Evidence preparing");
   fireEvent(window, new Event("focus"));
   expect(screen.getAllByRole("article", { name: "Incoming incident" })).toHaveLength(1);
   await view.user.click(within(alert).getByRole("button", { name: "Silence here" }));
@@ -106,7 +108,7 @@ test("opening an alert navigates to evidence-pending detail without acknowledgin
   const { user } = await open();
   await user.click(await screen.findByRole("link", { name: "Open incident" }));
   expect(await screen.findByRole("heading", { name: "Possible fall" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "Evidence pending" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Preparing evidence" })).toBeVisible();
   expect(screen.getByText("No owner yet")).toBeVisible();
   expect(commands).toEqual([]);
   expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
