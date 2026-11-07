@@ -1,7 +1,7 @@
 import { LoadingState } from "@/components/ui/loading";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Camera, KeyRound, LogIn, Monitor as MonitorIcon, RotateCw } from "lucide-react";
+import { ArrowLeft, Camera, KeyRound, LogIn, Monitor as MonitorIcon, RotateCw } from "lucide-react";
 import { type z } from "zod";
 import { type DevicePrincipal, pairingSchema, pairingStatusSchema } from "@/lib/access";
 import { type DeviceConfiguration, deviceConfigurationSchema } from "@/lib/rules";
@@ -92,6 +92,15 @@ export function PairBrowser({
           setPairing(next);
         }}
       />
+      {signedIn && (
+        <Link
+          to="/devices"
+          className={buttonVariants({ variant: "secondary", className: "mt-3 flex" })}
+        >
+          <ArrowLeft aria-hidden="true" />
+          Back to workspace
+        </Link>
+      )}
     </Panel>
   );
 }
