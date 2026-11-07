@@ -160,6 +160,8 @@ export const incident = sqliteTable(
     version: integer("version").notNull(),
     owner: text("owner"),
     timeline: text("timeline").notNull(),
+    followUpDueAt: integer("follow_up_due_at"),
+    followUpAttemptedAt: integer("follow_up_attempted_at"),
   },
   (table) => [
     uniqueIndex("device_event_incident").on(

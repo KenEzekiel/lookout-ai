@@ -5,7 +5,12 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import type { Member } from "@/lib/access";
 import { message, request } from "@/lib/api";
-import { type Incident, incidentInboxSchema, incidentSchema } from "@/lib/incidents";
+import {
+  type Incident,
+  incidentAlertKey,
+  incidentInboxSchema,
+  incidentSchema,
+} from "@/lib/incidents";
 
 function playAlarm(context: AudioContext, buffer: AudioBuffer) {
   const source = context.createBufferSource();
@@ -81,10 +86,10 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
     [context],
   );
   const incoming = incidents.filter(
-    (incident) => incident.status === "open" && !silenced.has(incident.id),
+    (incident) => incident.status === "open" && !silenced.has(incidentAlertKey(incident)),
   );
   const incident = incoming[0];
-  const ringingId = incident?.id;
+  const ringingId = incident ? incidentAlertKey(incident) : undefined;
   useEffect(() => {
     const audio = context;
     if (sound !== "on" || !audio || !buffer) return;
@@ -210,7 +215,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       )}
       <div aria-live="assertive" aria-atomic="true" className="sr-only">
         {incident
-          ? `Incoming incident. ${incident.rule.definition.name}. ${incident.source.name}.`
+          ? `${incident.followUp.kind === "attempted" ? "Incident follow-up" : "Incoming incident"}. ${incident.rule.definition.name}. ${incident.source.name}.`
           : ""}
       </div>
       {incident && (
@@ -219,7 +224,8 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
           className="rounded-2xl border-2 border-incident bg-card p-5 sm:p-7"
         >
           <p className="flex items-center gap-2 text-sm font-semibold text-incident">
-            <BellRing aria-hidden="true" className="size-5" /> Incoming incident
+            <BellRing aria-hidden="true" className="size-5" />
+            {incident.followUp.kind === "attempted" ? "Incident follow-up" : "Incoming incident"}
             {incoming.length > 1 ? ` · ${incoming.length} waiting` : ""}
           </p>
           <h2 className="mt-3 text-2xl font-semibold break-words sm:text-3xl">
@@ -246,7 +252,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
             <Link
               to="/incidents/$incidentId"
               params={{ incidentId: incident.id }}
-              onClick={() => silence(incident.id)}
+              onClick={() => silence(incidentAlertKey(incident))}
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-signal focus-visible:outline-2 focus-visible:outline-ring"
             >
               Open incident
@@ -254,7 +260,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
             <Button
               variant="ghost"
               onClick={() => {
-                silence(incident.id);
+                silence(incidentAlertKey(incident));
               }}
             >
               Silence here
