@@ -94,6 +94,16 @@ pnpm --filter @lookout/app exec wrangler d1 migrations apply DB --remote --env p
 pnpm --filter @lookout/app run deploy
 ```
 
+For manual GitHub Actions deployment, open **Actions → Deploy to Cloudflare → Run workflow** and select `main`, or run:
+
+```sh
+gh workflow run deploy.yml --ref main
+```
+
+The [deployment workflow](.github/workflows/deploy.yml) runs only through `workflow_dispatch`. Pushes and pull requests do not deploy. Runs targeting other branches skip deployment. The workflow verifies the app, builds and validates the production bundle, applies D1 migrations, deploys that bundle, and checks the live homepage and principal endpoint. Production runs are serialized without cancelling an active deployment.
+
+Set the repository Actions secret `CLOUDFLARE_API_TOKEN` to an account-scoped token with **Workers Scripts: Edit** and **D1: Edit** permissions. The account ID is already pinned in Wrangler. `BETTER_AUTH_SECRET` stays in Cloudflare and is not copied into GitHub. GitHub exposes the manual workflow after its file is merged into `main`. This uses the existing Workers Free resources and enables no paid services.
+
 Use `run deploy` explicitly because `pnpm deploy` invokes pnpm's own workspace deployment command. Both deployment scripts build with `CLOUDFLARE_ENV=production`; ordinary development and builds keep the local configuration. Review migrations before applying them to production. Use a separate database for staging.
 
 `BETTER_AUTH_SECRET` is configured as a Cloudflare Worker secret and is required by the production environment. Preserve it across deployments. For a new environment, generate a random value of at least 32 characters and upload it with `wrangler secret put BETTER_AUTH_SECRET --env production --config wrangler.jsonc` from `apps/app`. Never commit credentials. Local secrets belong in the ignored `apps/app/.dev.vars` file.
