@@ -224,7 +224,7 @@ export class CaptureSession {
     return null;
   }
 
-  async startCamera() {
+  async startCamera(facingMode: "user" | "environment" = "user") {
     this.stop();
     const generation = this.generation;
     this.begin("camera");
@@ -234,7 +234,10 @@ export class CaptureSession {
         throw new Error("Camera access is not available in this browser.");
       if (typeof MediaRecorder === "undefined")
         throw new Error("This browser cannot keep a recent camera buffer.");
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facingMode } },
+        audio: false,
+      });
       if (generation !== this.generation) {
         stream.getTracks().forEach((track) => track.stop());
         return;
