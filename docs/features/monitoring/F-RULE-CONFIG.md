@@ -12,7 +12,7 @@ Triggers save enabled or disabled. Every edit, disable, or re-enable increments 
 
 ## Entry points
 
-Members open `/triggers` from the shared navigation. Add a named source, choose **New trigger**, review recipients, and save. Cards expose edit and disable. **Reload triggers** retrieves current configuration after a conflict. Paired browsers open `/monitor` to inspect source labels and received trigger versions.
+Members open `/triggers` from the shared navigation. Add a named source, choose **New trigger**, review recipients, and save. Cards expose edit and disable. New and edited triggers open in a labeled modal dialog that scrolls within the viewport. Keyboard focus enters the editor and returns to the opening button when it closes. Save closes the dialog; validation and request errors keep the draft open. **Reload triggers** retrieves current configuration after a conflict. Paired browsers open `/monitor` to inspect source labels and received trigger versions.
 
 ## Wiring and compatibility
 
@@ -38,7 +38,7 @@ The Horizon shell merge preserves the Triggers destination, device configuration
 
 [API integration tests](../../../apps/app/tests/api/access.test.ts) call the production Worker with isolated D1 storage and real migrations. They cover template/custom persistence, source isolation, recipient validation without partial saves, concurrent edits, disabled-version delivery, device revocation, operator permissions, and recipient removal.
 
-[UI integration tests](../../../apps/app/tests/integration/rules.test.tsx) drive complete routes through MSW HTTP boundaries. They cover template/custom creation, edit/disable/reload, source setup, empty/error states, preserved drafts, recipient validation, and device configuration denial. Both suites run in `pnpm verify`.
+[UI integration tests](../../../apps/app/tests/integration/rules.test.tsx) drive complete routes through MSW HTTP boundaries. They cover template/custom creation, edit/disable/reload, source setup, empty/error states, preserved drafts, recipient validation, and device configuration denial. Dialog integration coverage checks focus entry, Escape and Cancel dismissal, and restoration to the New trigger or card Edit button. Both suites run in `pnpm verify`.
 
 Production-build Chromium QA used separate owner/device sessions and real local D1 without HTTP mocks. It verified fall/crash/custom creation, reload persistence, recipient-validation recovery, automatic edit/disable version delivery, revocation, keyboard navigation, and a 390-pixel layout without horizontal overflow. The existing capture station remained accessible. No page errors or failed network requests were observed. [Saved templates](https://github.com/user-attachments/assets/f25c8a7a-dfe2-4629-8654-d069a6d8ee3e), [recipient validation](https://github.com/user-attachments/assets/e4524e89-10a4-425f-8708-7dbd5e87cc96), [device versions](https://github.com/user-attachments/assets/dfb19e27-aad5-416c-803c-21980bc4907c), and [mobile editor](https://github.com/user-attachments/assets/bb0bbabe-0c02-4f5d-a3db-fd13d0250654) record the observed states. The PR identifies the tested revision. Saved source/rule settings do not establish capture, alert delivery, or stale incident-report rejection.
 
@@ -46,7 +46,9 @@ Production-build Chromium QA used separate owner/device sessions and real local 
 
 [Issue #18](https://github.com/KenEzekiel/lookout-ai/issues/18), [product direction](../../../PRD.md), [accepted workspace-wide device access](../../../PRD.md#demo-accounts-and-device-access), [experience design](../../architecture/design.md), and [visual design](../../../DESIGN.md).
 
-The current PR introduces this configuration contract. Synthesis decision: keep sources and rules in D1 and share one Zod definition across forms, handlers, and consumers. Store the definition as JSON instead of duplicating condition variants across relational columns. A single write checks source/recipient membership, and optimistic versions reject concurrent overwrites. Poll complete snapshots for the demo rather than adding a push transport. Escalation settings describe one follow-up to the same recipients; executing that policy remains F-ALERT-ESCALATE.
+The trigger-dialog follow-up replaces the inline editor with the shared modal component so editing remains visible from any card and on narrow screens. It preserves the configuration API and explicitly restores focus to the opening button.
+
+The configuration slice introduces this contract. Synthesis decision: keep sources and rules in D1 and share one Zod definition across forms, handlers, and consumers. Store the definition as JSON instead of duplicating condition variants across relational columns. A single write checks source/recipient membership, and optimistic versions reject concurrent overwrites. Poll complete snapshots for the demo rather than adding a push transport. Escalation settings describe one follow-up to the same recipients; executing that policy remains F-ALERT-ESCALATE.
 
 ## Open questions
 
