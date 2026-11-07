@@ -356,6 +356,46 @@ test("merge setup failures retain their original error and never abort a nonexis
   assert.equal(await git(worktree, "status", "--porcelain"), "");
 });
 
+test("a Slack request uses latest main without waiting for CI", async (t) => {
+  const { primary, worktree, advance } = await fixture(t);
+  const bin = await directory(t);
+  await writeFile(join(bin, "gh"), '#!/bin/sh\nprintf "[]\\n"\n', { mode: 0o755 });
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${bin}:${originalPath ?? ""}`;
+  t.after(() => {
+    process.env.PATH = originalPath;
+  });
+  const workspace = createWorkspace({ root: worktree, branch: "oracle" });
+  await advance("latest main without a successful CI run\n");
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  const replies: string[] = [];
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: {
+      run: async ({ input: request }) => {
+        const task = await workspace.task(request.address);
+        assert.equal(await git(task, "rev-parse", "HEAD"), await git(primary, "rev-parse", "HEAD"));
+        return { kind: "reply", text: "Answered without waiting for CI" };
+      },
+    },
+    publish: async (_, text) => {
+      replies.push(text);
+    },
+  });
+  t.after(() => oracle.close());
+  const request = input("Are you on? Sanity check");
+  await oracle.receive(request);
+  await oracle.idle();
+  assert.deepEqual(replies, ["Answered without waiting for CI"]);
+  assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
+});
+
 test("a concurrent fetch cannot substitute an unverified commit after the CI check", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   await advance("first update\n");
