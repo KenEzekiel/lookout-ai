@@ -21,7 +21,7 @@ The hackathon demos target a **prerecorded car crash** and a **person falling in
 
 Configure a rule → observe footage → verify a candidate → open an incident → alert the owner → acknowledge and stop escalation.
 
-**Current source status:** email/password accounts, workspace creation and invitations, owner/operator access, device pairing, and revocation are implemented. Incident monitoring, AI assessment, evidence storage, notifications, and MCP remain planned. The monitoring screen reports authorization, not active capture.
+**Current source status:** email/password accounts, workspace creation and invitations, owner/operator access, device pairing, and revocation are implemented. A paired device can open `/device` to play a local video or preview a permitted camera. It samples timestamped frames and keeps a bounded recent-video buffer in the browser while capture runs. AI assessment, incident reporting, evidence upload, notifications, and MCP remain planned.
 
 Read the [PRD](PRD.md) for agreed behavior, demo outcomes, priorities, and open decisions. It is the source of truth for product direction. This README owns development setup and repository orientation.
 

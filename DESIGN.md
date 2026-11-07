@@ -1,42 +1,50 @@
 # Lookout AI design system and preferences
 
-This is the design reference for Lookout AI. It describes the preferred monitor screen and the rules for future screens. [PRD.md](PRD.md) owns the agreed product behavior when a visual example differs from it. The current app still has a placeholder home page. The approved mockup is a visual study, and its image stays outside this repository.
+This is the design reference for Lookout AI. It covers the operator workspace and the operational-device screen. [PRD.md](PRD.md) owns the agreed product behavior when a visual example differs from it. The approved mockup is a visual study, and its image stays outside this repository.
 
 ## Product character
 
-Lookout helps a camera owner notice an event, inspect evidence, and own the response. The interface should be calm enough to leave open all day and clear enough to use when an alert interrupts someone. The same product serves a home owner with one camera and a professional monitoring several locations.
+Lookout helps a camera owner notice an event, inspect evidence, and own the response. The operational device needs a calm, legible status screen for long-running capture. The operator needs a clear workspace when an alert interrupts someone. The two clients have separate controls and permissions, even when they share visual components and deployment infrastructure.
 
 The visual direction is modern, warm, and video led. Dark graphite gives footage priority. Blue identifies navigation, selection, playback, and primary actions. Amber identifies the event that needs attention. Red is reserved for critical severity or failed actions. Text says what the camera showed, what the system inferred, and what happened next. A two-stage AI review is a check, not proof that an event occurred.
 
 The parking lot and blocked-exit mockup establishes the layout. It is an example, not a selected hackathon demo. The agreed demos are a replayed car crash and a safely staged live fall. Use the same layout and components for both. Label replayed footage as replay, never as live.
 
-## Monitor layout
+## Operational-device layout
 
-Use a slim top bar for the lowercase wordmark, camera or place selector, primary destinations, and **New trigger**. The current camera name belongs in that bar. Do not add a breadcrumb that repeats it. Keep profile or settings access at the far edge.
+Give the source preview most of the desktop width. Align the adjacent panel with the top of the video frame, below its source label. Use that panel for source health, the assigned rule and its sync state, start and stop controls, and the latest reported event. On a phone, show a compact preview first, then capture controls and recent footage details. Keep source health with the controls rather than repeating it in another card. Make a paused, disconnected, permission-denied, or stale device unmistakable. Do not label a browser tab as actively monitoring when capture is suspended.
 
-On a wide desktop, the video occupies about two thirds of the main width. The incident panel occupies the rest. Use roughly 24 to 32 px outer padding and a 20 to 24 px gutter. The video is the largest object, while the incident title and response buttons remain visible without scrolling. Avoid a wall of small cards around the footage.
+The device can choose or connect an assigned source and show local playback. It cannot create rules, change recipients or roles, acknowledge incidents, or resolve them. An operator defines rules and assigns them through the server. Show those rules as read-only on the device. When a confirmed event is reported, show its event time, report state, and clip-upload state. Keep the alert and response workflow in the operator client.
+
+The device owns the assessment loop but does not run the model locally. A browser client sends selected frames through secure transport for remote assessment. Non-triggered video remains on the device and is not saved to Lookout's server. Do not imply that an illustrated placeholder is live footage or that a demo preview performs capture or AI assessment.
+
+## Operator workspace layout
+
+Use a slim top bar for the lowercase wordmark, source or place selector, primary destinations, and **New trigger**. The current source name belongs in that bar. Do not add a breadcrumb that repeats it. Keep profile or settings access at the far edge. **New trigger** belongs only in the operator client.
+
+On a wide desktop, available video or replay occupies about two thirds of the main width. The incident panel occupies the rest. Use roughly 24 to 32 px outer padding and a 20 to 24 px gutter. The evidence is the largest object, while the incident title and response buttons remain visible without scrolling. Avoid a wall of small cards around the footage. The operator client does not need to remain open for monitoring to continue.
 
 Place three evidence moments beneath the video when an incident is selected. Show a frame before the event, the earliest visible event frame supported by the evidence, and a later frame. Detection may happen after the event begins. Each moment needs an absolute time and a short description. These frames can support the first alert while the event clip is still being saved. Put a longer observation history in incident detail, rather than making the strip dense. When there is no incident, show a quiet monitoring state instead of filler analytics.
 
 The incident panel starts with a plain-language title, such as **Possible fall** or **Possible crash**. Place the camera or location, event time, and sentence-case status nearby. Then show the available evidence, replay availability, a short timeline, the current owner and alert state, and the response actions. If no one has acknowledged the incident, show the configured escalation step and when it is due. The sequence answers what might have happened, where and when, what supports the alert, who owns the response, and what the recipient can do.
 
-At narrower desktop widths, give the incident panel enough space to keep its actions readable, or place it below the video. On a phone, lead with the incoming alert or selected incident, then the response actions and available evidence. Keep the owner, event time, and evidence status visible without requiring a wide monitor view. The same responsive web app serves capture and response, including when those roles use different devices. A polished native mobile app is outside the current demo scope.
+At narrower desktop widths, give the incident panel enough space to keep its actions readable, or place it below the video. On a phone, lead with the incoming alert or selected incident, then the response actions and available evidence. Keep the owner, event time, and evidence status visible without requiring a wide monitor view. The operator and operational-device clients may share code, but remain separate experiences. A polished native mobile app is outside the current demo scope.
 
 ## Video and incident point
 
-Keep video controls in a compact dark strip along the bottom of the image. Show play or pause, replay duration, volume when audio exists, and full screen. Controls must not cover the event itself. A live source gets a clear live label. Label prerecorded input as replayed footage. When an incident appears on the main live camera, place a small amber event cue along the video's lower edge and link it to the incident panel. Show a seekable incident replay only after the saved clip is ready; the capture device's local buffer does not imply that a responder can replay it.
+Keep video controls in a compact dark strip along the bottom of the image. Show play or pause, replay duration, volume when audio exists, and full screen when those controls work. Controls must not cover the event itself. A live source on the operational device gets a clear live label. Label prerecorded input as replayed footage. When the device reports an event, place a small amber cue along the preview's lower edge and link it to the local event report. That cue is not a seek control. Show seekable incident replay in the operator client only after the server confirms that the saved clip is ready.
 
-The replay timeline has two distinct positions. A blue playhead marks the frame on screen. An amber incident point marks the earliest visible moment of the event supported by the evidence. The event time may precede the model's flag, review, and alert times. If onset is uncertain, label the point as approximate rather than implying frame-level precision. The amber point remains in place while the user seeks elsewhere. Hovering or focusing it reveals the event time and a short label. Activating it jumps to that frame. If several incidents share a clip, each point needs a distinct accessible name. Do not turn the bar into unlabeled dots.
+The operator's replay timeline has two distinct positions. A blue playhead marks the frame on screen. An amber incident point marks the earliest visible moment of the event supported by the evidence. The event time may precede the model's flag, review, and alert times. If onset is uncertain, label the point as approximate rather than implying frame-level precision. The amber point remains in place while the user seeks elsewhere. Hovering or focusing it reveals the event time and a short label. Activating it jumps to that frame. If several incidents share a clip, each point needs a distinct accessible name. Do not turn the bar into unlabeled dots.
 
 An outline over the video is optional evidence annotation. Draw one only when the analysis has a meaningful region to show. Keep it thin and amber, and do not hide the scene. The temporal incident point remains useful even without a spatial outline, such as when a crash or fall spans much of the frame.
 
 ## Alert and evidence states
 
-When an incident is confirmed, show an alert without waiting for the capture device to upload video. On an open desktop or phone app, use a prominent incoming-alert view with the incident summary, **Open incident**, and **Acknowledge**. Sound is optional and only plays when the user has enabled it and the browser permits it. Keep the alert readable and actionable without sound or animation.
+When the operational device reports a confirmed event, the server alerts the operator without waiting for the clip upload. On an open operator client, use a prominent incoming-alert view with the incident summary, **Open incident**, and **Acknowledge**. Sound is optional and only plays when the user has enabled it and the browser permits it. Keep the alert readable and actionable without sound or animation.
 
 Offer an explicit **Enable alerts** step and a test sound in setup. Where supported and permitted, a background web push opens the incident. On iPhone and iPad, background web push depends on a supported Home Screen web app and permission granted after a user action. Show a clear setup limitation when push is unavailable or denied. Do not imply guaranteed lock-screen delivery, a system call screen, or a continuous ringtone. A background notification does not keep a capture tab recording.
 
-Show replay availability on the incident as **Preparing replay**, **Uploading replay**, **Replay ready**, or **Replay unavailable**. Keep sampled frames and incident details visible while the clip is being saved. If replay fails, explain the reason when known and keep the incident actionable. Show a playback control and amber incident point only when the server confirms the clip is ready. The clip should include footage around the event where the capture device has it; never label an unsaved clip as saved.
+Show replay availability in the operator client as **Preparing replay**, **Uploading replay**, **Replay ready**, or **Replay unavailable**. Keep incident details visible while the clip is being saved. If replay fails, explain the reason when known and keep the incident actionable. Show a playback control and amber incident point only when the server confirms the clip is ready. The clip should include footage around the event where the operational device has it; never label an unsaved clip as saved.
 
 ## Color and contrast
 
@@ -100,7 +108,7 @@ Use shadcn/ui components when they provide useful interaction and accessibility 
 | Long incident history                      | ScrollArea only when the content overflows.                                     |
 | Video seeking                              | An accessible range control with explicit event markers.                        |
 
-Trigger setup must make the rule's source, observable event, severity, recipient, and escalation delay visible. Offer starter templates and a blank custom trigger. Show a duration condition when persistence matters, without imposing one on crashes or falls. Let users review who will receive an alert before they turn a rule on.
+Operator trigger setup must make the rule's source, observable event, severity, recipient, and escalation delay visible. Offer starter templates and a blank custom trigger. Show a duration condition when persistence matters, without imposing one on crashes or falls. Let users review who will receive an alert before they turn a rule on.
 
 The top destinations are pages, so use navigation links rather than Tabs for their visual appearance alone. The seek bar must support keyboard input, visible focus, and a screen-reader name with the current time. The amber incident point needs its own accessible name and jump action.
 
@@ -127,7 +135,7 @@ The app uses Tailwind CSS 4. Its semantic shadcn variables live in `apps/app/src
 
 The app's `apps/app/components.json` selects `base-nova`, CSS variables, and Lucide. Button, Badge, Select, Dialog, and Tooltip are installed as local shadcn/ui components. Add further components only when a working screen needs them. Build the video player, temporal incident markers, and evidence strip as product components. Use Motion for actual state transitions rather than animating every container.
 
-The current `apps/app/src/routes/index.tsx` remains a placeholder. The design setup does not wire video, incidents, alerts, or replay. This document records the target so implementation can be reviewed against one source.
+The `/device` route supports local video and permitted camera capture for a paired device. It shows source state and a bounded local buffer. Assessment, event reporting, clip upload, and assigned configuration are not yet wired. The paired-device home screen links to it. The operator workspace described here remains a design target.
 
 ## Preferences to preserve
 
