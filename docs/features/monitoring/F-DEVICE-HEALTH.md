@@ -26,7 +26,7 @@ Verify pause, disconnect, stale heartbeat, provider failure, reconnect, and dela
 
 ## Decisions and sources
 
-[Product direction](../../PRD.md), [experience design](../architecture/design.md), [visual design](../../DESIGN.md), and [service roadmap](../architecture/roadmap.md). Delivery issue from the roadmap: [#33](https://github.com/KenEzekiel/lookout-ai/issues/33). Issue status is not implementation evidence.
+[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#33](https://github.com/KenEzekiel/lookout-ai/issues/33). Issue status is not implementation evidence.
 
 ## Open questions
 

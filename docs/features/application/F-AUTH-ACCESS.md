@@ -26,7 +26,7 @@ Verify sign-in, pairing, revocation, unauthorized access, and cross-user isolati
 
 ## Decisions and sources
 
-[Product direction](../../PRD.md), [experience design](../architecture/design.md), [visual design](../../DESIGN.md), and [service roadmap](../architecture/roadmap.md). Delivery issue from the roadmap: [#16](https://github.com/KenEzekiel/lookout-ai/issues/16). Issue status is not implementation evidence.
+[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#16](https://github.com/KenEzekiel/lookout-ai/issues/16). Issue status is not implementation evidence.
 
 ## Open questions
 

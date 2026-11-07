@@ -26,7 +26,7 @@ Verify authorized inspection and acknowledgment, cross-user denial, unavailable 
 
 ## Decisions and sources
 
-[Product direction](../../PRD.md), [experience design](../architecture/design.md), [visual design](../../DESIGN.md), and [service roadmap](../architecture/roadmap.md). Delivery issue from the roadmap: [#27](https://github.com/KenEzekiel/lookout-ai/issues/27). Issue status is not implementation evidence.
+[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#27](https://github.com/KenEzekiel/lookout-ai/issues/27). Issue status is not implementation evidence.
 
 ## Open questions
 

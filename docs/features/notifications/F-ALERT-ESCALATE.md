@@ -26,7 +26,7 @@ Verify the unacknowledged timer, acknowledgment before execution, restart/retry 
 
 ## Decisions and sources
 
-[Product direction](../../PRD.md), [experience design](../architecture/design.md), [visual design](../../DESIGN.md), and [service roadmap](../architecture/roadmap.md). Delivery issue from the roadmap: [#25](https://github.com/KenEzekiel/lookout-ai/issues/25). Issue status is not implementation evidence.
+[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#25](https://github.com/KenEzekiel/lookout-ai/issues/25). Issue status is not implementation evidence.
 
 ## Open questions
 

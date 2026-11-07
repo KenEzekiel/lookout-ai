@@ -90,6 +90,24 @@ None.
         result = self.run_checker(self.record.replace("Depends on: none", "Depends on: F-TEST-PROVIDER"))
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_nested_groups_resolve_cross_group_dependencies_and_list_paths(self):
+        (self.folder / "providers").mkdir()
+        (self.folder / "consumers").mkdir()
+        provider = self.folder / "providers/F-TEST-PROVIDER.md"
+        provider.write_text(self.record.replace("F-TEST-ENTRY", "F-TEST-PROVIDER").replace("../../source.txt", "../../../source.txt"))
+        consumer = self.record.replace("Depends on: none", "Depends on: F-TEST-PROVIDER").replace("../../source.txt", "../../../source.txt")
+        result = self.run_checker(consumer, "consumers/F-TEST-ENTRY.md", "--list")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("docs/features/providers/F-TEST-PROVIDER.md", result.stdout)
+        self.assertIn("docs/features/consumers/F-TEST-ENTRY.md", result.stdout)
+
+    def test_duplicate_codes_across_groups_fail(self):
+        (self.folder / "other").mkdir()
+        (self.folder / "other/F-TEST-ENTRY.md").write_text(self.record.replace("../../source.txt", "../../../source.txt"))
+        result = self.run_checker()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("duplicate feature code F-TEST-ENTRY", result.stderr)
+
     def test_empty_inventory_fails(self):
         result = subprocess.run(
             [sys.executable, str(SCRIPT), "--root", str(self.root)], capture_output=True, text=True,

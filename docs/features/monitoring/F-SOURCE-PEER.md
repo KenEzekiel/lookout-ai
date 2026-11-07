@@ -26,7 +26,7 @@ Verify authorized connection, cross-user denial, disconnect and reconnect, and c
 
 ## Decisions and sources
 
-[Product direction](../../PRD.md), [experience design](../architecture/design.md), [visual design](../../DESIGN.md), and [service roadmap](../architecture/roadmap.md). Delivery issue from the roadmap: [#28](https://github.com/KenEzekiel/lookout-ai/issues/28). Issue status is not implementation evidence.
+[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#28](https://github.com/KenEzekiel/lookout-ai/issues/28). Issue status is not implementation evidence.
 
 ## Open questions
 

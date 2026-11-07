@@ -26,7 +26,7 @@ Verify template and custom creation, invalid settings, recipient visibility, ass
 
 ## Decisions and sources
 
-[Product direction](../../PRD.md), [experience design](../architecture/design.md), [visual design](../../DESIGN.md), and [service roadmap](../architecture/roadmap.md). Delivery issue from the roadmap: [#18](https://github.com/KenEzekiel/lookout-ai/issues/18). Issue status is not implementation evidence.
+[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#18](https://github.com/KenEzekiel/lookout-ai/issues/18). Issue status is not implementation evidence.
 
 ## Open questions
 

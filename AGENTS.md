@@ -26,7 +26,7 @@ Validate harness edits with `python3 scripts/check-harness.py` and the relevant 
 
 ## Feature compatibility
 
-Before planning or implementing Lookout work, consult `docs/features/README.md` and the relevant `F-*.md` records. Run `pnpm features:list` to discover codes. Read dependencies and find consumers with a reverse-reference search before changing a shared contract. Oracle is outside this inventory.
+Before planning or implementing Lookout work, consult `docs/features/README.md` and the relevant `F-*.md` records. Records are grouped by product area. Use `rg --files docs/features` to discover them and read an area together with `cat docs/features/<area>/F-*.md`. Read dependencies and find consumers with a reverse-reference search before changing a shared contract. Oracle is outside this inventory.
 
 Use stable descriptive feature codes without numbers in issues you create or update and in PR descriptions. Record every new or changed product behavior and implementation decision in the affected feature file in the same PR. Include actual source locations, decision sources, required wiring, and verification evidence. Update affected consumers when their contracts change. Do not mark a feature implemented while required connections or verification are missing.
 

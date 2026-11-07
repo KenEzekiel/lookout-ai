@@ -9,9 +9,10 @@ parser.add_argument("--list", action="store_true")
 args = parser.parse_args()
 root = args.root.resolve()
 folder = root / "docs/features"
-files = sorted(path for path in folder.glob("*.md") if path.name != "README.md")
+files = sorted(path for path in folder.rglob("*.md") if path.name != "README.md")
 codes = {path.stem for path in files}
 errors = []
+seen = set()
 sections = (
     "Behavior", "Entry points", "Wiring and compatibility", "Implementation",
     "Verification", "Decisions and sources", "Open questions",
@@ -21,6 +22,9 @@ if not files:
 for path in files:
     source = path.read_text()
     code = path.stem
+    if code in seen:
+        errors.append(f"{path.relative_to(root)}: duplicate feature code {code}")
+    seen.add(code)
     prefix = f"{path.relative_to(root)}: "
     if not re.fullmatch(r"F-[A-Z]+(?:-[A-Z]+)*", code):
         errors.append(prefix + "use a descriptive F- code without numbers")
@@ -58,7 +62,7 @@ for path in files:
             if not re.search(r"\[[^\]]+\]\([^)]+\)", content.get(section, "")):
                 errors.append(prefix + f"implemented feature needs linked {section.lower()} evidence")
     if args.list and title and len(statuses) == 1:
-        print(f"{code}\t{statuses[0]}\t{title[1]}")
+        print(f"{code}\t{statuses[0]}\t{title[1]}\t{path.relative_to(root)}")
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)

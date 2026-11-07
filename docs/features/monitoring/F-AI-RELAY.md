@@ -26,7 +26,7 @@ Verify assigned-device success, revoked and cross-user denial, bounded requests,
 
 ## Decisions and sources
 
-[Product direction](../../PRD.md), [experience design](../architecture/design.md), [visual design](../../DESIGN.md), and [service roadmap](../architecture/roadmap.md). Delivery issue from the roadmap: [#20](https://github.com/KenEzekiel/lookout-ai/issues/20). Issue status is not implementation evidence.
+[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#20](https://github.com/KenEzekiel/lookout-ai/issues/20). Issue status is not implementation evidence.
 
 ## Open questions
 

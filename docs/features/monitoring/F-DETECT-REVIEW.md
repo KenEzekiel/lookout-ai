@@ -26,7 +26,7 @@ Exercise positive, harmless, ambiguous, and provider-failure cases. Verify no al
 
 ## Decisions and sources
 
-[Product direction](../../PRD.md), [experience design](../architecture/design.md), [visual design](../../DESIGN.md), and [service roadmap](../architecture/roadmap.md). Delivery issue from the roadmap: [#21](https://github.com/KenEzekiel/lookout-ai/issues/21). Issue status is not implementation evidence.
+[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#21](https://github.com/KenEzekiel/lookout-ai/issues/21). Issue status is not implementation evidence.
 
 ## Open questions
 

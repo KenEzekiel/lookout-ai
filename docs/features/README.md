@@ -6,7 +6,17 @@ Each `F-*.md` file is one feature. Codes contain uppercase words separated by hy
 
 ## Find affected features
 
-Run `pnpm features:list` to list every code, status, and title from the files. No checked-in central index needs updating when a feature is added.
+Records are grouped by product area:
+
+- `application/` contains the application entry and identity/access features.
+- `monitoring/` contains sources, rules, assessment, device health, and live viewing.
+- `response/` contains incident handling and saved evidence replay.
+- `notifications/` contains incoming alerts, background push, and escalation.
+- `integrations/` contains external product interfaces such as MCP.
+
+Read one area in a single call, for example `cat docs/features/monitoring/F-*.md`. Read the complete map with `cat docs/features/*/F-*.md`. Follow dependency codes across groups when a change crosses a boundary. Folders organize reading; feature codes remain globally unique and independent of their location.
+
+Use `rg --files docs/features` to discover records. The existing `pnpm features:list` command also lists every code, status, title, and path. No checked-in central feature index needs updating when a feature is added.
 
 Search by capability with `rg -n 'acknowledge|replay' docs/features`. Search a code with `rg -n 'F-INCIDENT-RESPONSE' docs/features` to find its record and consumers. Read both dependencies and reverse references before changing a shared contract. Dependencies name prerequisite contracts, not every runtime interaction; the wiring section describes the remaining connections.
 
@@ -16,7 +26,7 @@ The initial inventory comes from the current source, PRD, DESIGN, and service ro
 
 Before implementing an issue or PR, identify affected codes and read their behavior, wiring, source locations, and verification requirements. Record the codes in the issue when creating or updating one within authorized scope, and in the PR description. Existing issue numbers remain valid delivery references.
 
-For a new capability, add one descriptive code and file in the same PR as its first decision or implementation. Use an existing record for a bug fix, refactor, or sub-behavior that belongs to the same capability. Split a record only when the behavior has an independently meaningful contract.
+For a new capability, add one descriptive code and file in the appropriate product-area folder in the same PR as its first decision or implementation. Use an existing record for a bug fix, refactor, or sub-behavior that belongs to the same capability. Split a record only when the behavior has an independently meaningful contract.
 
 Every feature file has these fields and sections:
 
@@ -43,6 +53,6 @@ Keep each record about its current contract. Put chronological work logs, full t
 
 ## Validate the map
 
-`pnpm check:features` validates filename codes, title identity, statuses, required nonempty sections, dependency references, and local Markdown link targets. Implemented records must link source and verification evidence. Integration tests exercise the checker against temporary repositories. `pnpm verify` runs both checks in CI.
+`pnpm check:features` validates globally unique filename codes, title identity, statuses, required nonempty sections, dependency references, and local Markdown link targets. Implemented records must link source and verification evidence. Integration tests exercise the checker against temporary repositories. `pnpm verify` runs both checks in CI.
 
 This validation does not prove completeness, correctness of prose, compatibility, or a successful user journey. The implementing agent must identify affected features and perform the integration and browser verification required by [the verification guide](../verification.md). A PR with no feature impact must explain why in its feature-impact section.
