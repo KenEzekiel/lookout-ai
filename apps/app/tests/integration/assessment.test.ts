@@ -1,19 +1,22 @@
 // @vitest-environment node
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../support/server";
 import { createAssessmentClient, type AssessmentRequest } from "../../src/lib/assessment";
 
 let requestAssessment = createAssessmentClient();
+let restoreFetch = globalThis.fetch;
 beforeEach(() => {
   requestAssessment = createAssessmentClient();
   const fetch = globalThis.fetch;
-  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
-    fetch(typeof input === "string" ? new URL(input, "http://localhost:3000") : input, init),
-  );
+  restoreFetch = fetch;
+  globalThis.fetch = (input, init) =>
+    fetch(typeof input === "string" ? new URL(input, "http://localhost:3000") : input, init);
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  globalThis.fetch = restoreFetch;
+});
 
 const observation: AssessmentRequest = {
   rule: { id: "rule-1", version: 1 },
