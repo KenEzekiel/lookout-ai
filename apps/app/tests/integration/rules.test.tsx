@@ -282,7 +282,14 @@ test("trigger dropdowns show labels and support keyboard selection and dismissal
   source.focus();
   await user.keyboard("{ArrowDown}");
   expect(await screen.findByRole("listbox")).toBeVisible();
-  await user.keyboard("{End}{Enter}");
+  await waitFor(() =>
+    expect(screen.getByRole("option", { name: "Living room (Live camera)" })).toHaveFocus(),
+  );
+  await user.keyboard("{End}");
+  await waitFor(() =>
+    expect(screen.getByRole("option", { name: "Crash demo (Replayed footage)" })).toHaveFocus(),
+  );
+  await user.keyboard("{Enter}");
   expect(source).toHaveTextContent("Crash demo (Replayed footage)");
   expect(source).toHaveFocus();
   await user.keyboard("{ArrowDown}{Escape}");

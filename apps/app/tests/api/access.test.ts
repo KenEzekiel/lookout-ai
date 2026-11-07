@@ -665,6 +665,60 @@ test("device event retries create one persistent incident with authoritative sou
   ).toHaveLength(1);
 });
 
+test("incoming delivery is recipient-scoped, retry-safe and stops for every recipient after a shared response", async () => {
+  const { admin, device, report, rule, actor } = await incidentSetup();
+  const operator = await teammate(admin);
+  const operatorActor = memberSchema.parse(
+    await (await operator.request("/api/access/principal")).json(),
+  );
+  const otherMember = await teammate(admin);
+  const outsider = await owner("Other workspace");
+  const alerts = async (browser: Browser) =>
+    incidentInboxSchema.parse(await (await browser.request("/api/incidents/alerts")).json())
+      .incidents;
+  const currentRule = ruleSchema.parse(
+    await (
+      await admin.request("/api/config/rules/update", {
+        ...rule,
+        definition: { ...rule.definition, recipientIds: [actor.userId, operatorActor.userId] },
+      })
+    ).json(),
+  );
+  const currentReport = { ...report, ruleVersion: currentRule.version };
+  const incident = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", currentReport)).json(),
+  ).incident;
+  expect(await alerts(admin)).toEqual([incident]);
+  expect(await alerts(operator)).toEqual([incident]);
+  expect(await alerts(otherMember)).toEqual([]);
+  expect(await alerts(outsider)).toEqual([]);
+  expect((await new Browser().request("/api/incidents/alerts")).status).toBe(401);
+  expect((await device.request("/api/incidents/alerts")).status).toBe(403);
+  await device.request("/api/incidents/reports", currentReport);
+  expect(await alerts(admin)).toEqual([incident]);
+  await admin.request("/api/config/rules/update", {
+    ...currentRule,
+    definition: { ...currentRule.definition, recipientIds: [actor.userId] },
+  });
+  expect(await alerts(operator)).toEqual([incident]);
+  expect(
+    (
+      await operator.request(`/api/incidents/commands/${incident.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).status,
+  ).toBe(200);
+  expect(await alerts(admin)).toEqual([]);
+  expect(await alerts(operator)).toEqual([]);
+  expect(
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${incident.id}`)).json())
+      .owner,
+  ).toEqual({ userId: operatorActor.userId, name: operatorActor.name });
+  await admin.request("/api/access/remove-member", { id: operatorActor.userId });
+  expect((await operator.request("/api/incidents/alerts")).status).toBe(403);
+});
+
 test("stale, disabled, ended, expired and superseded sessions cannot create new incidents", async () => {
   const { admin, device, report, source, rule } = await incidentSetup();
   const freshReport = () => ({ ...report, eventId: crypto.randomUUID() });

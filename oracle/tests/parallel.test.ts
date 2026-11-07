@@ -111,52 +111,14 @@ test(
   },
 );
 
-test("CI waiting releases capacity without allowing a follow-up to overtake its request", async (t) => {
-  const limits = { ...defaultLimits, maxConcurrentSessions: 1 };
-  const sessions = createSessionStore({
-    directory: await directory(t),
-    limits,
-    now: () => testNow,
-  });
-  let verified = false;
-  const coding: string[] = [];
-  const oracle = await createOracle({
-    sessions,
-    limits,
-    now: () => testNow,
-    runner: {
-      run: async ({ input: request }) => {
-        if (request.text === "Waiting" && !verified)
-          throw new BoundaryError("workspace_main_unverified");
-        coding.push(request.text);
-        return { kind: "reply", text: "Done" };
-      },
-    },
-    publish: async () => {},
-  });
-  t.after(() => oracle.close());
-  const waiting = input("Waiting");
-  await oracle.receive(waiting);
-  await oracle.idle();
-  await oracle.receive(input("Follow-up", { address: waiting.address, route: "thread" }));
-  await oracle.receive(input("Independent"));
-  await oracle.idle();
-  assert.deepEqual(coding, ["Independent"]);
-  verified = true;
-  oracle.retryPending();
-  await oracle.idle();
-  assert.deepEqual(coding, ["Independent", "Waiting", "Follow-up"]);
-});
-
 test(
-  "draining finishes parallel active turns and restores queued admissions after restart",
+  "reload cancels parallel active turns and restores all requests after restart",
   { timeout: 5_000 },
   async (t) => {
     const limits = { ...defaultLimits, maxConcurrentSessions: 2 };
     const options = { directory: await directory(t), limits, now: () => testNow };
     const sessions = createSessionStore(options);
     const both = deferred<void>();
-    const release = deferred<void>();
     const runs: string[] = [];
     const signals: AbortSignal[] = [];
     const oracle = await createOracle({
@@ -168,31 +130,22 @@ test(
           runs.push(request.text);
           signals.push(signal);
           if (runs.length === 2) both.resolve();
-          await release.promise;
+          await untilAborted(signal);
           return { kind: "reply", text: request.text };
         },
       },
       publish: async () => {},
     });
-    t.after(async () => {
-      release.resolve();
-      await oracle.close();
-    });
+    t.after(() => oracle.close());
     await oracle.receive(input("Active A"));
     await oracle.receive(input("Active B"));
     await both.promise;
-    const queued = input("Queued before drain");
-    const admitted = input("Admitted during drain");
+    const queued = input("Queued before reload");
     await oracle.receive(queued);
-    const draining = oracle.drain();
-    await oracle.receive(admitted);
-    assert.ok(signals.every((signal) => !signal.aborted));
-    release.resolve();
-    await draining;
+    await oracle.close("reload");
+    assert.ok(signals.every((signal) => signal.aborted));
     assert.deepEqual(runs, ["Active A", "Active B"]);
-    assert.equal(sessions.snapshot(queued.address)?.events[0]?.status, "queued");
-    assert.equal(sessions.snapshot(admitted.address)?.events[0]?.status, "queued");
-    await oracle.close();
+    assert.equal(sessions.pending().length, 3);
     const recovered = await createOracle({
       sessions: createSessionStore(options),
       limits,
@@ -212,8 +165,9 @@ test(
     assert.deepEqual(runs, [
       "Active A",
       "Active B",
-      "Queued before drain",
-      "Admitted during drain",
+      "Active A",
+      "Active B",
+      "Queued before reload",
     ]);
   },
 );

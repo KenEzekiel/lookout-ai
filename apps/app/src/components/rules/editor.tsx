@@ -284,8 +284,8 @@ export function RuleEditor({
           />
         </label>
         <p className="text-sm text-muted-foreground">
-          One follow-up to these recipients if nobody acknowledges. Alert delivery is not connected
-          yet.
+          One follow-up to these recipients if nobody acknowledges. Follow-up delivery is not
+          connected yet.
         </p>
         <details>
           <summary className="text-sm">Timing and urgency</summary>

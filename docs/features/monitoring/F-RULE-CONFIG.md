@@ -28,7 +28,7 @@ F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` pr
 
 `POST /api/config/sources` creates source metadata. `POST /api/config/rules/create` saves a validated definition. `POST /api/config/rules/update` requires the last-read `id` and `version`. `POST /api/config/rules/disable` requires the same version pair. All mutations use the existing same-origin boundary. Membership validation and the rule write happen in one SQL statement.
 
-Local capture now exists at `/device`, but connecting its capture identity to configured source IDs remains unimplemented. The incident service validates current rule versions and snapshots definitions. Relay authorization, assessment submission, notifications, and escalation execution remain planned consumers. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. The incident endpoint rejects new reports for stale or disabled rule versions. Saving settings does not send an alert or start capture.
+Local capture now exists at `/device`, but connecting its capture identity to configured source IDs remains unimplemented. F-INCIDENT-RESPONSE now checks source/rule IDs and current versions when accepting device reports and snapshots the rule definition. F-ALERT-INAPP routes only to those snapshotted recipients; later edits do not rewrite an existing incident. Relay authorization, assessment submission, background notifications, and escalation execution remain planned consumers. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Saving settings does not send an alert or start capture.
 
 ## Implementation
 
@@ -38,7 +38,7 @@ Local capture now exists at `/device`, but connecting its capture identity to co
 
 ## Verification
 
-The incident-definition update passed `pnpm verify` with 31 UI integration tests and 18 real-handler D1 API tests. Coverage includes blank definitions, exclusions preserved through save and device configuration, inline source creation, validation recovery, disabled saves, reload, and dropdown/dialog focus. Initial production-build Chromium QA verified the creation and editing journey and 320/390-pixel layouts; final keyboard, legacy-template, and published-media evidence are tracked in the PR.
+The incident-definition update, integrated with incoming alerts on main, passed `pnpm verify` with 38 UI integration tests and 19 real-handler D1 API tests. The keyboard test waits for the selected option to receive initial focus before sending End because Base UI schedules opening focus on an animation frame. Coverage includes blank definitions, exclusions preserved through save and device configuration, inline source creation, validation recovery, disabled saves, reload, and dropdown/dialog focus. Initial production-build Chromium QA verified the creation and editing journey and 320/390-pixel layouts; follow-up Chromium QA verified source-menu keyboard selection and focus, Cancel focus restoration, and conversion of a stored template to a custom definition with exclusions. Screenshots and recordings are recorded in the PR.
 
 The Horizon shell merge preserves the Triggers destination, device configuration polling, and denial behavior. New form consumers provide action-specific pending labels. The route integration suite covers navigation from Devices to Triggers and Team with one active destination. Production-build QA created a source and fall trigger through the merged shell, then verified the received enabled version in device mode at 390 pixels without overflow or page errors. [Merged Triggers screen](https://github.com/user-attachments/assets/c9de9b10-a3f1-4d4c-a53c-c35a7879efa4) and [mobile device configuration](https://github.com/user-attachments/assets/05ff7f7d-56ec-4005-aa6d-320fb8c32434) show the integration.
 
@@ -66,4 +66,4 @@ The current interface-refinement PR follows Ken's request to use shadcn in-app d
 
 ## Open questions
 
-Connect capture, assessment, relay authorization, incident reports, alerts, and escalation to the published contract. Device application acknowledgments and production deployment remain unverified. No fixed sampling rate is agreed. Source renaming/deletion and per-device assignments are outside this slice.
+Connect capture, assessment, relay authorization, background notifications, and escalation to the published contract. Synthetic incident reports and in-app recipient delivery are connected through F-INCIDENT-RESPONSE and F-ALERT-INAPP. Device application acknowledgments and production deployment remain unverified. No fixed sampling rate is agreed. Source renaming/deletion and per-device assignments are outside this slice.

@@ -134,7 +134,7 @@ export function Monitor({ actor }: { actor: DevicePrincipal }) {
       ) : (
         <output className="block mb-6 text-sm leading-relaxed text-muted-foreground">
           This device is connected. Open the capture station to choose a camera or local video. AI
-          detection and alerts are not available yet.
+          detection and automatic device reports are not available yet.
         </output>
       )}
       {!error && (

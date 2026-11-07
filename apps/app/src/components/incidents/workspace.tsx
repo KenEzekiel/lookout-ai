@@ -337,7 +337,9 @@ export function IncidentDetail({ id }: { id: string }) {
                 <h3 id="alert-title" className="font-medium">
                   Alert delivery
                 </h3>
-                <p className="mt-2 text-sm text-muted-foreground">No alert delivery recorded.</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No background notification delivery recorded.
+                </p>
                 {incident.status === "open" && (
                   <p className="mt-2 text-sm text-muted-foreground">
                     Configured follow-up delay {incident.rule.definition.escalationDelaySeconds}{" "}

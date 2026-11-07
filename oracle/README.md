@@ -48,13 +48,13 @@ cannot acknowledge the settings, Oracle does not send the coding request.
 Run the service from `.worktree/oracle` on branch `oracle`. Set `ORACLE_WORKSPACE`
 in that checkout's `oracle/.env` to the absolute runtime worktree path. It must
 match the checkout running the dispatcher. The runtime branch is reserved for
-syncing verified `main`; project work never runs there. A changed runtime branch
+syncing `main`; project work never runs there. A changed runtime branch
 blocks coding instead of silently accepting the new branch.
 
 Each Slack conversation gets a linked worktree at
 `<primary>/.worktree/oracle-task-<conversation-hash>` on its own
 `oracle-task/<conversation-hash>` feature branch. New task worktrees start from
-the verified main commit included in the runtime. Follow-ups reuse their worktree
+the main commit included in the runtime. Follow-ups reuse their worktree
 and preserve uncommitted work. Separate conversations cannot dirty the runtime
 or switch each other's branches. Existing main-checkout and runtime-bound T3
 conversations continue in replacement task threads with persisted Slack history.
@@ -66,18 +66,15 @@ already checked out there. It preserves unrelated changes and active work.
 Only the runtime `oracle` branch and the primary `main` checkout are reserved.
 
 The workspace owner fetches `origin/main` before every coding turn and every 30
-seconds in the background. It applies an update only after the `Verify` workflow succeeds
-for that exact commit on `main`. CI already runs on pull requests and pushes to
-`main`, including merges. Pending, failed, missing, or unreadable checks leave the
-current checkout in place. Coding requests wait when a newer commit is unverified.
-Oracle saves the original request, acknowledges the wait once, and retries every
-30 seconds. It continues in the same Slack thread after verification succeeds.
-Users do not need to resend.
-Logs identify the main commit and whether the checkout is current or waiting for CI.
+seconds in the background. It merges the fetched commit without waiting for the
+`Verify` workflow. Pull request and main CI checks still run as configured, but
+they do not gate runtime updates or coding requests. Requests already waiting for
+CI in a saved session resume on startup. Logs identify the main commit and whether
+the checkout is current or updated.
 
 Runtime sync and task-worktree preparation share a short Git queue. Coding turns
 run outside that queue in their separate worktrees. Each new worktree starts at
-the exact verified main commit captured during preparation. Updating the runtime
+the exact main commit captured during preparation. Updating the runtime
 never updates an active task's files. Local runtime commits survive merges. Dirty
 runtime files defer an update, and conflicting merges are aborted. Slack reports
 runtime dirty files, merge conflicts, and a
@@ -90,12 +87,13 @@ branch `oracle` with
 `pnpm oracle:service install`. You can pass an absolute worktree path after
 `install` when running the command elsewhere. The installer registers
 `~/Library/LaunchAgents/com.lookout.oracle.plist` with `launchd`. It starts at login
-and restarts after exit. It uses your existing GitHub CLI login to read CI results.
+and restarts after exit.
 Credentials remain in `oracle/.env` and are absent from the plist.
 
 Each managed startup runs `pnpm install --frozen-lockfile` before starting the
-dispatcher. Source or lockfile updates drain accepted work, then restart the whole
-managed supervisor so its code and dependencies also refresh. An installation
+dispatcher. Source or lockfile updates cancel active turns, then restart the whole
+managed supervisor so its code and dependencies also refresh. Interrupted requests
+resume on the new build after T3 confirms the old turns stopped. An installation
 failure prevents dispatcher startup and is retried by `launchd`. A retained
 instance lock still requires investigation; the service never steals a lock after
 uncertain backend shutdown.
@@ -180,10 +178,12 @@ Enable the app's Agents feature for the native processing indicator. Oracle uses
 [Slack agent guide](https://docs.slack.dev/ai/developing-agents/).
 
 `pnpm oracle` supervises the dispatcher. Source and configuration changes trigger
-an automatic restart once their contents settle and active turns finish. The
-dispatcher stops starting new turns while draining. It still persists incoming
-requests, and queued requests resume after the restart. New arrivals cannot keep
-the old process running indefinitely. Startup logs include the concurrency limit.
+an automatic restart once their contents settle. The dispatcher closes Slack intake,
+cancels active turns, and saves their requests for continuation. It does not wait
+for the tasks to finish naturally. The new process resumes those requests in the
+same Slack and T3 threads and task worktrees before queued follow-ups. Each reload
+attempt gets a persisted request ID so T3 accepts the continuation as a new turn.
+Startup logs include the concurrency limit.
 The supervisor starts a replacement only after the old process exits and releases its
 lock. A failure or uncertain backend shutdown stops the service rather than
 restarting over a potentially active coding turn. Runtime state and logs do not
@@ -197,11 +197,16 @@ automatically poll GitHub or Linear or handle agent-container onboarding.
 An instance started with the previous one-shot launcher needs one restart to
 enter the supervised lifecycle. Future dispatcher updates reload automatically.
 
-Queued and CI-waiting requests survive service updates and restarts. Requests
-already running when the service stops retain context and require a fresh request.
-Only work that has not started coding is retried automatically. A `stop` request
-cancels both waiting and queued work. Pending requests remain protected from
-age-based pruning and session eviction until they finish or are cancelled.
+Queued requests survive service updates and restarts. Update-triggered reloads also
+resume interrupted active requests automatically. An ordinary shutdown or crash
+still requires a fresh request for interrupted active work. An explicit `stop`
+cancels active and queued work and remains stopped across reloads. Pending requests
+remain protected from age-based pruning and session eviction until they finish or
+are cancelled. Resume instructions require inspecting completed actions and current
+state before continuing. External actions cannot be guaranteed exactly once.
+
+Reloads still have a brief service restart and reconnect gap. Dependency installation
+and backend stop confirmation remain part of the managed restart.
 
 Ambiguous Slack sends
 are recorded without automatic resending. Cancellation waits for T3 to confirm the

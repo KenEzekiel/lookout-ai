@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createOracle } from "../dispatcher/index.js";
 import { routeSlack } from "../dispatcher/slack.js";
-import { BoundaryError, defaultLimits } from "../session/domain.js";
+import { defaultLimits } from "../session/domain.js";
 import { createSessionStore } from "../session/index.js";
 import { deferred, directory, input, testNow, untilAborted } from "./helpers.js";
 
@@ -400,141 +400,6 @@ test("shutdown clears processing for both active and queued conversations", asyn
   assert.equal(statuses.get(second.address.rootTs), "active");
 });
 
-test(
-  "a request waits for CI and resumes automatically without resending",
-  { timeout: 2_000 },
-  async (t) => {
-    const sessions = createSessionStore({
-      directory: await directory(t),
-      limits: defaultLimits,
-      now: () => testNow,
-    });
-    const messages: string[] = [];
-    const finished = deferred<void>();
-    let verified = false;
-    let codingTurns = 0;
-    const oracle = await createOracle({
-      sessions,
-      limits: defaultLimits,
-      now: () => testNow,
-      retryIntervalMs: 10,
-      runner: {
-        run: async () => {
-          if (!verified) throw new BoundaryError("workspace_main_unverified");
-          codingTurns++;
-          return { kind: "reply", text: "Finished the original request." };
-        },
-      },
-      publish: async (_, text) => {
-        messages.push(text);
-        if (text === "Finished the original request.") finished.resolve();
-      },
-    });
-    t.after(() => oracle.close());
-    const request = input("What can we work on while waiting?");
-    await oracle.receive(request);
-    await oracle.idle();
-    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
-    assert.equal(sessions.snapshot(request.address)?.history.length, 0);
-    assert.deepEqual(messages, [
-      "I'm keeping this request queued while main finishes CI. I'll continue here automatically when it's ready.",
-    ]);
-    verified = true;
-    await finished.promise;
-    await oracle.idle();
-    assert.equal(codingTurns, 1);
-    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
-    assert.equal(await oracle.receive(request), "duplicate");
-    assert.equal(messages.length, 2);
-  },
-);
-
-test("waiting and queued requests survive restart and resume once in FIFO order", async (t) => {
-  const options = { directory: await directory(t), limits: defaultLimits, now: () => testNow };
-  let verified = false;
-  const coding: string[] = [];
-  const messages: string[] = [];
-  const runner: Parameters<typeof createOracle>[0]["runner"] = {
-    run: async ({ input: request, history }) => {
-      if (!verified) throw new BoundaryError("workspace_main_unverified");
-      assert.equal(
-        history.some((item) => item.text.includes("keeping this request queued")),
-        false,
-      );
-      coding.push(request.text);
-      return { kind: "reply", text: `Finished ${request.text}` };
-    },
-  };
-  const settings = {
-    runner,
-    limits: defaultLimits,
-    now: () => testNow,
-    publish: async (_: unknown, text: string) => {
-      messages.push(text);
-    },
-  };
-  const firstStore = createSessionStore(options);
-  const first = await createOracle({ ...settings, sessions: firstStore });
-  const request = input("First");
-  const queued = input("Second", { address: request.address, route: "thread" });
-  await first.receive(request);
-  await first.idle();
-  await first.receive(queued);
-  await first.close();
-  const recoveredStore = createSessionStore(options);
-  const recovered = await createOracle({ ...settings, sessions: recoveredStore });
-  t.after(() => recovered.close());
-  recovered.retryPending();
-  recovered.retryPending();
-  await recovered.idle();
-  assert.equal(recoveredStore.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
-  assert.equal(recoveredStore.snapshot(queued.address)?.events[1]?.status, "queued");
-  assert.equal(messages.length, 1);
-  verified = true;
-  recovered.retryPending();
-  await recovered.idle();
-  assert.deepEqual(coding, ["First", "Second"]);
-  assert.deepEqual(recoveredStore.pending(), []);
-  assert.equal(messages.length, 3);
-  assert.equal(await recovered.receive(request), "duplicate");
-});
-
-test("stop cancels a CI waiter and lets the next conversation proceed", async (t) => {
-  const sessions = createSessionStore({
-    directory: await directory(t),
-    limits: defaultLimits,
-    now: () => testNow,
-  });
-  let verified = false;
-  const coding: string[] = [];
-  const oracle = await createOracle({
-    sessions,
-    limits: defaultLimits,
-    now: () => testNow,
-    runner: {
-      run: async ({ input: request }) => {
-        if (!verified) throw new BoundaryError("workspace_main_unverified");
-        coding.push(request.text);
-        return { kind: "reply", text: "Done" };
-      },
-    },
-    publish: async () => {},
-  });
-  t.after(() => oracle.close());
-  const first = input("Cancel this");
-  await oracle.receive(first);
-  await oracle.idle();
-  await oracle.receive(input("Keep this"));
-  verified = true;
-  await oracle.receive(input("stop", { address: first.address, route: "thread" }));
-  await oracle.idle();
-  oracle.retryPending();
-  await oracle.idle();
-  assert.deepEqual(coding, ["Keep this"]);
-  assert.equal(sessions.snapshot(first.address)?.events[0]?.status, "cancelled");
-  assert.deepEqual(sessions.pending(), []);
-});
-
 test("waking pending work during admission does not enqueue the same request twice", async (t) => {
   const sessions = createSessionStore({
     directory: await directory(t),
@@ -563,4 +428,54 @@ test("waking pending work during admission does not enqueue the same request twi
   assert.equal(await oracle.receive(input("Second")), "accepted");
   await oracle.idle();
   assert.deepEqual(coding, ["First", "Second"]);
+});
+
+test("an explicit stop stays stopped across a reload", async (t) => {
+  const options = { directory: await directory(t), limits: defaultLimits, now: () => testNow };
+  const sessions = createSessionStore(options);
+  const entered = deferred<void>();
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: {
+      run: async ({ signal }) => {
+        entered.resolve();
+        await untilAborted(signal);
+        return { kind: "silent" };
+      },
+    },
+    publish: async () => {},
+  });
+  t.after(() => oracle.close());
+  const request = input("Stop this task");
+  await oracle.receive(request);
+  await entered.promise;
+  await oracle.receive(input("Follow up", { address: request.address, route: "thread" }));
+  assert.equal(
+    await oracle.receive(input("stop", { address: request.address, route: "thread" })),
+    "stopped",
+  );
+  await oracle.close("reload");
+  const recovered = createSessionStore(options);
+  let resumed = 0;
+  const next = await createOracle({
+    sessions: recovered,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: {
+      run: async () => {
+        resumed++;
+        return { kind: "silent" };
+      },
+    },
+    publish: async () => {},
+  });
+  t.after(() => next.close());
+  next.retryPending();
+  await next.idle();
+  assert.equal(resumed, 0);
+  assert.equal(recovered.snapshot(request.address)?.stopped, true);
+  assert.deepEqual(recovered.pending(), []);
+  assert.equal(recovered.snapshot(request.address)?.events[0]?.status, "cancelled");
 });
