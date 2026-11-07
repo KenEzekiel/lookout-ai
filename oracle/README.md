@@ -163,7 +163,7 @@ members without changing transport permissions.
 
 ## Slack connection
 
-The Slack app needs `users:read`, `chat:write`, `assistant:write`, `app_mentions:read`,
+The Slack app needs `users:read`, `chat:write`, `assistant:write`, `app_mentions:read`, `reactions:write`,
 and history scopes for the conversations it serves. Enable Socket Mode and subscribe
 to `app_mention`, `message.channels`, `message.groups`, and `message.im` to receive
 mentions and plain thread follow-ups. Also add `agent_session_stopped` under
@@ -176,6 +176,19 @@ Request URL. Invite Oracle to channels it should serve.
 Enable the app's Agents feature for the native processing indicator. Oracle uses
 `agents.sessions.setStatus` as described in the
 [Slack agent guide](https://docs.slack.dev/ai/developing-agents/).
+
+Oracle adds `white_check_mark` to the conversation's root message after a successful
+turn's final reply is confirmed sent and no follow-up is queued. It removes its
+own check mark when a new request is accepted, including after a restart.
+The check marks a finished response, not a merged PR or a permanently closed
+conversation. Silent, failed, cancelled, interrupted, and private-input turns do
+not add it. Reaction failures report `slack_completion_unavailable` without
+blocking replies or other conversations. Existing installations must add
+[`reactions:write`](https://docs.slack.dev/reference/scopes/reactions.write/)
+to the bot scopes and reinstall the app before reactions work. The dispatcher
+owns reactions through its Slack transport; the coding agent never calls Slack
+directly. Tests use real sessions and dispatcher code with offline Slack and T3
+fakes in `tests/completion.test.ts`.
 
 `pnpm oracle` supervises the dispatcher. Source and configuration changes trigger
 an automatic restart once their contents settle. The dispatcher closes Slack intake,
