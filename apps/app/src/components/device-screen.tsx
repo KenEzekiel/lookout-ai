@@ -1,3 +1,10 @@
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Link } from "@tanstack/react-router";
 import { Activity, Camera, Clock3, FileVideo, Play, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -231,15 +238,21 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                 <label className="text-xs text-muted-foreground" htmlFor="source-kind">
                   Source type
                 </label>
-                <select
-                  id="source-kind"
-                  className={selectClass}
+                <Select<SourceChoice>
+                  items={{ camera: "Camera", file: "Local video" }}
                   value={sourceChoice}
-                  onChange={(event) => changeSource(event.target.value as SourceChoice)}
+                  onValueChange={(value) => {
+                    if (value) changeSource(value);
+                  }}
                 >
-                  <option value="camera">Camera</option>
-                  <option value="file">Local video</option>
-                </select>
+                  <SelectTrigger id="source-kind" className={selectClass}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="camera">Camera</SelectItem>
+                    <SelectItem value="file">Local video</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {sourceChoice === "file" && (
                 <div className="mt-4 flex flex-col gap-2">

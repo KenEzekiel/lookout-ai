@@ -8,6 +8,8 @@ Depends on: F-AUTH-ACCESS
 
 A paired operational device selects a browser camera or local video, starts and stops capture, and retains timestamped frame samples and a rolling camera buffer in browser memory. Replayed footage is visibly labeled. Selecting a file does not upload it.
 
+The camera/local-video selector uses the existing [shadcn Select](../../../apps/app/src/components/ui/select.tsx) built on Base UI, with visible labels and keyboard interaction. Changing its value retains the existing capture-stop behavior. File selection and camera permission remain browser-managed.
+
 ## Entry points
 
 Open `/device` using **Open capture station** from the paired-device home screen. The capture header reuses the approved Horizon identity from the access shell. The operator client can close while a separate active capture device continues.
@@ -28,9 +30,13 @@ Expose source timestamps, capture run identity, lifecycle changes, and buffer ac
 
 [UI integration tests](../../../apps/app/tests/integration/device.test.tsx) cover paired access, local-video playback states, stop/restart, permission refusal, camera absence, and disconnection. Production-build Chromium QA used an isolated workspace and paired device. It exercised a generated local video, a simulated camera, track release on Stop, seek, revocation during capture, and a narrow layout with no browser errors or failed requests. A separate 37-second camera run loaded each retained segment after rollover. A physical camera indicator check and event-interval extraction remain unverified. No upload endpoint is called by local capture.
 
+The dropdown migration retains the existing capture integration coverage. Production-build browser QA verifies Camera/Local video selection, recovery to a generated local video when camera access is unsupported, and stopping capture when the source changes. Physical camera behavior remains unverified. Per-run evidence belongs in the PR.
+
 ## Decisions and sources
 
 [Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#17](https://github.com/KenEzekiel/lookout-ai/issues/17). Issue status is not implementation evidence.
+
+The current interface-refinement PR follows Ken's request to use shadcn in-app dropdowns. No new component dependency or backend contract is introduced.
 
 ## Open questions
 

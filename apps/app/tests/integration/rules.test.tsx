@@ -74,7 +74,7 @@ async function open(path = "/triggers") {
     scrollRestoration: false,
   });
   await router.load();
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { container: document });
   return userEvent.setup();
 }
 
@@ -106,21 +106,25 @@ test("operators create fall, crash and custom triggers, edit and disable them, t
     "Enabled · Version 1",
   );
   await user.click(screen.getByRole("button", { name: "New trigger" }));
-  await user.selectOptions(screen.getByLabelText("Start from"), "crash");
-  await user.selectOptions(screen.getByLabelText("Source", { exact: true }), "replay");
+  await user.click(screen.getByLabelText("Start from"));
+  await user.click(await screen.findByRole("option", { name: "Possible crash" }));
+  await user.click(screen.getByLabelText("Source", { exact: true }));
+  await user.click(await screen.findByRole("option", { name: /Replayed footage/ }));
   await user.click(screen.getByRole("button", { name: "Save trigger" }));
   expect(await screen.findByRole("article", { name: "Possible crash" })).toHaveTextContent(
     "Replayed footage",
   );
   await user.click(screen.getByRole("button", { name: "New trigger" }));
-  await user.selectOptions(screen.getByLabelText("Start from"), "custom");
+  await user.click(screen.getByLabelText("Start from"));
+  await user.click(await screen.findByRole("option", { name: "Custom description" }));
   await user.type(screen.getByLabelText("Trigger name"), "Blocked exit");
   await user.type(
     screen.getByLabelText("Observable event"),
     "A vehicle blocks the marked emergency exit.",
   );
   await user.type(screen.getByLabelText("Duration condition (seconds, optional)"), "15");
-  await user.selectOptions(screen.getByLabelText("Severity", { exact: true }), "warning");
+  await user.click(screen.getByLabelText("Severity", { exact: true }));
+  await user.click(await screen.findByRole("option", { name: "Warning" }));
   await user.click(screen.getByLabelText("Taylor (operator)"));
   await user.click(screen.getByRole("button", { name: "Save trigger" }));
   const custom = await screen.findByRole("article", { name: "Blocked exit" });
@@ -194,7 +198,9 @@ test("empty sources guide setup, reject duplicate-source errors and enable trigg
   await user.click(screen.getByRole("button", { name: "Add source" }));
   expect(await screen.findByRole("button", { name: "New trigger" })).toBeEnabled();
   await user.click(screen.getByRole("button", { name: "New trigger" }));
-  expect(screen.getByLabelText("Source", { exact: true })).toHaveValue("new-camera");
+  expect(screen.getByLabelText("Source", { exact: true })).toHaveTextContent(
+    "Living room (Live camera)",
+  );
 });
 
 test("configuration failures show an error and reload recovers", async () => {
@@ -255,4 +261,28 @@ test("members navigate between workspace access and triggers with one active des
   expect(await screen.findByRole("heading", { name: "Team" })).toBeVisible();
   expect(screen.getByRole("link", { name: "Team" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("link", { name: "Triggers" })).not.toHaveAttribute("aria-current");
+});
+
+test("trigger dropdowns show labels and support keyboard selection and dismissal", async () => {
+  const user = await open();
+  await user.click(await screen.findByRole("button", { name: "New trigger" }));
+  const template = screen.getByRole("combobox", { name: "Start from" });
+  expect(template).toHaveTextContent("Possible fall");
+  expect(screen.getByRole("combobox", { name: "Source" })).toHaveTextContent(
+    "Living room (Live camera)",
+  );
+  expect(screen.getByRole("combobox", { name: "Severity" })).toHaveTextContent("Critical");
+  template.focus();
+  await user.keyboard("{ArrowDown}");
+  expect(await screen.findByRole("listbox")).toBeVisible();
+  await user.keyboard("{End}{Enter}");
+  expect(template).toHaveTextContent("Custom description");
+  expect(screen.getByLabelText("Observable event")).toBeVisible();
+  expect(template).toHaveFocus();
+  await user.keyboard("{ArrowDown}{Escape}");
+  expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  expect(template).toHaveTextContent("Custom description");
+  expect(template).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "Cancel editing" }));
+  expect(screen.queryByRole("region", { name: "Trigger editor" })).not.toBeInTheDocument();
 });

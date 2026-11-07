@@ -1,3 +1,10 @@
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { request } from "@/lib/api";
@@ -29,6 +36,14 @@ export function RuleEditor({
     rule?.definition.condition ?? { kind: "template", template: "fall" },
   );
   const [name, setName] = useState(rule?.definition.name ?? ruleTemplates.fall.name);
+  const templates = [
+    ...Object.entries(ruleTemplates).map(([value, template]) => ({ value, label: template.name })),
+    { value: "custom", label: "Custom description" },
+  ];
+  const sources = configuration.sources.map((source) => ({
+    value: source.id,
+    label: `${source.name} (${source.kind === "camera" ? "Live camera" : "Replayed footage"})`,
+  }));
   const defaultRecipient = configuration.recipients.find((person) => person.role === "owner");
   return (
     <section aria-label="Trigger editor" className="rounded-xl border border-border bg-card p-6">
@@ -67,13 +82,12 @@ export function RuleEditor({
           onSaved(saved);
         }}
       >
-        <label className="grid gap-2 text-sm font-medium">
-          Start from
-          <select
-            className={control}
+        <div className="grid gap-2 text-sm font-medium">
+          <label htmlFor="rule-start-from">Start from</label>
+          <Select
+            items={templates}
             value={condition.kind === "template" ? condition.template : "custom"}
-            onChange={(event) => {
-              const value = event.target.value;
+            onValueChange={(value) => {
               if (value === "custom") {
                 setCondition({ kind: "custom", text: "" });
                 setName("");
@@ -83,14 +97,18 @@ export function RuleEditor({
               }
             }}
           >
-            {Object.entries(ruleTemplates).map(([key, template]) => (
-              <option key={key} value={key}>
-                {template.name}
-              </option>
-            ))}
-            <option value="custom">Custom description</option>
-          </select>
-        </label>
+            <SelectTrigger id="rule-start-from" className={control}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {templates.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <label className="grid gap-2 text-sm font-medium">
           Trigger name
           <input
@@ -117,36 +135,43 @@ export function RuleEditor({
         ) : (
           <p className="rounded-md bg-muted p-3 text-sm">{conditionText(condition)}</p>
         )}
-        <label className="grid gap-2 text-sm font-medium">
-          Source
-          <select
-            className={control}
+        <div className="grid gap-2 text-sm font-medium">
+          <label htmlFor="rule-source">Source</label>
+          <Select
+            items={sources}
             name="sourceId"
             required
-            defaultValue={rule?.sourceId ?? configuration.sources[0]?.id ?? ""}
+            defaultValue={rule?.sourceId ?? configuration.sources[0]?.id ?? null}
           >
-            <option value="" disabled>
-              Choose a source
-            </option>
-            {configuration.sources.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.name} ({source.kind === "camera" ? "Live camera" : "Replayed footage"})
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger id="rule-source" className={control}>
+              <SelectValue placeholder="Choose a source" />
+            </SelectTrigger>
+            <SelectContent>
+              {sources.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-2 text-sm font-medium">
-            Severity
-            <select
-              className={control}
+          <div className="grid gap-2 text-sm font-medium">
+            <label htmlFor="rule-severity">Severity</label>
+            <Select
+              items={{ warning: "Warning", critical: "Critical" }}
               name="severity"
               defaultValue={rule?.definition.severity ?? "critical"}
             >
-              <option value="warning">Warning</option>
-              <option value="critical">Critical</option>
-            </select>
-          </label>
+              <SelectTrigger id="rule-severity" className={control}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="warning">Warning</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <label className="grid gap-2 text-sm font-medium">
             Duration condition (seconds, optional)
             <input
