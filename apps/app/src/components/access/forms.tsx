@@ -86,7 +86,9 @@ export function ActionForm({
         disabled={pending}
         className={compact ? "h-9 px-3" : "h-11 px-4"}
       >
-        {pending ? pendingLabel : submit}
+        <span key={pending ? "pending" : "idle"} className="motion-feedback">
+          {pending ? pendingLabel : submit}
+        </span>
       </Button>
     </form>
   );

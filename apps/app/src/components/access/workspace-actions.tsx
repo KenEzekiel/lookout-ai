@@ -30,6 +30,7 @@ export function WorkspaceActions({
   onChanged: (notice: string) => Promise<void>;
   onActivated: () => Promise<void>;
 }) {
+  const [open, setOpen] = useState(true);
   const [invite, setInvite] = useState<z.infer<typeof inviteSchema>>();
   const [copyNotice, setCopyNotice] = useState("");
   const content = {
@@ -60,8 +61,9 @@ export function WorkspaceActions({
   }[action.kind];
   return (
     <Dialog
-      open
-      onOpenChange={(open) => {
+      open={open}
+      onOpenChange={setOpen}
+      onOpenChangeComplete={(open) => {
         if (!open) onClose();
       }}
     >
@@ -137,7 +139,7 @@ export function WorkspaceActions({
               await onChanged(
                 "Device approved. Keep Lookout open on the other device to finish connecting.",
               );
-              onClose();
+              setOpen(false);
             }}
           >
             <Field
@@ -190,7 +192,7 @@ export function WorkspaceActions({
                   ? `${action.name} was removed from the team.`
                   : `Access removed for ${action.name}.`,
               );
-              onClose();
+              setOpen(false);
             }}
           >
             <p className="font-medium">{action.name}</p>

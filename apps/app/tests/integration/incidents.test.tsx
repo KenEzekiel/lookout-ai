@@ -157,7 +157,7 @@ test("an operator opens an incident, acknowledges ownership with evidence pendin
   expect(incident.status).toBe("open");
   await user.click(screen.getByRole("button", { name: "Acknowledge" }));
   expect(await screen.findByText("Owned by Alex")).toBeVisible();
-  expect(screen.getByRole("status")).toHaveTextContent("You are handling this incident");
+  expect(screen.getByText("You are handling this incident.")).toHaveRole("status");
   expect(screen.getByText("Acknowledged by Alex")).toBeVisible();
   expect(incident.status).toBe("acknowledged");
   await user.click(screen.getByRole("button", { name: "Resolve" }));

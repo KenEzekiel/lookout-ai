@@ -12,9 +12,14 @@ import {
 import { member, monitoringDevice } from "./access";
 import { ruleSchema, sourceSchema } from "@/lib/rules";
 import { AccessError, json } from "./http";
+import { deliverIncidentPush } from "./push";
 
 const columns = `id,device_id AS deviceId,session_id AS sessionId,event_id AS eventId,
-  event_time AS eventTime,received_at AS receivedAt,context,status,version,owner,timeline`;
+  event_time AS eventTime,received_at AS receivedAt,context,status,version,owner,timeline,
+  CASE WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id AND p.status='accepted') THEN 'accepted'
+    WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id AND p.status='attempting') THEN 'attempting'
+    WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id) THEN 'failed'
+    ELSE 'not-sent' END AS notificationStatus`;
 const recordSchema = z
   .object({
     context: z.string().transform((value): unknown => JSON.parse(value)),
@@ -31,7 +36,6 @@ const recordSchema = z
       ...row,
       ...snapshot,
       evidenceStatus: "pending",
-      notificationStatus: "not-sent",
     });
   });
 
@@ -117,7 +121,11 @@ export async function reportIncident(request: Request) {
   const incident = recordSchema.parse(row);
   if (incident.eventTime !== input.eventTime || incident.rule.version !== input.ruleVersion)
     throw new AccessError(409, "This event ID already belongs to a different report.");
-  return json({ incident }, inserted ? 201 : 200);
+  await deliverIncidentPush(incident.id);
+  const delivered = await env.DB.prepare(`SELECT ${columns} FROM incident WHERE id=?`)
+    .bind(incident.id)
+    .first();
+  return json({ incident: recordSchema.parse(delivered) }, inserted ? 201 : 200);
 }
 export async function incidentInbox(request: Request) {
   const actor = await member(request);

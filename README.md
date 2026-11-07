@@ -116,6 +116,16 @@ Add other service bindings as services are selected. Run `pnpm --filter @lookout
 
 The assessment relay uses the Worker secret `OPENAI_API_KEY`. Leave it empty when not using remote inference; authorized assessment requests return `provider_not_configured`. Set it with `wrangler secret put OPENAI_API_KEY --env production --config wrangler.jsonc` for an authorized deployment. The production environment also declares FRAME_CACHE and its SQLite Durable Object migration. `OPENAI_BASE_URL` defaults to `https://api.openai.com/v1`; the API tests override it with a local HTTP mock and an artificial key. Never point tests at a live provider. The [relay feature record](docs/features/monitoring/F-AI-RELAY.md) documents the typed contract, limits, and remaining device-loop integration.
 
+## Background push setup
+
+Apply migration `0004_background_push.sql` along with the other D1 migrations. Set `PUSH_PUBLIC_KEY`, `PUSH_PRIVATE_KEY`, and `PUSH_SUBJECT` in the Worker's environment. The public key is the uncompressed P-256 public key in base64url form. The private key is its matching 32-byte scalar in base64url form. Keep the private key stable and secret. The subject is an HTTPS contact URL or a `mailto:` address. Missing configuration leaves foreground alerts available and explains that background setup is unavailable.
+
+For local development, put the values in ignored `apps/app/.dev.vars`. For an authorized deployment, use Wrangler secrets and the exact HTTPS `APP_URL`. Generate a fresh VAPID pair with a trusted Web Push tool and preserve it for subscription continuity. Do not use CI's ephemeral test keys in production. No cloud configuration or deployment is performed by the subscription feature itself.
+
+Sign in as an operator, expand **Background alerts**, and choose **Enable alerts**. On supported iPhone and iPad versions, first add Lookout to the Home Screen using Safari and open it there. Permission must follow a user action. Use browser or OS settings to recover from a denial. Signing out stops future delivery to that session; sign in and enable again to resume.
+
+Push is best effort and currently supports FCM, Mozilla's production push service, and Apple web push endpoints. Provider acceptance does not confirm device display. Failed initial attempts are not retried automatically. The [feature contract](docs/features/notifications/F-ALERT-PUSH.md) records ownership, failure handling, and remaining target-device checks.
+
 ## Working together
 
 The hackathon has a seven-hour total build window. Favor the complete demo flow and focused verification. Follow [AGENTS.md](AGENTS.md) for the current branch, PR, review, and merge policy; it is authoritative for delivery rules. Open PRs against `main` and wait for explicit user confirmation before merging.
