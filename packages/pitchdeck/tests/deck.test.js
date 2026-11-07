@@ -154,5 +154,5 @@ test("the app walkthrough embeds four labeled screenshots", async () => {
   expect(screen.getAllByRole("img")).toHaveLength(4);
   for (const screenshot of screen.getAllByRole("img"))
     expect(screenshot.getAttribute("src")).toMatch(/^data:image\/png;base64,/);
-  expect(screen.getByText(/Separate UI captures/)).toBeTruthy();
+  expect(screen.getByText(/Synthetic incident/)).toBeTruthy();
 });
