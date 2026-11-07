@@ -1,3 +1,4 @@
+import { peerSessionSchema, peerSyncSchema } from "../../src/lib/peer";
 import assert from "node:assert/strict";
 import {
   inviteSchema,
@@ -920,4 +921,140 @@ test("dismiss records incorrect-alert feedback independently of resolution", asy
     reportReceiptSchema.parse(await (await device.request("/api/incidents/reports", report)).json())
       .incident,
   ).toEqual(dismissed);
+});
+
+async function liveSetup() {
+  const admin = await owner();
+  const device = await paired(admin);
+  const actor = devicePrincipalSchema.parse(
+    await (await device.request("/api/access/principal")).json(),
+  );
+  const source = { runId: crypto.randomUUID(), kind: "camera" };
+  expect((await device.request("/api/peer/device", source)).status).toBe(200);
+  return { admin, device, actor, source };
+}
+
+test("live signaling exchanges one offer and answer and closing preserves the device source", async () => {
+  const { admin, device, actor, source } = await liveSetup();
+  const opened = await admin.request("/api/peer/open", { deviceId: actor.deviceId });
+  expect(opened.status).toBe(201);
+  const session = peerSessionSchema.parse(await opened.json());
+  expect(session).toMatchObject({ ...source, offer: null, answer: null });
+  expect(
+    (await admin.request("/api/peer/offer", { id: session.id, sdp: "offer-sdp" })).status,
+  ).toBe(200);
+  expect((await admin.request("/api/peer/offer", { id: session.id, sdp: "replace" })).status).toBe(
+    409,
+  );
+  expect(
+    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).session,
+  ).toMatchObject({ id: session.id, offer: "offer-sdp" });
+  expect(
+    (await device.request("/api/peer/answer", { id: session.id, sdp: "answer-sdp" })).status,
+  ).toBe(200);
+  expect(
+    peerSessionSchema.parse(
+      await (await admin.request("/api/peer/poll", { id: session.id })).json(),
+    ).answer,
+  ).toBe("answer-sdp");
+  expect((await admin.request("/api/peer/close", { id: session.id })).status).toBe(200);
+  expect((await admin.request("/api/peer/close", { id: session.id })).status).toBe(200);
+  expect(
+    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).session,
+  ).toBeNull();
+  expect((await admin.request("/api/peer/open", { deviceId: actor.deviceId })).status).toBe(201);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  expect(
+    (await env.DB.prepare("SELECT count(*) AS count FROM incident").first<{ count: number }>())
+      ?.count,
+  ).toBe(0);
+});
+
+test("live viewing denies visitors, other workspaces, other operators and other devices", async () => {
+  const { admin, device, actor, source } = await liveSetup();
+  const operator = await teammate(admin);
+  const outsider = await owner("Outside");
+  const otherDevice = await paired(admin);
+  const visitor = new Browser();
+  const opened = peerSessionSchema.parse(
+    await (await admin.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
+  );
+  const body = { id: opened.id };
+  expect((await visitor.request("/api/peer/open", { deviceId: actor.deviceId })).status).toBe(401);
+  expect((await outsider.request("/api/peer/open", { deviceId: actor.deviceId })).status).toBe(409);
+  expect((await device.request("/api/peer/open", { deviceId: actor.deviceId })).status).toBe(403);
+  expect((await operator.request("/api/peer/poll", body)).status).toBe(410);
+  expect((await outsider.request("/api/peer/offer", { ...body, sdp: "forged" })).status).toBe(410);
+  expect((await otherDevice.request("/api/peer/answer", { ...body, sdp: "forged" })).status).toBe(
+    410,
+  );
+  expect((await operator.request("/api/peer/close", body)).status).toBe(200);
+  expect((await admin.request("/api/peer/poll", body)).status).toBe(200);
+  expect((await admin.request("/api/peer/answer", { ...body, sdp: "forged" })).status).toBe(403);
+  expect((await admin.request("/api/peer/device", source)).status).toBe(403);
+  expect((await admin.request("/api/peer/offer", { ...body, sdp: "x".repeat(32769) })).status).toBe(
+    400,
+  );
+  const crossOrigin = await harness.fetch(origin + "/api/peer/close", {
+    method: "POST",
+    headers: { Origin: "https://elsewhere.example", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  expect(crossOrigin.status).toBe(403);
+});
+
+test("concurrent live viewers admit one operator and source stop, restart and expiry end sessions", async () => {
+  const { admin, device, actor, source } = await liveSetup();
+  const operator = await teammate(admin);
+  const results = await Promise.all([
+    admin.request("/api/peer/open", { deviceId: actor.deviceId }),
+    operator.request("/api/peer/open", { deviceId: actor.deviceId }),
+  ]);
+  expect(results.map((response) => response.status).sort()).toEqual([201, 409]);
+  await device.request("/api/peer/stop", source);
+  expect((await admin.request("/api/peer/open", { deviceId: actor.deviceId })).status).toBe(409);
+  await device.request("/api/peer/device", source);
+  const session = peerSessionSchema.parse(
+    await (await admin.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
+  );
+  const next = { ...source, runId: crypto.randomUUID() };
+  await device.request("/api/peer/device", next);
+  expect((await admin.request("/api/peer/poll", { id: session.id })).status).toBe(410);
+  await device.request("/api/peer/stop", source);
+  const current = peerSessionSchema.parse(
+    await (await admin.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
+  );
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE peer_source SET expires_at=0 WHERE device_id=?")
+    .bind(actor.deviceId)
+    .run();
+  expect((await admin.request("/api/peer/poll", { id: current.id })).status).toBe(410);
+  await device.request("/api/peer/device", next);
+  const expired = peerSessionSchema.parse(
+    await (await admin.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
+  );
+  await env.DB.prepare("UPDATE peer_session SET expires_at=0 WHERE id=?").bind(expired.id).run();
+  expect((await admin.request("/api/peer/poll", { id: expired.id })).status).toBe(410);
+});
+
+test("device revocation and member removal terminate both sides of live signaling", async () => {
+  const { admin, device, actor, source } = await liveSetup();
+  const operator = await teammate(admin);
+  const operatorActor = memberSchema.parse(
+    await (await operator.request("/api/access/principal")).json(),
+  );
+  const session = peerSessionSchema.parse(
+    await (await operator.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
+  );
+  await admin.request("/api/access/remove-member", { id: operatorActor.userId });
+  expect((await operator.request("/api/peer/poll", { id: session.id })).status).toBe(403);
+  expect(
+    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).session,
+  ).toBeNull();
+  const current = peerSessionSchema.parse(
+    await (await admin.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
+  );
+  await admin.request("/api/access/devices/revoke", { id: actor.deviceId });
+  expect((await admin.request("/api/peer/poll", { id: current.id })).status).toBe(410);
+  expect((await device.request("/api/peer/device", source)).status).toBe(401);
 });

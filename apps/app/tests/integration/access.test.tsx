@@ -281,3 +281,34 @@ test("a failed workspace load can be retried", async () => {
   expect(await screen.findByText("No devices connected")).toBeVisible();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
+
+test("operators can open and close live view, retry unsupported browsers, and cannot view revoked devices", async () => {
+  principal = { ...owner, role: "operator" };
+  server.use(
+    http.get("/api/access/team", () =>
+      HttpResponse.json({
+        members: [],
+        devices: [
+          { id: "camera", name: "Lobby", revokedAt: null },
+          { id: "removed", name: "Removed camera", revokedAt: 1 },
+        ],
+      }),
+    ),
+  );
+  const user = await open();
+  await user.click(await screen.findByRole("button", { name: "Live view of Lobby" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Live viewing is unavailable in this browser.",
+  );
+  expect(screen.getByRole("heading", { name: "Live view · Lobby" })).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Live view of Removed camera" }),
+  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Retry live view" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Live viewing is unavailable in this browser.",
+  );
+  await user.click(screen.getByRole("button", { name: "Close live view" }));
+  expect(screen.queryByLabelText("Live device video")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Live view of Lobby" })).toBeVisible();
+});
