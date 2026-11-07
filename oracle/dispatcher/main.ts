@@ -57,7 +57,7 @@ const onFault = (code: string): void => {
 
 async function main(): Promise<void> {
   const config = await loadConfig();
-  const workspace = createWorkspace({ root: config.workspace });
+  const workspace = createWorkspace({ root: config.workspace, branch: "oracle" });
   let updateState = "";
   const syncWorkspace = async (): Promise<void> => {
     const update = await workspace.sync();
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
     projectId: config.t3.projectId,
     instanceId: config.t3.instanceId,
     model: config.t3.model,
-    workspace: config.workspace,
+    workspace: workspace.task,
   });
   oracle = await createOracle({
     sessions,

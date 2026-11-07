@@ -20,8 +20,10 @@ if (action === "install") {
   const git = async (...args) => (await run("git", ["-C", root, ...args])).stdout.trim();
   const gitDirectory = await realpath(resolve(root, await git("rev-parse", "--git-dir")));
   const common = await realpath(resolve(root, await git("rev-parse", "--git-common-dir")));
-  if (gitDirectory === common || (await git("symbolic-ref", "--short", "HEAD")) === "main")
-    throw new Error("Install Oracle in its linked worktree on a dedicated branch.");
+  if (gitDirectory === common || (await git("symbolic-ref", "--short", "HEAD")) !== "oracle")
+    throw new Error("Install Oracle in its linked runtime worktree on branch oracle.");
+  if (await git("status", "--porcelain"))
+    throw new Error("Preserve unfinished work and clean the Oracle runtime before installing.");
   await run("pnpm", ["--version"]);
   await run("gh", ["auth", "status"]);
   const oracleRoot = join(root, "oracle");

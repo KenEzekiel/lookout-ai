@@ -22,10 +22,20 @@ high effort on new threads and reapplies it before every coding turn, including
 saved conversations. If T3 cannot acknowledge the setting, Oracle does not send the
 coding request.
 
-Run the service from `.worktree/oracle` on its own branch. Set `ORACLE_WORKSPACE`
-in that checkout's `oracle/.env` to the absolute worktree path. T3 binds new
-threads to that existing worktree. Saved conversations from the main checkout
-continue in replacement threads with their persisted Slack history.
+Run the service from `.worktree/oracle` on branch `oracle`. Set `ORACLE_WORKSPACE`
+in that checkout's `oracle/.env` to the absolute runtime worktree path. It must
+match the checkout running the dispatcher. The runtime branch is reserved for
+syncing verified `main`; project work never runs there. A changed runtime branch
+blocks coding instead of silently accepting the new branch.
+
+Each Slack conversation gets a linked worktree at
+`<primary>/.worktree/oracle-task-<conversation-hash>` on its own
+`oracle-task/<conversation-hash>` feature branch. New task worktrees start from
+the verified main commit included in the runtime. Follow-ups reuse their worktree
+and preserve uncommitted work. Separate conversations cannot dirty the runtime
+or switch each other's branches. Existing main-checkout and runtime-bound T3
+conversations continue in replacement task threads with persisted Slack history.
+Changes to Oracle's own code use task worktrees and PRs too.
 
 The workspace owner fetches `origin/main` before every coding turn and every 30
 seconds while idle. It applies an update only after the `Verify` workflow succeeds
@@ -39,12 +49,13 @@ Logs identify the main commit and whether the checkout is current or waiting for
 
 Sync and complete coding turns share one queue, so Git never updates files during
 a turn. Local commits survive merges. Dirty files defer an update, and conflicting
-merges are aborted. Resolve either case in Oracle's worktree before sending a fresh
-request. The primary checkout and `main` are reserved for the maintainer. Oracle
-refuses either as its coding workspace. Feature changes still use short-lived
-branches and PRs.
+merges are aborted. Slack reports runtime dirty files, merge conflicts, and a
+changed runtime branch with the maintainer action needed before a fresh request.
+Task worktree edits do not block runtime updates. The primary checkout and `main`
+are reserved for the maintainer. Feature changes use short-lived branches and PRs.
 
-On macOS, install the persistent service from the Oracle worktree with
+On macOS, install the persistent service from the clean runtime worktree on
+branch `oracle` with
 `pnpm oracle:service install`. You can pass an absolute worktree path after
 `install` when running the command elsewhere. The installer registers
 `~/Library/LaunchAgents/com.lookout.oracle.plist` with `launchd`. It starts at login

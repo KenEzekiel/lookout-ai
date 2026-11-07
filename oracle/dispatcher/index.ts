@@ -34,6 +34,20 @@ export interface Oracle {
 
 type QueuedTurn = { input: Incoming; generation: number; ready: Promise<void> };
 const failureReply = "The turn could not finish. Send a fresh request to continue.";
+const workspaceReplies = new Map([
+  [
+    "workspace_sync_dirty",
+    "Oracle's runtime checkout has uncommitted changes and cannot sync main. A maintainer must preserve that work and clean the runtime checkout, then send a fresh request.",
+  ],
+  [
+    "workspace_sync_conflict",
+    "Oracle's runtime checkout has a merge conflict with main. A maintainer must resolve it in the runtime checkout, then send a fresh request.",
+  ],
+  [
+    "workspace_branch_changed",
+    "Oracle's runtime checkout is on the wrong branch. A maintainer must restore its dedicated oracle branch without discarding work, then send a fresh request.",
+  ],
+]);
 const updateReply =
   "I'm keeping this request queued while main finishes CI. I'll continue here automatically when it's ready.";
 
@@ -134,8 +148,9 @@ export async function createOracle(deps: {
           queue.unshift(turn);
           return "waiting";
         }
-        outcome = { kind: "reply", text: failureReply };
-        deps.onFault?.("turn_failed");
+        const code = error instanceof BoundaryError ? error.code : "turn_failed";
+        outcome = { kind: "reply", text: workspaceReplies.get(code) ?? failureReply };
+        deps.onFault?.(code);
       }
       await sessions.complete(input, outcome);
       assertActive(controller.signal);

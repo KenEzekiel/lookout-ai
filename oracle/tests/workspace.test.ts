@@ -7,11 +7,13 @@ import { promisify } from "node:util";
 import { createOracle } from "../dispatcher/index.js";
 import { createSessionStore } from "../session/index.js";
 import { BoundaryError, defaultLimits } from "../session/domain.js";
+import { createT3Runner } from "../session/run.js";
 import { createWorkspace } from "../session/workspace.js";
 import { deferred, directory, input, testNow } from "./helpers.js";
 
 const execute = promisify(execFile);
-const workspaceFor = (root: string) => createWorkspace({ root, verifyMain: async () => true });
+const workspaceFor = (root: string) =>
+  createWorkspace({ root, branch: "oracle", verifyMain: async () => true });
 const git = async (cwd: string, ...args: string[]) => {
   const { stdout } = await execute("git", [
     "-C",
@@ -65,6 +67,9 @@ test("sync includes latest main and preserves Oracle commits and the primary che
   assert.equal(await readFile(join(primary, "file.txt"), "utf8"), "uncommitted user work\n");
   assert.equal(await git(primary, "rev-parse", "HEAD"), mainCommit);
   assert.equal(await git(primary, "branch", "--show-current"), "main");
+  const workspace = workspaceFor(worktree);
+  const task = await workspace.run(() => workspace.task(input().address));
+  assert.equal(await git(task, "rev-parse", "HEAD"), mainCommit);
 });
 
 test("sync refuses primary, main and detached checkouts", async (t) => {
@@ -75,6 +80,123 @@ test("sync refuses primary, main and detached checkouts", async (t) => {
   await assert.rejects(workspaceFor(worktree).sync(), { code: "workspace_must_be_isolated" });
   await git(worktree, "checkout", "--detach");
   await assert.rejects(workspaceFor(worktree).sync());
+});
+
+test("the runtime refuses a switched branch even when main is current", async (t) => {
+  const { worktree } = await fixture(t);
+  const workspace = workspaceFor(worktree);
+  await git(worktree, "checkout", "-b", "feature/other-task");
+  await assert.rejects(workspace.sync(), { code: "workspace_branch_changed" });
+  await assert.rejects(
+    workspace.run(async () => assert.fail("coding must not start")),
+    {
+      code: "workspace_branch_changed",
+    },
+  );
+  assert.equal(await git(worktree, "branch", "--show-current"), "feature/other-task");
+});
+
+test("the runtime refuses uncommitted files even when main is current", async (t) => {
+  const { worktree } = await fixture(t);
+  const workspace = workspaceFor(worktree);
+  await writeFile(join(worktree, "unfinished.txt"), "preserve this work\n");
+  await assert.rejects(
+    workspace.run(async () => assert.fail("coding must not start")),
+    {
+      code: "workspace_sync_dirty",
+    },
+  );
+  assert.equal(await readFile(join(worktree, "unfinished.txt"), "utf8"), "preserve this work\n");
+});
+
+test("Slack coding uses separate feature worktrees while runtime sync and follow-ups preserve task work", async (t) => {
+  const { primary, worktree, advance } = await fixture(t);
+  const workspace = workspaceFor(worktree);
+  const paths = new Map<string, string>();
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  let sends = 0;
+  const runner = createT3Runner({
+    sessions,
+    projectId: "project",
+    instanceId: "instance",
+    model: "model",
+    workspace: workspace.task,
+    policy: async () => "Operate in your task worktree",
+    context: async () => ({ kind: "unavailable" }),
+    profiles: async () => ({ users: [], unresolved: [], mappings: "available", truncated: false }),
+    client: {
+      launch: async ({ workspace: path }) => {
+        assert.notEqual(path, worktree);
+        assert.notEqual(path, primary);
+        assert.equal(await git(path, "rev-parse", "HEAD"), await git(primary, "rev-parse", "HEAD"));
+        assert.match(await git(path, "branch", "--show-current"), /^oracle-task\//);
+        const threadId = `thread-${paths.size}`;
+        paths.set(threadId, path);
+        return { threadId, projectId: "project", runId: null };
+      },
+      read: async ({ threadId }) => {
+        const path = paths.get(threadId);
+        assert.ok(path);
+        return {
+          threadId,
+          projectId: "project",
+          status: "idle",
+          activeRunId: null,
+          latestRunId: null,
+          pendingRequestCount: 0,
+          worktreePath: path,
+        };
+      },
+      send: async ({ threadId }) => {
+        const path = paths.get(threadId);
+        assert.ok(path);
+        if (sends < 2) {
+          await git(path, "checkout", "-b", `feature/task-${sends}`);
+          await writeFile(join(path, "unfinished.txt"), `task ${sends}\n`);
+        } else {
+          assert.equal(await readFile(join(path, "unfinished.txt"), "utf8"), "task 0\n");
+          assert.equal(await git(path, "branch", "--show-current"), "feature/task-0");
+        }
+        sends++;
+        return { threadId, runId: `run-${sends}`, delivery: "started" };
+      },
+      finish: async () => ({ kind: "completed", reply: '{"kind":"reply","text":"Task complete"}' }),
+      stopAndDrain: async () => {},
+    },
+  });
+  const replies: string[] = [];
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: { run: (args) => workspace.run(() => runner.run(args)) },
+    publish: async (_, text) => {
+      replies.push(text);
+    },
+  });
+  t.after(() => oracle.close());
+  const first = input("First task");
+  const firstPath = await workspace.run(() => workspace.task(first.address));
+  await oracle.receive(first);
+  await oracle.idle();
+  await advance("new verified main\n");
+  await oracle.receive(input("Second task"));
+  await oracle.idle();
+  await oracle.receive(input("Continue first task", { address: first.address, route: "thread" }));
+  await oracle.idle();
+  assert.equal(sends, 3);
+  assert.equal(paths.size, 2);
+  assert.equal(new Set(paths.values()).size, 2);
+  assert.equal(paths.get("thread-0"), firstPath);
+  assert.deepEqual(replies, ["Task complete", "Task complete", "Task complete"]);
+  assert.equal(await git(worktree, "branch", "--show-current"), "oracle");
+  assert.equal(await git(worktree, "rev-parse", "HEAD"), await git(primary, "rev-parse", "HEAD"));
+  assert.equal(await git(worktree, "status", "--porcelain"), "");
+  assert.equal(await git(primary, "status", "--porcelain"), "");
 });
 
 test("uncertain backend shutdown prevents queued Git updates", async (t) => {
@@ -204,6 +326,7 @@ test("unverified main stays out of the workspace until CI succeeds for its exact
   const checked: string[] = [];
   const workspace = createWorkspace({
     root: worktree,
+    branch: "oracle",
     verifyMain: async (commit) => {
       checked.push(commit);
       return verified;
@@ -250,6 +373,7 @@ test("a concurrent fetch cannot substitute an unverified commit after the CI che
   const verifiedCommit = await git(primary, "rev-parse", "HEAD");
   const workspace = createWorkspace({
     root: worktree,
+    branch: "oracle",
     verifyMain: async (commit) => {
       assert.equal(commit, verifiedCommit);
       await advance("newer unverified update\n");
@@ -270,6 +394,7 @@ test(
     let verified = false;
     const workspace = createWorkspace({
       root: worktree,
+      branch: "oracle",
       verifyMain: async () => {
         if (!verified) throw new Error("GitHub temporarily unavailable");
         return true;
