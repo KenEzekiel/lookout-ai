@@ -341,6 +341,35 @@ test("an edited custom condition is server-owned and requires its new version", 
   expect(requests).toHaveLength(1);
 });
 
+test("maximum-length rule text and exclusions reach both model stages", async () => {
+  const { browser, owner, input, rule } = await configuredDevice();
+  const condition = { kind: "custom", text: "a".repeat(1000), exclusions: "b".repeat(1000) };
+  const changed = ruleSchema.parse(
+    await (
+      await owner.request("/api/config/rules/update", {
+        ...rule,
+        definition: { ...rule.definition, condition },
+      })
+    ).json(),
+  );
+  for (const stage of ["assessment", "review"]) {
+    expect(
+      (
+        await browser.request("/api/assessment", {
+          ...input,
+          rule: { id: changed.id, version: changed.version },
+          observation: { ...input.observation, stage },
+        })
+      ).status,
+    ).toBe(200);
+  }
+  for (const request of requests)
+    expect(JSON.stringify(request.body)).toContain(
+      JSON.stringify(conditionText(changed.definition.condition)).slice(1, -1),
+    );
+  expect(requests).toHaveLength(2);
+});
+
 test("invalid observations, client rule text and oversized bodies are rejected", async () => {
   const { browser, input } = await configuredDevice();
   for (const body of [

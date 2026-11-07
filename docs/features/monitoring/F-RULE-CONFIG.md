@@ -6,13 +6,15 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
-Workspace owners and operators create named camera or replay sources, then create fall/crash template triggers or custom observable descriptions. Each trigger selects one source, warning/critical severity, current workspace recipients, and one escalation delay. The owner is the default recipient. Duration is optional and never imposed on falls or crashes. Duration and escalation delay accept whole seconds from 1 to 3600.
+Workspace owners and operators create named camera or replay sources, then define incidents in plain language with optional exclusions. The editor starts blank instead of offering a fixed event catalog. Existing template definitions remain readable and open as editable text; saving converts them to custom definitions without changing their observable condition. Each trigger selects one source, warning/critical severity, current workspace recipients, and one escalation delay. The owner is the default recipient. Duration is optional and never imposed on falls or crashes. Duration and escalation delay accept whole seconds from 1 to 3600.
 
 Triggers save enabled or disabled. Every edit, disable, or re-enable increments the version. A stale edit cannot overwrite another save. Invalid conditions, cross-workspace sources, and unauthorized recipients reject the entire save. Removing an operator disables and version-bumps every rule naming that recipient in the same D1 transaction.
 
-Source type, template, source assignment, and severity use the existing [shadcn Select](../../../apps/app/src/components/ui/select.tsx) built on Base UI. Controls display human-readable labels, submit the existing values, and support keyboard selection, Escape dismissal, and focus return. Native browser dropdowns are replaced; source and rule API contracts are unchanged.
+Source type, source assignment, and severity use the existing [shadcn Select](../../../apps/app/src/components/ui/select.tsx) built on Base UI. Controls display human-readable labels, submit the existing values, and support keyboard selection, Escape dismissal, and focus return. Native browser dropdowns remain replaced; the optional custom-condition exclusions extend the shared rule contract.
 
 ## Entry points
+
+The four editor sections cover incident definition, source, recipients, and review. New trigger remains available when no sources exist; sources can be created inline without losing the definition draft. Adding a source persists it independently of saving or cancelling a trigger. The editor retains the focused dialog from PR #62 and the in-app dropdowns from PR #59. Timing and urgency are expandable; enabled state changes the Save enabled/Save disabled action. Review shows condition, exclusions, recipients, severity, duration, and follow-up. Saving does not start assessment or delivery.
 
 Members open `/triggers` from the shared navigation. Add a named source, choose **New trigger**, review recipients, and save. Cards expose edit and disable. New and edited triggers open in a labeled modal dialog that scrolls within the viewport. Keyboard focus enters the editor and returns to the opening button when it closes. Save closes the dialog; validation and request errors keep the draft open. **Reload triggers** retrieves current configuration after a conflict. Paired browsers open `/monitor` to inspect source labels and received trigger versions.
 
@@ -20,7 +22,7 @@ Members open `/triggers` from the shared navigation. Add a named source, choose 
 
 F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` protects device reads, including revocation on every request. Workspace IDs come from the principal, never the request body. All paired devices in a workspace receive its sources and rules; other workspaces cannot. Per-source device access remains deferred by the accepted access decision.
 
-[Shared contract](../../../apps/app/src/lib/rules.ts) owns `sourceSchema`, `ruleInputSchema`, `ruleSchema`, and `deviceConfigurationSchema`. A rule has `id`, `sourceId`, `version`, `enabled`, and `definition`. The definition owns `name`, a template/custom condition, nullable `durationSeconds`, `severity`, `recipientIds`, and `escalationDelaySeconds`. `conditionText` resolves template text. Downstream callers import this contract instead of inventing a second format.
+[Shared contract](../../../apps/app/src/lib/rules.ts) owns `sourceSchema`, `ruleInputSchema`, `ruleSchema`, and `deviceConfigurationSchema`. A rule has `id`, `sourceId`, `version`, `enabled`, and `definition`. The definition owns `name`, a template/custom condition, nullable `durationSeconds`, `severity`, `recipientIds`, and `escalationDelaySeconds`. Custom conditions accept optional `exclusions` (up to 1000 characters). `conditionText` includes these exclusions for summaries and consumers. Existing definitions without exclusions remain valid. `conditionText` also resolves stored template text. Downstream callers import this contract instead of inventing a second format.
 
 `GET /api/config/operator` returns sources, rules, and current recipient choices. `GET /api/config/device` returns sources and rules without the member directory. Device snapshots include disabled rules and their versions so clients can stop obsolete work. The device UI refreshes every five seconds and on request, and hides configuration on access or transport failure. Receiving a version does not acknowledge application by a capture or assessment loop.
 
@@ -36,6 +38,8 @@ Local capture now exists at `/device`, but connecting its capture identity to co
 
 ## Verification
 
+The incident-definition update, integrated with incoming alerts on main, passed `pnpm verify` with 38 UI integration tests and 19 real-handler D1 API tests. The keyboard test waits for the selected option to receive initial focus before sending End because Base UI schedules opening focus on an animation frame. Coverage includes blank definitions, exclusions preserved through save and device configuration, inline source creation, validation recovery, disabled saves, reload, and dropdown/dialog focus. Initial production-build Chromium QA verified the creation and editing journey and 320/390-pixel layouts; follow-up Chromium QA verified source-menu keyboard selection and focus, Cancel focus restoration, and conversion of a stored template to a custom definition with exclusions. Screenshots and recordings are recorded in the PR.
+
 The Horizon shell merge preserves the Triggers destination, device configuration polling, and denial behavior. New form consumers provide action-specific pending labels. The route integration suite covers navigation from Devices to Triggers and Team with one active destination. Production-build QA created a source and fall trigger through the merged shell, then verified the received enabled version in device mode at 390 pixels without overflow or page errors. [Merged Triggers screen](https://github.com/user-attachments/assets/c9de9b10-a3f1-4d4c-a53c-c35a7879efa4) and [mobile device configuration](https://github.com/user-attachments/assets/05ff7f7d-56ec-4005-aa6d-320fb8c32434) show the integration.
 
 [API integration tests](../../../apps/app/tests/api/access.test.ts) call the production Worker with isolated D1 storage and real migrations. They cover template/custom persistence, source isolation, recipient validation without partial saves, concurrent edits, disabled-version delivery, device revocation, operator permissions, and recipient removal.
@@ -49,6 +53,8 @@ Dropdown integration tests exercise real shadcn controls, submitted values, read
 Dropdown panels open outside the trigger with a six-pixel gap and matching width. Four-pixel padding separates the rounded options from the panel border; the selected row no longer overlays the trigger. This corrects the visual alignment reported in PR #59.
 
 ## Decisions and sources
+
+Ken approved the revised issue #18 flow in the implementation conversation: incident definitions are authored by the operator and will feed Decisions assessment, rather than being fixed UI choices. The [fall experiment](../../../experiments/decisions-falls/experiment.py) and [crash experiment](../../../experiments/decisions-crashes/experiment.py) supply the predicate/exclusions and separate uncertainty-question pattern. This change stores the definition only; it does not impose the experiments' candidate threshold or sampling cadence, call Decisions, or implement candidate review.
 
 [Issue #18](https://github.com/KenEzekiel/lookout-ai/issues/18), [product direction](../../../PRD.md), [accepted workspace-wide device access](../../../PRD.md#demo-accounts-and-device-access), [experience design](../../architecture/design.md), and [visual design](../../../DESIGN.md).
 

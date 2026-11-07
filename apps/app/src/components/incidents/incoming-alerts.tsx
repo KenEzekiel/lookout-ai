@@ -7,23 +7,15 @@ import type { Member } from "@/lib/access";
 import { message, request } from "@/lib/api";
 import { type Incident, incidentInboxSchema, incidentSchema } from "@/lib/incidents";
 
-function chime(context: AudioContext) {
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.frequency.setValueAtTime(660, context.currentTime);
-  oscillator.frequency.setValueAtTime(880, context.currentTime + 0.25);
-  gain.gain.setValueAtTime(0, context.currentTime);
-  gain.gain.linearRampToValueAtTime(0.12, context.currentTime + 0.02);
-  gain.gain.linearRampToValueAtTime(0, context.currentTime + 0.7);
-  oscillator.start();
-  oscillator.stop(context.currentTime + 0.75);
+function playAlarm(context: AudioContext, buffer: AudioBuffer) {
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(context.destination);
+  source.start();
   const stop = () => {
-    oscillator.disconnect();
-    gain.disconnect();
+    source.disconnect();
   };
-  oscillator.onended = stop;
+  source.onended = stop;
   return stop;
 }
 
@@ -47,6 +39,8 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
   const [pending, setPending] = useState(false);
   const [sound, setSound] = useState<"off" | "on" | "blocked">("off");
   const [context, setContext] = useState<AudioContext | null>(null);
+  const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
+  const stopPlayback = useRef(() => {});
   const sequence = useRef(0);
   const active = useRef(true);
   const refresh = useCallback(async () => {
@@ -93,23 +87,22 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
   const ringingId = incident?.id;
   useEffect(() => {
     const audio = context;
-    if (sound !== "on" || !ringingId || !audio) return;
-    let stop = () => {};
+    if (sound !== "on" || !audio || !buffer) return;
     const ring = () => {
-      stop();
+      stopPlayback.current();
       if (audio.state !== "running") {
         setSound("blocked");
         return;
       }
-      stop = chime(audio);
+      stopPlayback.current = playAlarm(audio, buffer);
     };
-    ring();
-    const timer = setInterval(ring, 6000);
+    if (ringingId) ring();
+    const timer = ringingId ? setInterval(ring, 6000) : undefined;
     return () => {
       clearInterval(timer);
-      stop();
+      stopPlayback.current();
     };
-  }, [ringingId, sound, context]);
+  }, [ringingId, sound, context, buffer]);
   function silence(id: string) {
     const next = new Set(silenced).add(id);
     try {
@@ -127,11 +120,21 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       setContext(audio);
       await audio.resume();
       if (audio.state !== "running") throw new Error("Playback unavailable");
+      let clip = buffer;
+      if (!clip) {
+        const response = await fetch("/sounds/incident-alert.wav");
+        if (!response.ok) throw new Error("Alert sound unavailable");
+        clip = await audio.decodeAudioData(await response.arrayBuffer());
+      }
       if (!active.current) {
         await audio.close();
         return;
       }
-      if (!ringingId || sound === "on") chime(audio);
+      setBuffer(clip);
+      if (!ringingId || sound === "on") {
+        stopPlayback.current();
+        stopPlayback.current = playAlarm(audio, clip);
+      }
       setSound("on");
     } catch {
       if (active.current) setSound("blocked");

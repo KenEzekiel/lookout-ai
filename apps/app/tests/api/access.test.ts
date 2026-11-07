@@ -352,7 +352,11 @@ test("template and custom triggers persist, and a device receives edits and disa
     definition: {
       ...input.definition,
       name: "Blocked exit",
-      condition: { kind: "custom", text: "A vehicle blocks the marked emergency exit." },
+      condition: {
+        kind: "custom",
+        text: "A vehicle blocks the marked emergency exit.",
+        exclusions: "Vehicles passing without stopping.",
+      },
       durationSeconds: 15,
       severity: "warning",
       escalationDelaySeconds: 90,
@@ -361,6 +365,7 @@ test("template and custom triggers persist, and a device receives edits and disa
   const customResponse = await admin.request("/api/config/rules/create", customInput);
   expect(customResponse.status).toBe(201);
   const custom = ruleSchema.parse(await customResponse.json());
+  expect(custom.definition.condition).toEqual(customInput.definition.condition);
   const reloaded = new Browser();
   reloaded.cookies = new Map(admin.cookies);
   const configuration = operatorConfigurationSchema.parse(

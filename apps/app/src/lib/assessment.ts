@@ -11,7 +11,7 @@ export const assessmentLimits = {
   frameBytes: 192 * 1024,
   frames: 8,
   windowMs: 30_000,
-  conditionCharacters: 2_000,
+  conditionCharacters: 2_010,
   providerTimeoutMs: 15_000,
   providerResponseBytes: 64 * 1024,
 };
