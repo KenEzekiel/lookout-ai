@@ -10,7 +10,7 @@ Alert actions display decorative icons alongside their visible labels. Acknowled
 
 An open operator client shows a prominent incoming alert for an open incident naming that member in its snapshotted recipients. It shows the trigger summary, source, event time, severity, and pending evidence before a clip exists. Open incident navigates to detail and silences locally. Silence here hides only that incident in the current browser tab. Neither action acknowledges it. Acknowledge alert uses the existing versioned command and records shared ownership.
 
-Sound starts off. Enable sound and test requests browser playback and plays an original 1.2-second, three-pulse incident alarm with sharp alternating 960/720 Hz tones and restrained harmonics. While enabled, the current incoming incident repeats the alarm every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the mounted screen and must be enabled again after navigation or reload. No background delivery, continuous ringtone, or OS sound bypass is promised.
+Sound starts off. Enable sound and test requests browser playback and plays an original 1.2-second, three-pulse incident alarm with sharp alternating 960/720 Hz tones and restrained harmonics. While enabled, the current incoming incident repeats the alarm every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the shared workspace layout. It survives navigation between Devices, Team, Triggers, inbox, and detail, and must be enabled again after leaving that layout or reloading. No background delivery, continuous ringtone, or OS sound bypass is promised.
 
 ## Entry points
 
@@ -22,7 +22,7 @@ The member screens for Devices, Team, Triggers, inbox, and detail include the al
 
 The client reads on mount, every five seconds, and on browser focus or online events. It presents one incident at a time with the waiting count. Repeated delivery of the same ID does not mount another alert or restart its sound. Silence IDs use session storage keyed by workspace and user, survive navigation/reload, and never write shared incident state. If browser storage is unavailable, silence lasts only while the screen remains mounted. Acknowledged and terminal incidents disappear on the next successful read, stopping sound in every connected recipient client on the next successful poll, with network/render delay and browser timer throttling affecting end-to-end latency.
 
-Failed delivery hides stale response controls, stops sound, shows reconnection status, and offers Retry alerts. Acknowledgment sends the last-read version to F-INCIDENT-RESPONSE and refreshes after a failed or conflicting command. An older in-flight delivery cannot restore a locally acknowledged alert. No in-app delivery receipt is persisted. F-ALERT-PUSH now records independent background attempts and publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`; none describes whether this browser rendered the alert. Push reuses incident identity, recipient snapshots, status and version. F-ALERT-ESCALATE remains unimplemented.
+Failed delivery hides stale response controls, stops sound, shows reconnection status, and offers Retry alerts. Acknowledgment sends the last-read version to F-INCIDENT-RESPONSE and refreshes after a failed or conflicting command. An older in-flight delivery cannot restore a locally acknowledged alert. No in-app delivery receipt is persisted. F-ALERT-PUSH now records independent background attempts and publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`; none describes whether this browser rendered the alert. Push reuses incident identity, recipient snapshots, status and version. F-ALERT-ESCALATE now records one durable in-app follow-up, with a separate local silence key so initial silence does not hide it. Repeated polling of a silenced follow-up does not reopen it. The same versioned acknowledgment command remains in use.
 
 ## Implementation
 
@@ -40,9 +40,13 @@ The in-app incident consumer is implemented. Assessment and capture-to-report in
 
 The [sound browser integration tests](../../../tests/e2e/alert-sound.spec.ts) exercise the production app with HTTP-only principal and incident fixtures, real Web Audio and the real sound asset. They verify the three-pulse waveform, opt-in, test, sound-off, local silence, unavailable asset and retry. Run them after building with `pnpm exec playwright test tests/e2e/alert-sound.spec.ts`. The current sound-change PR records its executed checks and contained manual QA evidence; the earlier chime measurements above describe the prior sound. Physical speaker perception still requires a listener.
 
+The follow-up PR adds complete-screen coverage for re-alerting an initially silenced incident and keeping a repeatedly delivered follow-up silenced. Production-build journey QA and per-run evidence are recorded in that PR.
+
 ## Decisions and sources
 
 Kenneth requested clearer action icons and consistent sizing. [Incoming alert controls](../../../apps/app/src/components/incidents/incoming-alerts.tsx) use F-APP-SHELL Button sizes, including buttonVariants for the incident link. Sound, polling, local silence, and shared acknowledgment semantics remain unchanged.
+
+The current routing PR moves member dashboard pages under one persistent layout at Arsa’s request. Incoming alerts stay in that layout, preserving connection and sound state across child-route navigation. Polling cadence, recipient checks, local silence, and acknowledgment semantics remain unchanged.
 
 [Issue #23](https://github.com/KenEzekiel/lookout-ai/issues/23), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 
@@ -52,4 +56,4 @@ The incoming-alert implementation's synthesis decision is recipient-filtered pol
 
 ## Open questions
 
-The delivery window is bounded to 100 open eligible incidents and has no pagination. Sound opt-in resets on screen remount. F-ALERT-PUSH owns the separate best-effort background path. Escalation scheduling, native calls, background guarantees, and persisted in-app delivery receipts remain outside this slice.
+The delivery window is bounded to 100 open eligible incidents and has no pagination. Sound opt-in resets when the shared workspace layout unmounts or the page reloads. F-ALERT-PUSH owns the separate best-effort background path. Durable in-app follow-up scheduling is connected through F-ALERT-ESCALATE. Native calls, background guarantees, and persisted in-app delivery receipts remain outside this slice.

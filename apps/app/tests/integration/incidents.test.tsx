@@ -242,3 +242,55 @@ test("paired devices cannot access operator incident controls", async () => {
   expect(screen.queryByRole("heading", { name: "Incident inbox" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Acknowledge" })).not.toBeInTheDocument();
 });
+
+test("detail shows the scheduled follow-up and cancellation after acknowledgment", async () => {
+  incident = incidentSchema.parse({
+    ...incident,
+    followUp: { kind: "scheduled", dueAt: incident.receivedAt + 60_000 },
+  });
+  const user = await open("/incidents/fall");
+  expect(await screen.findByText(/One in-app follow-up due/)).toBeVisible();
+  expect(screen.getByText(/Acknowledge to cancel it/)).toBeVisible();
+  server.use(
+    http.post("/api/incidents/commands/fall", async () => {
+      incident = incidentSchema.parse({
+        ...incident,
+        status: "acknowledged",
+        version: 2,
+        owner: { userId: actor.userId, name: actor.name },
+        followUp: { kind: "cancelled", dueAt: incident.receivedAt + 60_000 },
+      });
+      return HttpResponse.json(incident);
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Acknowledge" }));
+  expect(
+    await screen.findByText("Pending follow-up cancelled by the incident response."),
+  ).toBeVisible();
+});
+
+test("an attempted follow-up is visibly distinct from operator acknowledgment", async () => {
+  incident = incidentSchema.parse({
+    ...incident,
+    followUp: {
+      kind: "attempted",
+      dueAt: incident.receivedAt + 60_000,
+      attemptedAt: incident.receivedAt + 60_010,
+    },
+    timeline: [
+      ...incident.timeline,
+      {
+        kind: "follow-up-attempted",
+        at: incident.receivedAt + 60_010,
+        actorId: "system",
+        actorName: "Lookout",
+      },
+    ],
+  });
+  await open("/incidents/fall");
+  expect(await screen.findByText(/This does not confirm anyone saw it/)).toBeVisible();
+  expect(screen.getByText("In-app follow-up attempted by Lookout")).toBeVisible();
+  expect(screen.getByText("No owner yet")).toBeVisible();
+  expect(screen.queryByText("Acknowledged by Lookout")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();
+});

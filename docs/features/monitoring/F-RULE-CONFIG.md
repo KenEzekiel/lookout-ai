@@ -32,13 +32,15 @@ F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` pr
 
 `POST /api/config/sources` creates source metadata. `POST /api/config/rules/create` saves a validated definition. `POST /api/config/rules/update` requires the last-read `id` and `version`. `POST /api/config/rules/disable` requires the same version pair. All mutations use the existing same-origin boundary. Membership validation and the rule write happen in one SQL statement.
 
-Local capture now exists at `/device`, but connecting its capture identity to configured source IDs remains unimplemented. F-INCIDENT-RESPONSE now checks source/rule IDs and current versions when accepting device reports and snapshots the rule definition. F-ALERT-INAPP routes only to those snapshotted recipients; later edits do not rewrite an existing incident. Relay authorization, assessment submission, background notifications, and escalation execution remain planned consumers. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Saving settings does not send an alert or start capture.
+Local capture now exists at `/device`, but connecting its capture identity to configured source IDs remains unimplemented. F-AI-RELAY now uses the authoritative source/rule/version contract to authorize remote assessment requests and derives condition text from stored definitions. F-INCIDENT-RESPONSE now checks source/rule IDs and current versions when accepting device reports and snapshots the rule definition. F-ALERT-INAPP routes only to those snapshotted recipients; later edits do not rewrite an existing incident. Assessment submission, background notifications, and escalation execution remain planned consumers. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Saving settings does not send an alert or start capture.
+
+F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to schedule one in-app follow-up. Later rule edits do not reschedule it. F-ALERT-PUSH preserves the independent initial background-delivery path.
 
 ## Implementation
 
 [Shared schemas](../../../apps/app/src/lib/rules.ts), [configuration handlers](../../../apps/app/src/server/rules.ts), [route adapter](../../../apps/app/src/routes/api/config/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [migration](../../../apps/app/migrations/0002_rule_configuration.sql) implement storage and delivery. [Workspace operations](../../../apps/app/src/server/workspaces.ts) disable rules when recipients leave.
 
-[Trigger route](../../../apps/app/src/routes/triggers.tsx), [workspace screen](../../../apps/app/src/components/rules/workspace.tsx), [editor and summaries](../../../apps/app/src/components/rules/editor.tsx), and [device screen](../../../apps/app/src/components/access/monitor.tsx) connect the operator-to-device configuration journey. Connecting local capture to configured sources and downstream execution remain unimplemented, so status stays partial.
+[Trigger route](../../../apps/app/src/routes/_workspace.triggers.tsx), [workspace screen](../../../apps/app/src/components/rules/workspace.tsx), [editor and summaries](../../../apps/app/src/components/rules/editor.tsx), and [device screen](../../../apps/app/src/components/access/monitor.tsx) connect the operator-to-device configuration journey. Connecting local capture to configured sources and downstream execution remain unimplemented, so status stays partial.
 
 ## Verification
 
@@ -72,4 +74,4 @@ The current interface-refinement PR follows Ken's request to use shadcn in-app d
 
 ## Open questions
 
-Connect capture, assessment, relay authorization, background notifications, and escalation to the published contract. Synthetic incident reports and in-app recipient delivery are connected through F-INCIDENT-RESPONSE and F-ALERT-INAPP. Device application acknowledgments and production deployment remain unverified. No fixed sampling rate is agreed. Source renaming/deletion and per-device assignments are outside this slice.
+Connect capture, assessment, background notifications, and escalation to the published contract. Synthetic incident reports and in-app recipient delivery are connected through F-INCIDENT-RESPONSE and F-ALERT-INAPP. Device application acknowledgments and production deployment remain unverified. No fixed sampling rate is agreed. Source renaming/deletion and per-device assignments are outside this slice.

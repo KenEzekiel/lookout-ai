@@ -58,6 +58,19 @@ export async function deviceConfiguration(request: Request) {
   const actor = await monitoringDevice(request);
   return json(await configuration(actor.workspaceId));
 }
+export async function assessmentRule(
+  workspaceId: string,
+  reference: z.infer<typeof ruleVersionSchema>,
+  sourceId: string,
+) {
+  const row = await env.DB.prepare(
+    `SELECT ${ruleColumns} FROM monitoring_rule WHERE workspace_id=? AND id=? AND version=? AND source_id=? AND enabled=1
+      AND EXISTS (SELECT 1 FROM source WHERE id=monitoring_rule.source_id AND workspace_id=monitoring_rule.workspace_id)`,
+  )
+    .bind(workspaceId, reference.id, reference.version, sourceId)
+    .first();
+  return row ? storedRuleSchema.parse(row) : null;
+}
 export async function createSource(request: Request) {
   const actor = await member(request);
   const input = sourceInputSchema.parse(await request.json());

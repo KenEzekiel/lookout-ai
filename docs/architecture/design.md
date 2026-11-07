@@ -18,13 +18,13 @@ The main incident path is **operational device → server → operator**. Config
 
 The existing two-stage verification direction remains. The device initiates the first assessment and second-stage review before reporting a confirmed event; exact models remain open. The model inference runs at OpenAI, not locally on the device.
 
-This is intended to reduce the upload-before-decision path and avoid storing non-triggered video in Lookout. Latency improvement is a hypothesis to measure, not an observed result. Sampled images still go to the model, and provider data handling is separate from Lookout's storage policy.
+This is intended to reduce the upload-before-decision path and avoid persistently storing non-triggered video in Lookout. Latency improvement is a hypothesis to measure, not an observed result. Sampled images still go to the model, and provider data handling is separate from Lookout's storage policy.
 
 **B is deferred.** In the alternative considered, the operational device uploads video snippets and the server owns assessment. This is not the default and must not become an automatic fallback. Server-side assessment and permanent storage are separate choices; B would not inherently require retaining all footage forever.
 
 ### Credential boundary
 
-A browser must not contain a long-lived OpenAI API key. For a web operational client, the recommended transport is an authenticated, stateless server relay: device requests assessment → relay calls OpenAI → result returns to device. The relay enforces device scope and usage limits but does not own the monitoring loop or persist non-triggered images, snippets or decision payloads in application storage or logs. This is a proposed credential-handling detail, not a switch to B.
+A browser must not contain a long-lived OpenAI API key. For a web operational client, the recommended transport is an authenticated server relay: device requests assessment → relay calls OpenAI → result returns to device. The relay enforces device scope and usage limits. The user approved a bounded 60-second in-memory frame cache so overlapping windows can reference previously uploaded frames. Cache keys are isolated by workspace, device and source; missing frames require explicit re-upload. Reads do not renew expiry, and storage caps can evict frames earlier. Images and results are not written to persistent storage or logs. The relay does not own the monitoring loop; this remains option A.
 
 A literal direct device-to-OpenAI connection requires a separately verified secure credential mechanism or managed device runtime. Do not assume browser-safe Decisions credentials exist. See [OpenAI authentication guidance](https://developers.openai.com/api/reference/overview#authentication).
 

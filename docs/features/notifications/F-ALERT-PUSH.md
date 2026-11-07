@@ -16,7 +16,7 @@ Delivery is best effort. No native call UI, continuous ringtone, silent-mode byp
 
 ## Entry points
 
-Every member screen has a **Background alerts** disclosure with **Enable alerts** and **Turn off background alerts** controls. Permission is requested only after a click. iPhone and iPad users must add Lookout to the Home Screen in Safari and open it there on a supported OS. The manifest and PNG icons support installation; no authenticated content is cached for offline use.
+The shared workspace layout keeps the **Background alerts** disclosure mounted across Devices, Team, Triggers, inbox, and detail navigation. Every member screen has a **Background alerts** disclosure with **Enable alerts** and **Turn off background alerts** controls. Permission is requested only after a click. iPhone and iPad users must add Lookout to the Home Screen in Safari and open it there on a supported OS. The manifest and PNG icons support installation; no authenticated content is cached for offline use.
 
 ## Wiring and compatibility
 
@@ -28,7 +28,7 @@ The existing incident report path calls [the push service](../../../apps/app/src
 
 The request awaits provider attempts with a five-second fetch timeout per endpoint. Each encrypted RFC 8291 message uses VAPID authentication and a 60-second TTL. Provider 404 or 410 removes the subscription; other errors retain it for later incidents and record failure. A response or sign-out stops new eligible claims, but cannot retract an in-flight provider request. A crash after claiming can lose the attempt and leave an attempting receipt. There is no queue or retry scheduler in this slice.
 
-F-INCIDENT-RESPONSE publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`. At least one provider acceptance takes precedence over pending or failed attempts. Accepted means provider acceptance, not display on a device. A failed aggregate includes expired subscriptions. In-app visibility and replay readiness remain separate. F-ALERT-ESCALATE is still unimplemented and must not reuse the initial-attempt claim as an escalation receipt.
+F-INCIDENT-RESPONSE publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`. At least one provider acceptance takes precedence over pending or failed attempts. Accepted means provider acceptance, not display on a device. A failed aggregate includes expired subscriptions. In-app visibility and replay readiness remain separate. F-ALERT-ESCALATE now provides one durable in-app follow-up with its own attempt timestamp. It preserves this initial push path and does not reuse the initial-attempt claim or send a second background push.
 
 ## Implementation
 

@@ -38,7 +38,7 @@ test("owner, operator and monitoring browser complete the access journey", async
     await register(operator, "Demo operator");
     await operator.getByRole("button", { name: "Join workspace" }).click();
     await expect(operator.getByRole("heading", { name: "Devices" })).toBeVisible();
-    await expect(operator).toHaveURL(/\/\?view=devices$/);
+    await expect(operator).toHaveURL(/\/devices$/);
     await expect(operator.getByRole("button", { name: "Create invitation" })).toHaveCount(0);
     await operator.screenshot({ path: "test-results/operator-mobile.png", fullPage: true });
     expect(

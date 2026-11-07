@@ -1,16 +1,27 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "lookout-app",
-  "main": "@tanstack/react-start/server-entry",
+  "main": "src/server.ts",
   "compatibility_date": "2026-11-07",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true,
   },
-  "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+  "secrets": { "required": ["BETTER_AUTH_SECRET", "OPENAI_API_KEY"] },
   "vars": {
     "APP_URL": "http://localhost:3000",
+    "OPENAI_BASE_URL": "https://api.openai.com/v1",
   },
+  "durable_objects": {
+    "bindings": [
+      { "name": "FRAME_CACHE", "class_name": "FrameCache" },
+      { "name": "INCIDENT_FOLLOW_UP", "class_name": "IncidentFollowUp" },
+    ],
+  },
+  "migrations": [
+    { "tag": "v1-frame-cache", "new_sqlite_classes": ["FrameCache"] },
+    { "tag": "incident-follow-up-v1", "new_sqlite_classes": ["IncidentFollowUp"] },
+  ],
   "d1_databases": [
     {
       "binding": "DB",
@@ -24,9 +35,16 @@
       "name": "lookout-app",
       "account_id": "2f6bb1f1780c697bf3f7756cbb9648c7",
       "workers_dev": true,
-      "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+      "durable_objects": {
+        "bindings": [
+          { "name": "FRAME_CACHE", "class_name": "FrameCache" },
+          { "name": "INCIDENT_FOLLOW_UP", "class_name": "IncidentFollowUp" },
+        ],
+      },
+      "secrets": { "required": ["BETTER_AUTH_SECRET", "OPENAI_API_KEY"] },
       "vars": {
         "APP_URL": "https://lookout-app.lookout-ai.workers.dev",
+        "OPENAI_BASE_URL": "https://api.openai.com/v1",
       },
       "d1_databases": [
         {
