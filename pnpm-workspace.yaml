@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - oracle
 onlyBuiltDependencies:
   - esbuild
   - workerd

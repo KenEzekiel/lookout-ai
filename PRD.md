@@ -16,15 +16,15 @@ Potential users include camera owners, caregivers, shop and site operators, and 
 
 ## The experience
 
-| Step | What happens | Why it matters |
-| --- | --- | --- |
-| Configure | Select a source, start from a template or write a trigger, and choose response settings. | The user defines what matters in their setting. |
-| Observe | Assess timestamped visual observations against the rule. | Monitoring reduces the need for continuous attention. |
-| Verify | Review a candidate with supporting evidence; gather more observations when uncertain. | An ambiguous frame should not immediately produce a call. |
-| Open or update | Create an incident or add evidence to the same ongoing incident. | Recipients get context without repeated alerts for one event. |
-| Notify | Automatically call the owner after verification. | The system actively reaches someone. |
-| Respond | Inspect evidence, acknowledge, dismiss, or resolve through the dashboard. | A person owns the response and outcome. |
-| Escalate | Execute one configured follow-up step if nobody acknowledges. | Sending a notification is not treated as completing the response. |
+| Step           | What happens                                                                             | Why it matters                                                    |
+| -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Configure      | Select a source, start from a template or write a trigger, and choose response settings. | The user defines what matters in their setting.                   |
+| Observe        | Assess timestamped visual observations against the rule.                                 | Monitoring reduces the need for continuous attention.             |
+| Verify         | Review a candidate with supporting evidence; gather more observations when uncertain.    | An ambiguous frame should not immediately produce a call.         |
+| Open or update | Create an incident or add evidence to the same ongoing incident.                         | Recipients get context without repeated alerts for one event.     |
+| Notify         | Automatically call the owner after verification.                                         | The system actively reaches someone.                              |
+| Respond        | Inspect evidence, acknowledge, dismiss, or resolve through the dashboard.                | A person owns the response and outcome.                           |
+| Escalate       | Execute one configured follow-up step if nobody acknowledges.                            | Sending a notification is not treated as completing the response. |
 
 ## Two agreed demos
 
@@ -50,14 +50,14 @@ Two models can make the same mistake. Assess the usefulness of verification thro
 
 ### Incidents carry ownership across observations
 
-| Action or situation | Agreed meaning |
-| --- | --- |
+| Action or situation                       | Agreed meaning                                                                                            |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Repeated observations of an ongoing event | Update the existing open incident and add evidence; do not repeatedly create incidents and initial calls. |
-| Acknowledge | “I'm handling it.” Record ownership and stop further paging for this incident. |
-| Dismiss | “This alert was incorrect.” Preserve the feedback. |
-| Resolve | “The incident has been handled.” A person closes the response. |
-| Scene clears | Record the new evidence. The owner still resolves the incident. |
-| Nobody acknowledges | Run one configured escalation step. |
+| Acknowledge                               | “I'm handling it.” Record ownership and stop further paging for this incident.                            |
+| Dismiss                                   | “This alert was incorrect.” Preserve the feedback.                                                        |
+| Resolve                                   | “The incident has been handled.” A person closes the response.                                            |
+| Scene clears                              | Record the new evidence. The owner still resolves the incident.                                           |
+| Nobody acknowledges                       | Run one configured escalation step.                                                                       |
 
 Acknowledgment does not mean resolution. Control labels and implementation states can evolve while preserving these meanings. The initial recipient is the owner; broader responder rosters and on-call schedules can come later.
 
@@ -93,16 +93,16 @@ A two-way conversational phone agent has not been agreed as a requirement. The r
 
 Lookout aims to reduce continuous monitoring and shorten the path from a visible event to an accountable response. Verify these outcomes rather than claiming them from the design alone.
 
-| Check | Observable result |
-| --- | --- |
-| Both demos | The prerecorded crash and staged live fall each produce an incident through the monitoring pipeline. |
-| Configuration | Each scenario has its own visible source and rule within the same product flow. |
-| Notification | The intended recipient receives a real call and can inspect the corresponding evidence. |
-| Ownership | Acknowledgment updates the incident and stops subsequent paging. |
-| Escalation | An unacknowledged incident triggers its configured follow-up step. |
-| Continuity | Repeated observations enrich one ongoing incident without repeated initial calls. |
-| Disposition | Dismissal and resolution remain distinct; scene clearing adds evidence without silently resolving the incident. |
-| Alert quality | Exercise harmless and ambiguous footage as well as positive cases, recording false alerts and misses. |
+| Check         | Observable result                                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| Both demos    | The prerecorded crash and staged live fall each produce an incident through the monitoring pipeline.            |
+| Configuration | Each scenario has its own visible source and rule within the same product flow.                                 |
+| Notification  | The intended recipient receives a real call and can inspect the corresponding evidence.                         |
+| Ownership     | Acknowledgment updates the incident and stops subsequent paging.                                                |
+| Escalation    | An unacknowledged incident triggers its configured follow-up step.                                              |
+| Continuity    | Repeated observations enrich one ongoing incident without repeated initial calls.                               |
+| Disposition   | Dismissal and resolution remain distinct; scene clearing adds evidence without silently resolving the incident. |
+| Alert quality | Exercise harmless and ambiguous footage as well as positive cases, recording false alerts and misses.           |
 
 Measure event-to-call and event-to-acknowledgment time where possible. Report observed results with the sample size. No accuracy, latency, or cost targets have been agreed, and the demo alone cannot establish production reliability.
 

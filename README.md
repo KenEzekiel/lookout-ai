@@ -18,7 +18,7 @@ Read the [PRD](PRD.md) for agreed behavior, demo outcomes, priorities, and open 
 
 ## Develop
 
-The pnpm workspace contains one full-stack application, `@lookout/app`, in `apps/app`. It uses TanStack Start, React, TypeScript, and Cloudflare Workers, with Tailwind CSS and shadcn/ui using Base UI.
+The pnpm workspace contains the full-stack application, `@lookout/app`, in `apps/app`, and the Oracle engineering factory, `@lookout/oracle`, in `oracle`. The application uses TanStack Start, React, TypeScript, and Cloudflare Workers, with Tailwind CSS and shadcn/ui using Base UI.
 
 Use Node.js **24.18.0**, pinned in [.node-version](.node-version), and pnpm **10.33.4**, pinned in [package.json](package.json).
 
@@ -29,16 +29,27 @@ pnpm dev
 
 The development command selects port 3000. Open `http://localhost:3000` once the server reports it is ready. The Vite configuration includes Cloudflare's local Workers integration.
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm check` | Check formatting, lint application code, and generate route types before TypeScript checking. |
-| `pnpm build` | Build the application. |
-| `pnpm preview` | Preview the build on port 3000. |
-| `pnpm format` | Apply formatting. |
-| `pnpm lint:fix` | Apply available lint fixes. |
-| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset. |
+| Command                                    | Purpose                                                                      |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `pnpm check`                               | Check formatting, lint, workspace types, tests, and Oracle disclosure rules. |
+| `pnpm oracle`                              | Start the Oracle engineering dispatcher.                                     |
+| `pnpm build`                               | Build the application.                                                       |
+| `pnpm preview`                             | Preview the build on port 3000.                                              |
+| `pnpm format`                              | Apply formatting.                                                            |
+| `pnpm lint:fix`                            | Apply available lint fixes.                                                  |
+| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset.                           |
 
-There is no application test script yet. Generated route files and vendored agent tooling are excluded from the application formatting/lint scope. See [package scripts](package.json), [app scripts](apps/app/package.json), and [formatter configuration](.oxfmtrc.json) for exact behavior.
+There is no product application test script yet. Oracle's tests run through `pnpm test`. Generated route files and vendored agent tooling are excluded from formatting and linting. See [package scripts](package.json), [app scripts](apps/app/package.json), and [formatter configuration](.oxfmtrc.json) for exact behavior.
+
+## Oracle
+
+The engineering factory lives in `oracle/`. Its dispatcher receives authorized
+Slack requests, its session layer keeps one visible T3 coding thread per
+conversation, and its tools check replies and shared source before disclosure.
+
+Oracle uses the workspace's shared pnpm lockfile, Oxlint, Oxfmt, and TypeScript
+checks. Start it with `pnpm oracle`. See [Oracle](oracle/README.md) for its behavior
+and verification boundaries.
 
 ## Cloudflare deployment
 
