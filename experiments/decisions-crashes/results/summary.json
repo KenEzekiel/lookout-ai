@@ -1,0 +1,91 @@
+{
+  "expected_requests": 25,
+  "recorded_requests": 25,
+  "completed_requests": 25,
+  "errors": 0,
+  "missing_requests": 0,
+  "threshold": 0.7,
+  "model_ids": ["gpt-6-luna"],
+  "refused_crash_questions": 0,
+  "input_tokens": 60250,
+  "cached_tokens": 2049,
+  "cache_write_tokens": 49176,
+  "estimated_cost_usd": 0.007069990000000002,
+  "average_request_cost_usd": 0.00028279960000000007,
+  "projected_hour_at_1rps_usd": 1.0180785600000002,
+  "latency_seconds": {
+    "median": 0.6703120000001945,
+    "p95_nearest_rank": 1.4495632919988566,
+    "min": 0.41680879200066556,
+    "max": 1.7561086660007277
+  },
+  "clip_results": [
+    {
+      "clip": "crash-tbone",
+      "expected": "crash",
+      "windows": 3,
+      "candidate_windows": 3,
+      "peak_probability": 1.0,
+      "first_candidate_video_seconds": 3.5,
+      "source_onset_seconds": 1.0,
+      "nominal_delay_seconds": 2.5
+    },
+    {
+      "clip": "crash-headon",
+      "expected": "crash",
+      "windows": 5,
+      "candidate_windows": 4,
+      "peak_probability": 1.0,
+      "first_candidate_video_seconds": 3.5,
+      "source_onset_seconds": 3.0,
+      "nominal_delay_seconds": 0.5
+    },
+    {
+      "clip": "crash-rearend",
+      "expected": "crash",
+      "windows": 2,
+      "candidate_windows": 2,
+      "peak_probability": 0.93,
+      "first_candidate_video_seconds": 3.5,
+      "source_onset_seconds": 1.0,
+      "nominal_delay_seconds": 2.5
+    },
+    {
+      "clip": "crash-sideswipe",
+      "expected": "crash",
+      "windows": 5,
+      "candidate_windows": 4,
+      "peak_probability": 0.98,
+      "first_candidate_video_seconds": 4.5,
+      "source_onset_seconds": 4.0,
+      "nominal_delay_seconds": 0.5
+    },
+    {
+      "clip": "normal-highway",
+      "expected": "no_crash",
+      "windows": 5,
+      "candidate_windows": 0,
+      "peak_probability": 0.0,
+      "first_candidate_video_seconds": null,
+      "source_onset_seconds": null,
+      "nominal_delay_seconds": null
+    },
+    {
+      "clip": "normal-traffic",
+      "expected": "no_crash",
+      "windows": 5,
+      "candidate_windows": 0,
+      "peak_probability": 0.01,
+      "first_candidate_video_seconds": null,
+      "source_onset_seconds": null,
+      "nominal_delay_seconds": null
+    }
+  ],
+  "limitations": [
+    "One run on four selected crashes and two normal-traffic controls, not a general accuracy benchmark.",
+    "Offline sequential requests; no real-time concurrency, verification model, or calls.",
+    "Manually assigned coarse onset labels; nominal delays exclude API and verification latency and include warm-up effects.",
+    "Standard-rate cost estimate from token usage, not an invoice; pricing checked 2026-11-07.",
+    "Partial runs and refused questions must not be counted as negative detections."
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "source_page": "https://accidentbench.github.io/",
+  "license_note": "Publicly accessible research examples. Footage redistribution rights have not been independently verified. Download locally only; do not commit footage. Control sources have separate provenance below.",
+  "annotation_note": "Clip labels and approximate onset times assigned by manual contact-sheet inspection before model evaluation. Not official benchmark annotations.",
+  "clips": [
+    {
+      "id": "crash-tbone",
+      "url": "https://accidentbench.github.io/assets/videos/real-world/tbone%20(3).mp4",
+      "sha256": "5bd9ce9b734dcc9b0eda0fb2f0dc98684748a3149907dd79c0ce2a3323ee31dc",
+      "bytes": 904997,
+      "expected": "crash",
+      "source_onset_seconds": 1.0,
+      "duration_seconds": 5.96,
+      "description": "Intersection side-impact collision"
+    },
+    {
+      "id": "crash-headon",
+      "url": "https://accidentbench.github.io/assets/videos/real-world/headon.mp4",
+      "sha256": "9efbd3788d988679e163c7c29416bc40056bfe78d86e76c2b7b624f1d82ec3e2",
+      "bytes": 1717082,
+      "expected": "crash",
+      "source_onset_seconds": 3.0,
+      "duration_seconds": 8,
+      "description": "Head-on collision on overpass"
+    },
+    {
+      "id": "crash-rearend",
+      "url": "https://accidentbench.github.io/assets/videos/real-world/rearend%20(3).mp4",
+      "sha256": "947b9a97edf33b4f4ff3f81191b90eef177369eb2ea8adbf22725471a8d1fc92",
+      "bytes": 1024106,
+      "expected": "crash",
+      "source_onset_seconds": 1.0,
+      "duration_seconds": 5.6,
+      "description": "Distant rear-end collision in dense traffic"
+    },
+    {
+      "id": "crash-sideswipe",
+      "url": "https://accidentbench.github.io/assets/videos/real-world/sideswipe.mp4",
+      "sha256": "c90c44e6b9cd0565c4de6b902a72e44be1d53b735d02ff3bd35d4fc91c334f09",
+      "bytes": 2069477,
+      "expected": "crash",
+      "source_onset_seconds": 4.0,
+      "duration_seconds": 8,
+      "description": "Tunnel sideswipe and vehicle overturn"
+    },
+    {
+      "id": "normal-highway",
+      "url": "https://raw.githubusercontent.com/AarohiSingla/Speed-detection-of-vehicles/8d9733a101b27ee5736fd64c175be5d4e6fc5bcc/highway_mini.mp4",
+      "sha256": "d7bcb8dce21e24c691de8a546bb2339ccbd4f460b875317696b8c17f0a88f250",
+      "bytes": 5219175,
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "duration_seconds": 8,
+      "description": "Ordinary divided-highway traffic"
+    },
+    {
+      "id": "normal-traffic",
+      "url": "https://raw.githubusercontent.com/DeGirum/PySDKExamples/30c9a54bf79a7cae33643a417167bb763e4f57ee/images/Traffic.mp4",
+      "sha256": "4a4f00da283781c89fdef525eeae99ed8c72167de2b73bf4e82a9b8cfbae6378",
+      "bytes": 1966824,
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "duration_seconds": 8,
+      "description": "Ordinary highway traffic from a separate camera"
+    }
+  ]
+}
