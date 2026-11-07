@@ -30,6 +30,7 @@
       "migrations_dir": "migrations",
     },
   ],
+  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "lookout-evidence" }],
   "env": {
     "production": {
       "name": "lookout-app",
@@ -54,6 +55,7 @@
           "migrations_dir": "migrations",
         },
       ],
+      "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "lookout-evidence" }],
     },
   },
 }

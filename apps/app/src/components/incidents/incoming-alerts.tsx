@@ -239,8 +239,8 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
             <time dateTime={new Date(incident.eventTime).toISOString()}>
               {new Date(incident.eventTime).toLocaleString()}
             </time>{" "}
-            · {incident.rule.definition.severity === "critical" ? "Critical" : "Warning"} · Evidence
-            pending
+            · {incident.rule.definition.severity === "critical" ? "Critical" : "Warning"} · Evidence{" "}
+            {incident.evidenceStatus}
           </p>
           <p className="mt-3 text-sm text-muted-foreground">
             No owner yet. Acknowledge to let your team know you are handling it.

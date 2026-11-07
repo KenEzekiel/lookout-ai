@@ -12,6 +12,7 @@ import {
 import { member, monitoringDevice } from "./access";
 import { ruleSchema, sourceSchema } from "@/lib/rules";
 import { AccessError, json } from "./http";
+import { evidenceForIncident } from "./evidence";
 import { deliverIncidentPush } from "./push";
 
 const columns = `id,device_id AS deviceId,session_id AS sessionId,event_id AS eventId,
@@ -38,7 +39,9 @@ const recordSchema = z
     return incidentSchema.parse({
       ...row,
       ...snapshot,
-      evidenceStatus: "pending",
+      evidenceStatus: "preparing",
+      evidenceReason: null,
+      evidenceExpiresAt: null,
       followUp:
         followUpDueAt === null
           ? { kind: "none" }
@@ -47,6 +50,14 @@ const recordSchema = z
             : { kind: row.status === "open" ? "scheduled" : "cancelled", dueAt: followUpDueAt },
     });
   });
+
+async function incidentWithEvidence(row: Record<string, unknown>, checkObject = false) {
+  const incident = recordSchema.parse(row);
+  return incidentSchema.parse({
+    ...incident,
+    ...(await evidenceForIncident(incident.id, checkObject)),
+  });
+}
 
 export async function startIncidentSession(request: Request) {
   const actor = await monitoringDevice(request);
@@ -99,14 +110,15 @@ export async function reportIncident(request: Request) {
       409,
       "The rule or capture session is stale or unavailable. Refresh device configuration and start a current session.",
     );
-  const incident = recordSchema.parse(row);
+  const incident = await incidentWithEvidence(row);
   if (incident.eventTime !== input.eventTime || incident.rule.version !== input.ruleVersion)
     throw new AccessError(409, "This event ID already belongs to a different report.");
   await deliverIncidentPush(incident.id);
   const delivered = await env.DB.prepare(`SELECT ${columns} FROM incident WHERE id=?`)
     .bind(incident.id)
     .first();
-  return json({ incident: recordSchema.parse(delivered) }, inserted ? 201 : 200);
+  if (!delivered) throw new AccessError(404, "Incident no longer exists.");
+  return json({ incident: await incidentWithEvidence(delivered) }, inserted ? 201 : 200);
 }
 export async function incidentInbox(request: Request) {
   const actor = await member(request);
@@ -116,7 +128,9 @@ export async function incidentInbox(request: Request) {
     .bind(actor.workspaceId)
     .all();
   return json(
-    incidentInboxSchema.parse({ incidents: rows.results.map((row) => recordSchema.parse(row)) }),
+    incidentInboxSchema.parse({
+      incidents: await Promise.all(rows.results.map((row) => incidentWithEvidence(row))),
+    }),
   );
 }
 export async function incomingIncidents(request: Request) {
@@ -129,7 +143,9 @@ export async function incomingIncidents(request: Request) {
     .bind(actor.workspaceId, actor.userId)
     .all();
   return json(
-    incidentInboxSchema.parse({ incidents: rows.results.map((row) => recordSchema.parse(row)) }),
+    incidentInboxSchema.parse({
+      incidents: await Promise.all(rows.results.map((row) => incidentWithEvidence(row))),
+    }),
   );
 }
 export async function incidentDetail(request: Request, id: string) {
@@ -138,7 +154,7 @@ export async function incidentDetail(request: Request, id: string) {
     .bind(id, actor.workspaceId)
     .first();
   if (!row) throw new AccessError(404, "Incident not found in this workspace.");
-  return json(recordSchema.parse(row));
+  return json(await incidentWithEvidence(row, true));
 }
 export async function commandIncident(request: Request, id: string) {
   const actor = await member(request);
@@ -173,5 +189,5 @@ export async function commandIncident(request: Request, id: string) {
       409,
       "Incident changed or this action is unavailable. Reload the incident before responding.",
     );
-  return json(recordSchema.parse(row));
+  return json(await incidentWithEvidence(row));
 }
