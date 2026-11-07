@@ -59,7 +59,7 @@ These commands are defined in the repository. Their runtime behavior and deploym
 
 ## Working together
 
-The hackathon has a seven-hour total build window. Favor the complete demo flow and focused verification. Follow [AGENTS.md](AGENTS.md) for the current branch, PR, review, and merge policy; it is authoritative for delivery rules.
+The hackathon has a seven-hour total build window. Favor the complete demo flow and focused verification. Follow [AGENTS.md](AGENTS.md) for the current branch, PR, review, and merge policy; it is authoritative for delivery rules. Open PRs against `main` and wait for explicit user confirmation before merging.
 
 The team uses a repository-owned agent harness to support development. The planned product agent and MCP integration serve Lookout users; they are distinct from the tools used to build Lookout.
 
