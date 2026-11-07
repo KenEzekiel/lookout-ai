@@ -15,7 +15,7 @@ flowchart TB
     end
 
     subgraph AI[Secure model requests]
-        Relay["Authenticated stateless relay · #20"]
+        Relay["Authenticated relay + 60-second frame cache · #20"]
         Model["OpenAI Decisions and second-stage review"]
         Relay -->|Bounded assessment request| Model
         Model -->|Model result| Relay

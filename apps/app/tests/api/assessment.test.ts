@@ -52,8 +52,13 @@ afterAll(async () => {
 const observation: AssessmentRequest["observation"] = {
   stage: "assessment",
   frames: [
-    { mediaTimeMs: 0, image: new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" }) },
     {
+      id: crypto.randomUUID(),
+      mediaTimeMs: 0,
+      image: new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" }),
+    },
+    {
+      id: crypto.randomUUID(),
       mediaTimeMs: 500,
       image: new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" }),
     },
@@ -375,10 +380,15 @@ test("invalid observations, client rule text and oversized bodies are rejected",
 
 test("multipart uploads reject missing, duplicate, oversized and unexpected parts", async () => {
   const { browser, input } = await configuredDevice();
-  const metadata = { ...input, observation: { stage: "assessment", frames: [{ mediaTimeMs: 0 }] } };
+  const metadata = {
+    ...input,
+    observation: {
+      stage: "assessment",
+      frames: [{ id: observation.frames[0]?.id, mediaTimeMs: 0 }],
+    },
+  };
   const image = new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" });
   const mutations: ((form: FormData) => void)[] = [
-    (form) => form.delete("frame-0"),
     (form) => form.append("frame-0", image),
     (form) => form.append("metadata", JSON.stringify(metadata)),
     (form) => form.set("frame-1", image),
@@ -580,3 +590,190 @@ test("missing model credentials produce an explicit failure without external req
   expect(await response.json()).toEqual({ kind: "unavailable", reason: "provider_not_configured" });
   expect(requests).toHaveLength(0);
 });
+
+function frameForm(input: AssessmentRequest, uploadIds: string[] = []) {
+  const form = new FormData();
+  form.set(
+    "metadata",
+    JSON.stringify({
+      ...input,
+      observation: {
+        ...input.observation,
+        frames: input.observation.frames.map(({ id, mediaTimeMs }) => ({ id, mediaTimeMs })),
+      },
+    }),
+  );
+  input.observation.frames.forEach((frame, index) => {
+    if (uploadIds.includes(frame.id)) form.set(`frame-${index}`, frame.image, "frame.jpg");
+  });
+  return form;
+}
+
+async function anotherDevice(owner: Browser) {
+  const browser = new Browser();
+  const pairing = pairingSchema.parse(
+    await (await browser.request("/api/access/pairing/start", {})).json(),
+  );
+  expect(
+    (
+      await owner.request("/api/access/pairing/approve", {
+        code: pairing.code,
+        name: "Other camera",
+      })
+    ).status,
+  ).toBe(200);
+  expect((await browser.request("/api/access/pairing/claim", {})).status).toBe(200);
+  return browser;
+}
+
+test("overlapping windows reuse cached frames and missing frames explicitly request re-upload", async () => {
+  const { browser, input } = await configuredDevice();
+  const missing = await browser.request("/api/assessment", frameForm(input));
+  expect(missing.status).toBe(409);
+  expect(await missing.json()).toEqual({
+    kind: "frames_missing",
+    frameIds: input.observation.frames.map((frame) => frame.id),
+  });
+  expect(requests).toHaveLength(0);
+  const first = await browser.request("/api/assessment", input);
+  expect(first.status).toBe(200);
+  const receipts = first.headers.get("X-Lookout-Frames");
+  const next = {
+    id: crypto.randomUUID(),
+    mediaTimeMs: 1_000,
+    image: new Blob([new Uint8Array([255, 216, 254])], { type: "image/jpeg" }),
+  };
+  const overlapping = {
+    ...input,
+    observation: { ...input.observation, frames: [...input.observation.frames, next] },
+  };
+  const second = await browser.request("/api/assessment", frameForm(overlapping, [next.id]));
+  expect(second.status).toBe(200);
+  expect(JSON.stringify(requests[1]?.body)).toContain("data:image/jpeg;base64,/9j+");
+  const repeated = await browser.request("/api/assessment", frameForm(input));
+  expect(repeated.status).toBe(200);
+  expect(repeated.headers.get("X-Lookout-Frames")).toBe(receipts);
+  expect(requests[2]?.body).toEqual(requests[0]?.body);
+});
+
+test("cache references are isolated between devices, workspaces and sources", async () => {
+  const { browser, owner, input, rule } = await configuredDevice();
+  expect((await browser.request("/api/assessment", input)).status).toBe(200);
+  const peer = await anotherDevice(owner);
+  expect((await peer.request("/api/assessment", frameForm(input))).status).toBe(409);
+  const other = await configuredDevice();
+  expect((await other.browser.request("/api/assessment", frameForm(other.input))).status).toBe(409);
+  const source = sourceSchema.parse(
+    await (
+      await owner.request("/api/config/sources", { name: "Second source", kind: "camera" })
+    ).json(),
+  );
+  const otherRule = ruleSchema.parse(
+    await (
+      await owner.request("/api/config/rules/create", {
+        sourceId: source.id,
+        enabled: true,
+        definition: rule.definition,
+      })
+    ).json(),
+  );
+  const otherSource = {
+    ...input,
+    sourceId: source.id,
+    rule: { id: otherRule.id, version: otherRule.version },
+  };
+  expect((await browser.request("/api/assessment", frameForm(otherSource))).status).toBe(409);
+  expect(requests).toHaveLength(1);
+});
+
+test("cached IDs cannot change bytes or timestamps and concurrent reads preserve the window", async () => {
+  const { browser, input } = await configuredDevice();
+  expect((await browser.request("/api/assessment", input)).status).toBe(200);
+  const changed = {
+    ...input,
+    observation: {
+      ...input.observation,
+      frames: input.observation.frames.map((frame) => ({
+        ...frame,
+        image: new Blob(["different"], { type: "image/jpeg" }),
+      })),
+    },
+  };
+  expect((await browser.request("/api/assessment", changed)).status).toBe(400);
+  const retimed = {
+    ...input,
+    observation: {
+      ...input.observation,
+      frames: input.observation.frames.map((frame) => ({
+        ...frame,
+        mediaTimeMs: frame.mediaTimeMs + 1,
+      })),
+    },
+  };
+  expect((await browser.request("/api/assessment", frameForm(retimed))).status).toBe(400);
+  const concurrent = await Promise.all(
+    Array.from({ length: 4 }, () => browser.request("/api/assessment", frameForm(input))),
+  );
+  expect(concurrent.map((response) => response.status)).toEqual([200, 200, 200, 200]);
+  expect(requests).toHaveLength(5);
+});
+
+test.each([3, 192 * 1024])(
+  "device cache evicts oldest frames at its count or byte cap (%s-byte frames)",
+  async (size) => {
+    const { browser, input } = await configuredDevice();
+    expect((await browser.request("/api/assessment", input)).status).toBe(200);
+    let latest = input;
+    for (let batch = 0; batch < 9; batch++) {
+      latest = {
+        ...input,
+        observation: {
+          ...input.observation,
+          frames: Array.from({ length: 8 }, (_, index) => ({
+            id: crypto.randomUUID(),
+            mediaTimeMs: index,
+            image: new Blob([new Uint8Array(size)], { type: "image/jpeg" }),
+          })),
+        },
+      };
+      expect((await browser.request("/api/assessment", latest)).status).toBe(200);
+    }
+    expect((await browser.request("/api/assessment", frameForm(input))).status).toBe(409);
+    expect((await browser.request("/api/assessment", frameForm(latest))).status).toBe(200);
+  },
+);
+
+test("workspace cache evicts across devices while retaining the active request", async () => {
+  const { browser, owner, input } = await configuredDevice();
+  expect((await browser.request("/api/assessment", input)).status).toBe(200);
+  for (let device = 0; device < 4; device++) {
+    const peer = await anotherDevice(owner);
+    for (let batch = 0; batch < 7; batch++) {
+      const upload = {
+        ...input,
+        observation: {
+          ...input.observation,
+          frames: Array.from({ length: 8 }, (_, index) => ({
+            id: crypto.randomUUID(),
+            mediaTimeMs: index,
+            image: new Blob(["jpg"], { type: "image/jpeg" }),
+          })),
+        },
+      };
+      expect((await peer.request("/api/assessment", upload)).status).toBe(200);
+    }
+  }
+  expect((await browser.request("/api/assessment", frameForm(input))).status).toBe(409);
+});
+
+test("frames expire after 60 seconds without read-based renewal and can be re-uploaded", async () => {
+  const { browser, input } = await configuredDevice();
+  const first = await browser.request("/api/assessment", input);
+  expect(first.status).toBe(200);
+  const repeated = await browser.request("/api/assessment", frameForm(input));
+  expect(repeated.headers.get("X-Lookout-Frames")).toBe(first.headers.get("X-Lookout-Frames"));
+  await new Promise((resolve) => setTimeout(resolve, 60_050));
+  expect((await browser.request("/api/assessment", frameForm(input))).status).toBe(409);
+  expect(requests).toHaveLength(2);
+  expect((await browser.request("/api/assessment", input)).status).toBe(200);
+}, 75_000);

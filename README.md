@@ -13,7 +13,7 @@ Think PagerDuty for visual events. Traffic is one use case; the product is desig
 - **Operator:** define incidents, configure roles and alert recipients, receive incidents, replay evidence and respond.
 - **Operational device:** connect CCTV/video/playback and keep monitoring active. Run the decision loop and upload video snippets only when an incident triggers.
 
-The incident path is **operational device → server → operator**. Option A, device-owned Decisions API orchestration, is the default; server-owned assessment of uploaded snippets is deferred. Non-triggered footage is not retained by Lookout. A stateless authenticated relay is recommended for browser API-key protection, with results returned to the device.
+The incident path is **operational device → server → operator**. Option A, device-owned Decisions API orchestration, is the default; server-owned assessment of uploaded snippets is deferred. Non-triggered sampled frames may be cached in memory for 60 seconds to avoid redundant device uploads; they are not written to persistent storage. An authenticated relay protects the model key and returns results to the device. The Worker requires its FRAME_CACHE Durable Object binding and class migration.
 
 ## Product direction and current status
 

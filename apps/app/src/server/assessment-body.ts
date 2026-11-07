@@ -1,8 +1,4 @@
-import {
-  assessmentLimits,
-  assessmentMetadataSchema,
-  assessmentRequestSchema,
-} from "../lib/assessment";
+import { assessmentLimits, assessmentMetadataSchema, uploadRequestSchema } from "../lib/assessment";
 
 async function readAssessmentBody(
   message: Request | Response,
@@ -79,13 +75,13 @@ export async function readAssessmentRequest(request: Request, signal: AbortSigna
     if (!expected.has(key) || form.getAll(key).length !== 1)
       throw new SyntaxError("Unexpected image part.");
   }
-  return assessmentRequestSchema.parse({
+  return uploadRequestSchema.parse({
     ...input,
     observation: {
       ...input.observation,
       frames: input.observation.frames.map((frame, index) => ({
         ...frame,
-        image: form.get(`frame-${index}`),
+        image: form.get(`frame-${index}`) ?? undefined,
       })),
     },
   });

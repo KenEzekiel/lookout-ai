@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "lookout-app",
-  "main": "@tanstack/react-start/server-entry",
+  "main": "src/server.ts",
   "compatibility_date": "2026-11-07",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
@@ -12,6 +12,8 @@
     "APP_URL": "http://localhost:3000",
     "OPENAI_BASE_URL": "https://api.openai.com/v1",
   },
+  "durable_objects": { "bindings": [{ "name": "FRAME_CACHE", "class_name": "FrameCache" }] },
+  "migrations": [{ "tag": "v1-frame-cache", "new_sqlite_classes": ["FrameCache"] }],
   "d1_databases": [
     {
       "binding": "DB",

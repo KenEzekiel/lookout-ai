@@ -1,7 +1,19 @@
-import { expect, test } from "vitest";
+// @vitest-environment node
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../support/server";
-import { requestAssessment, type AssessmentRequest } from "../../src/lib/assessment";
+import { createAssessmentClient, type AssessmentRequest } from "../../src/lib/assessment";
+
+let requestAssessment = createAssessmentClient();
+beforeEach(() => {
+  requestAssessment = createAssessmentClient();
+  const fetch = globalThis.fetch;
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(typeof input === "string" ? new URL(input, "http://localhost:3000") : input, init),
+  );
+});
+
+afterEach(() => vi.unstubAllGlobals());
 
 const observation: AssessmentRequest = {
   rule: { id: "rule-1", version: 1 },
@@ -10,6 +22,7 @@ const observation: AssessmentRequest = {
     stage: "review",
     frames: [
       {
+        id: crypto.randomUUID(),
         mediaTimeMs: 0,
         image: new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" }),
       },
@@ -19,12 +32,15 @@ const observation: AssessmentRequest = {
 
 test("client transport sends only the observation and preserves rule rejection", async () => {
   server.use(
-    http.post("/api/assessment", async ({ request }) => {
+    http.post("http://localhost:3000/api/assessment", async ({ request }) => {
       expect(request.headers.get("content-type")).toContain("multipart/form-data;");
       const form = await request.formData();
       expect(JSON.parse(String(form.get("metadata")))).toEqual({
         ...observation,
-        observation: { stage: "review", frames: [{ mediaTimeMs: 0 }] },
+        observation: {
+          stage: "review",
+          frames: [{ id: observation.observation.frames[0]?.id, mediaTimeMs: 0 }],
+        },
       });
       const image = form.get("frame-0");
       if (!image || typeof image === "string") throw new Error("Missing image.");
@@ -48,7 +64,7 @@ test.each(["positive", "rejected", "need_more_evidence"])(
   "client preserves the %s review result",
   async (outcome) => {
     const result = { kind: "review", outcome, explanation: "Visible evidence." };
-    server.use(http.post("/api/assessment", () => HttpResponse.json(result)));
+    server.use(http.post("http://localhost:3000/api/assessment", () => HttpResponse.json(result)));
     expect(await requestAssessment(observation)).toEqual(result);
   },
 );
@@ -61,7 +77,7 @@ test.each([
 ])("client maps HTTP %s without exposing error bodies", async (status, reason) => {
   server.use(
     http.post(
-      "/api/assessment",
+      "http://localhost:3000/api/assessment",
       () => new HttpResponse("private error", { status: Number(status) }),
     ),
   );
@@ -70,7 +86,7 @@ test.each([
 
 test("mismatched stages and invalid result schemas cannot become review successes", async () => {
   server.use(
-    http.post("/api/assessment", () =>
+    http.post("http://localhost:3000/api/assessment", () =>
       HttpResponse.json({ kind: "assessment", matchProbability: 1, unclearProbability: 0 }),
     ),
   );
@@ -79,7 +95,9 @@ test("mismatched stages and invalid result schemas cannot become review successe
     reason: "invalid_result",
   });
   server.use(
-    http.post("/api/assessment", () => HttpResponse.json({ kind: "review", outcome: "unknown" })),
+    http.post("http://localhost:3000/api/assessment", () =>
+      HttpResponse.json({ kind: "review", outcome: "unknown" }),
+    ),
   );
   expect(await requestAssessment(observation)).toEqual({
     kind: "unavailable",
@@ -88,7 +106,7 @@ test("mismatched stages and invalid result schemas cannot become review successe
 });
 
 test("network failure and cancellation remain explicit failures", async () => {
-  server.use(http.post("/api/assessment", () => HttpResponse.error()));
+  server.use(http.post("http://localhost:3000/api/assessment", () => HttpResponse.error()));
   expect(await requestAssessment(observation)).toEqual({
     kind: "unavailable",
     reason: "network_error",
@@ -104,7 +122,7 @@ test("network failure and cancellation remain explicit failures", async () => {
 test("client rejects invalid binary frames before sending a request", async () => {
   let calls = 0;
   server.use(
-    http.post("/api/assessment", () => {
+    http.post("http://localhost:3000/api/assessment", () => {
       calls += 1;
       return HttpResponse.json({ kind: "unavailable", reason: "provider_error" });
     }),
@@ -117,9 +135,58 @@ test("client rejects invalid binary frames before sending a request", async () =
     expect(
       await requestAssessment({
         ...observation,
-        observation: { stage: "review", frames: [{ mediaTimeMs: 0, image }] },
+        observation: {
+          stage: "review",
+          frames: [{ id: crypto.randomUUID(), mediaTimeMs: 0, image }],
+        },
       }),
     ).toEqual({ kind: "unavailable", reason: "invalid_request" });
   }
   expect(calls).toBe(0);
+});
+
+test("client omits acknowledged frame bytes and retries only a cache miss once", async () => {
+  const frame = observation.observation.frames[0];
+  if (!frame) throw new Error("Missing fixture.");
+  const uploads: boolean[] = [];
+  server.use(
+    http.post("http://localhost:3000/api/assessment", async ({ request }) => {
+      const form = await request.formData();
+      uploads.push(form.has("frame-0"));
+      if (uploads.length === 3)
+        return HttpResponse.json({ kind: "frames_missing", frameIds: [frame.id] }, { status: 409 });
+      return HttpResponse.json(
+        { kind: "review", outcome: "positive", explanation: "Visible evidence." },
+        {
+          headers: {
+            "X-Lookout-Frames": JSON.stringify([{ id: frame.id, expiresAt: Date.now() + 60_000 }]),
+          },
+        },
+      );
+    }),
+  );
+  for (let index = 0; index < 3; index++)
+    expect((await requestAssessment(observation)).kind).toBe("review");
+  expect(uploads).toEqual([true, false, false, true]);
+});
+
+test("repeated cache misses stop after one re-upload attempt", async () => {
+  let calls = 0;
+  server.use(
+    http.post("http://localhost:3000/api/assessment", () => {
+      calls++;
+      return HttpResponse.json(
+        {
+          kind: "frames_missing",
+          frameIds: observation.observation.frames.map((frame) => frame.id),
+        },
+        { status: 409 },
+      );
+    }),
+  );
+  expect(await requestAssessment(observation)).toEqual({
+    kind: "unavailable",
+    reason: "frames_missing",
+  });
+  expect(calls).toBe(2);
 });
