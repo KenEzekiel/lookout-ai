@@ -81,7 +81,7 @@ Acknowledgment does not mean resolution. Control labels and implementation state
 
 An incident explains what was observed, which source it came from, when it happened, and why it matched the rule. Keep video locally during monitoring. On a confirmed alert, upload the event clip to private server storage for later replay, including footage around the event where available. The operational device sends sampled frames for remote AI assessment through secure transport and owns the assessment loop. Notify immediately while the clip is being prepared or uploaded; show its availability explicitly. The dashboard presents evidence, owner, status, and an incident timeline.
 
-Retention duration is undecided. Use permitted footage and agreed recipients. Emergency-service dispatch and identifying people are outside the current scope.
+Server-saved incident clips expire after seven days. Use permitted footage and agreed recipients. Emergency-service dispatch and identifying people are outside the current scope.
 
 ## Priorities and AI-native direction
 
@@ -101,7 +101,7 @@ The team's development harness is a separate part of the story. Agents in the re
 - Prefer OpenAI Decisions for initial structured visual assessment if it fits, with a vision-capable model fallback. The second-stage model is undecided.
 - Periodically sample visual observations. One frame per second was an initial idea, not a fixed sampling rate or inference frequency.
 - Capture, sampling and the decision loop belong to the operational-device client. Secure request transport and supported CCTV protocols remain implementation choices.
-- Choose evidence retention, notification behavior, escalation destination, model access, storage, and deployment details as implementation becomes concrete.
+- Choose notification behavior, escalation destination, model access, storage, and deployment details as implementation becomes concrete.
 
 Real telephone calls are optional. The agreed direction is a responsive desktop/mobile client with an in-app simulated incoming-alert experience and supported web push. The required outcome is a notification followed by an accountable response. This document does not prescribe schemas, endpoint contracts, module boundaries, or a fixed task split.
 
