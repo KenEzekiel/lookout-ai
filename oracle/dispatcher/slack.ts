@@ -239,6 +239,18 @@ export async function connectSlack(options: {
     call: (method, args) => app.client.apiCall(method, args),
     onFault: options.onFault,
   });
+  const receiving = new Set<Promise<void>>();
+  let closing: Promise<void> | undefined;
+  const receive = async (args: Parameters<typeof transport.receive>[0]): Promise<void> => {
+    if (closing) return;
+    const operation = transport.receive(args);
+    receiving.add(operation);
+    try {
+      await operation;
+    } finally {
+      receiving.delete(operation);
+    }
+  };
   return {
     identity,
     publish: transport.publish,
@@ -246,15 +258,19 @@ export async function connectSlack(options: {
     context: transport.context,
     async listen(oracle) {
       app.event("app_mention", async ({ event, body }) => {
-        await transport.receive({ event, teamId: body.team_id, listener: "mention", oracle });
+        await receive({ event, teamId: body.team_id, listener: "mention", oracle });
       });
       app.event("message", async ({ event, body }) => {
-        await transport.receive({ event, teamId: body.team_id, listener: "message", oracle });
+        await receive({ event, teamId: body.team_id, listener: "message", oracle });
       });
       await app.start();
     },
-    async close() {
-      await app.stop();
+    close() {
+      closing ??= (async () => {
+        await app.stop();
+        await Promise.allSettled(receiving);
+      })();
+      return closing;
     },
   };
 }

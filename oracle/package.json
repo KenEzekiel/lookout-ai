@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx dispatcher/main.ts",
+    "start": "node dispatcher/service.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.*",
     "check:shared": "tsx tools/check-shared.ts"

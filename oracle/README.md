@@ -37,9 +37,21 @@ Enable the app's Agents feature for the native processing indicator. Oracle uses
 `agents.sessions.setStatus` as described in the
 [Slack agent guide](https://docs.slack.dev/ai/developing-agents/).
 
-Restart the dispatcher after changing its source, configuration, or
-`session/operating.md`. The operating policy is loaded at startup. This bridge does
-not automatically poll GitHub or Linear or handle agent-container onboarding.
+`pnpm oracle` supervises the dispatcher. Source and configuration changes trigger
+an automatic restart once their contents settle and accepted work finishes. The
+supervisor starts a replacement only after the old process exits and releases its
+lock. A failure or uncertain backend shutdown stops the service rather than
+restarting over a potentially active coding turn. Runtime state and logs do not
+trigger reloads. Install changed dependencies before expecting new code to start.
+
+`session/operating.md` is read and checked before every coding turn, so policy
+changes apply without restarting or interrupting an active turn. A disclosure
+refusal explains the policy boundary without repeating the protected content.
+Startup logs identify the configured T3 instance and model. This bridge does not
+automatically poll GitHub or Linear or handle agent-container onboarding.
+
+An instance started with the previous one-shot launcher needs one restart to
+enter the supervised lifecycle. Future dispatcher updates reload automatically.
 
 Interrupted turns retain context and require a fresh request. Ambiguous Slack sends
 are recorded without automatic resending. Cancellation waits for T3 to confirm the
