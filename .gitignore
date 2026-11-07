@@ -5,6 +5,7 @@ __pycache__/
 .worktree/
 todo.md
 dist/
+apps/app/public/pitch-deck.html
 .wrangler/
 .tanstack/
 .env

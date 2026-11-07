@@ -88,12 +88,14 @@ export function Workspace({
   const devices = view === "devices";
   return (
     <section className="py-8 sm:py-12">
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-5">
+      <div
+        className={`${devices ? "mb-10" : "mb-8"} flex flex-wrap items-start justify-between gap-5`}
+      >
         <div>
           <h1 className="text-page-title">{devices ? "Devices" : "Team"}</h1>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
             {devices
-              ? "Manage the devices connected to your workspace."
+              ? "Connect a capture device or open a live view of your space."
               : "The people who have access to your workspace."}
           </p>
         </div>
@@ -118,195 +120,223 @@ export function Workspace({
           )}
         </div>
       </div>
-      {devices && owner && (
-        <section
-          aria-labelledby="this-browser-title"
-          className="mb-8 flex gap-4 rounded-xl border border-border bg-card p-5 sm:p-6"
-        >
-          <AppWindow className="mt-0.5 hidden size-6 shrink-0 text-muted-foreground sm:block" />
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-3">
-              <h2 id="this-browser-title" className="font-medium">
-                This browser
-              </h2>
-              <Badge variant="outline" className="text-muted-foreground">
-                Workspace management
-              </Badge>
-            </div>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Use this browser’s camera or a local video as a capture source.
-            </p>
-            <div className="mt-5 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-                Switching signs you out of workspace management across this browser’s tabs.
-              </p>
-              <Button
-                variant="secondary"
-                icon={Monitor}
-                onClick={() => setAction({ kind: "activate" })}
-              >
-                Use this device instead
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
       {devices && <DeviceHealthPanel />}
-      {devices && <h2 className="mb-3 font-medium">Paired devices</h2>}
-      {viewing && devices && <LiveView device={viewing} onClose={() => setViewing(null)} />}
-      {devices && (
-        <p className="mb-6 rounded-lg bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-          Paired devices can monitor assigned sources while capture remains open and visible.
-          Pairing authorizes a device; monitoring health above shows its reported activity.
-        </p>
-      )}
-      {!owner && (
-        <p className="mb-6 text-sm text-muted-foreground">
-          Only your workspace owner can{" "}
-          {devices ? "add devices or remove their access" : "invite or remove team members"}.
-        </p>
-      )}
-      {notice && <output className="block mb-5 text-sm text-resolved">{notice}</output>}
-      {liveError && (
-        <output className="mb-5 block text-sm text-muted-foreground">
-          Live updates interrupted. Use Refresh to load the latest list.
-        </output>
-      )}
-      {error && (
-        <div className="mb-5 flex flex-wrap items-center gap-3">
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-          <ActionForm
-            submit="Try again"
-            pendingLabel="Trying again…"
-            variant="secondary"
-            icon={RotateCw}
-            action={async () => {
-              await refresh("");
-            }}
-          />
-        </div>
-      )}
-      {!team && !error && <LoadingState label={`Loading ${devices ? "devices" : "team"}…`} />}
-      {team &&
-        (devices ? (
-          team.devices.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border px-6 py-14 text-center">
-              <Monitor className="mx-auto mb-4 size-7 text-muted-foreground" />
-              <h2 className="font-medium">No devices connected</h2>
-              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-                {owner
-                  ? "Add a device to give it access to this workspace. You’ll connect it using a short pairing code."
-                  : "Ask your workspace owner to connect a device."}
+      <div
+        className={
+          devices && owner ? "grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]" : ""
+        }
+      >
+        <section aria-label={devices ? "Paired devices" : "Team members"} className="min-w-0">
+          {devices && (
+            <div className="mb-5">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-lg font-semibold tracking-tight">Paired devices</h2>
+                {team && (
+                  <Badge
+                    variant="secondary"
+                    aria-label={`${team.devices.length} ${team.devices.length === 1 ? "device" : "devices"}`}
+                  >
+                    {team.devices.length}
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                Pairing grants workspace access. Start capture on a device before opening Live view.
               </p>
-              {owner && (
-                <Button
-                  variant="secondary"
-                  className="mt-6"
-                  icon={Plus}
-                  onClick={() => setAction({ kind: "pair" })}
-                >
-                  Connect your first device
-                </Button>
-              )}
             </div>
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-border">
-              <ul className="divide-y divide-border">
-                {team.devices.map((device) => (
+          )}
+          {viewing && devices && <LiveView device={viewing} onClose={() => setViewing(null)} />}
+          {!owner && (
+            <p className="mb-6 text-sm text-muted-foreground">
+              Only your workspace owner can{" "}
+              {devices ? "add devices or remove their access" : "invite or remove team members"}.
+            </p>
+          )}
+          {notice && <output className="block mb-5 text-sm text-resolved">{notice}</output>}
+          {liveError && (
+            <output className="mb-5 block text-sm text-muted-foreground">
+              Live updates interrupted. Use Refresh to load the latest list.
+            </output>
+          )}
+          {error && (
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+              <ActionForm
+                submit="Try again"
+                pendingLabel="Trying again…"
+                variant="secondary"
+                icon={RotateCw}
+                action={async () => {
+                  await refresh("");
+                }}
+              />
+            </div>
+          )}
+          {!team && !error && <LoadingState label={`Loading ${devices ? "devices" : "team"}…`} />}
+          {team &&
+            (devices ? (
+              team.devices.length === 0 ? (
+                <div className="rounded-2xl bg-card px-6 py-14 text-center">
+                  <span className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
+                    <Monitor aria-hidden="true" className="size-6" />
+                  </span>
+                  <h2 className="font-medium">No devices connected</h2>
+                  <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                    {owner
+                      ? "Add a device to give it access to this workspace. You’ll connect it using a short pairing code."
+                      : "Ask your workspace owner to connect a device."}
+                  </p>
+                  {owner && (
+                    <Button
+                      variant="secondary"
+                      className="mt-6"
+                      icon={Plus}
+                      onClick={() => setAction({ kind: "pair" })}
+                    >
+                      Connect your first device
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-2xl bg-card">
+                  <ul className="divide-y divide-border">
+                    {team.devices.map((device) => (
+                      <li
+                        key={device.id}
+                        className="flex flex-col gap-4 p-5 sm:p-6 xl:flex-row xl:items-center xl:justify-between"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+                            <Monitor aria-hidden="true" className="size-5" />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-base font-medium [overflow-wrap:anywhere]">
+                                {device.name}
+                              </p>
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  device.revokedAt === null
+                                    ? "bg-signal/10 text-signal"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {device.revokedAt === null ? "Paired" : "Access removed"}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {device.revokedAt === null
+                                ? "Authorized for this workspace"
+                                : "Pair again to reconnect"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:ps-13 xl:ps-0">
+                          {device.revokedAt === null && (
+                            <Button
+                              size="sm"
+                              icon={Video}
+                              aria-label={`Live view of ${device.name}`}
+                              onClick={() => setViewing({ id: device.id, name: device.name })}
+                            >
+                              Live view
+                            </Button>
+                          )}
+                          {owner && device.revokedAt === null ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={Trash2}
+                              className="text-muted-foreground"
+                              aria-label={`Remove access for ${device.name}`}
+                              onClick={() =>
+                                setAction({
+                                  kind: "revoke-device",
+                                  id: device.id,
+                                  name: device.name,
+                                })
+                              }
+                            >
+                              Remove access
+                            </Button>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            ) : (
+              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                {team.members.map((person) => (
                   <li
-                    key={device.id}
-                    className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+                    key={person.userId}
+                    className="flex flex-wrap items-center justify-between gap-4 px-5 py-5"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <Monitor className="hidden size-5 shrink-0 text-muted-foreground sm:block" />
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm text-muted-foreground">
+                        <Users className="size-4" />
+                      </span>
                       <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="break-words text-sm font-medium">{device.name}</p>
-                          <Badge variant="outline" className="text-muted-foreground">
-                            {device.revokedAt === null ? "Paired" : "Access removed"}
-                          </Badge>
-                        </div>
+                        <p className="break-words text-sm font-medium">
+                          {person.name}
+                          {person.userId === actor.userId && (
+                            <span className="ml-2 text-xs text-muted-foreground">You</span>
+                          )}
+                        </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {device.revokedAt === null
-                            ? "Authorized for this workspace"
-                            : "Pair again to reconnect"}
+                          {person.role === "owner" ? "Owner" : "Operator"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-                      {device.revokedAt === null && (
-                        <Button
-                          size="sm"
-                          icon={Video}
-                          aria-label={`Live view of ${device.name}`}
-                          onClick={() => setViewing({ id: device.id, name: device.name })}
-                        >
-                          Live view
-                        </Button>
-                      )}
-                      {owner && device.revokedAt === null ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={Trash2}
-                          className="text-muted-foreground"
-                          aria-label={`Remove access for ${device.name}`}
-                          onClick={() =>
-                            setAction({ kind: "revoke-device", id: device.id, name: device.name })
-                          }
-                        >
-                          Remove access
-                        </Button>
-                      ) : null}
-                    </div>
+                    {owner && person.role === "operator" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={Trash2}
+                        className="text-muted-foreground"
+                        aria-label={`Remove ${person.name}`}
+                        onClick={() =>
+                          setAction({ kind: "remove-member", id: person.userId, name: person.name })
+                        }
+                      >
+                        Remove
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>
-            </div>
-          )
-        ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-            {team.members.map((person) => (
-              <li
-                key={person.userId}
-                className="flex flex-wrap items-center justify-between gap-4 px-5 py-5"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm text-muted-foreground">
-                    <Users className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="break-words text-sm font-medium">
-                      {person.name}
-                      {person.userId === actor.userId && (
-                        <span className="ml-2 text-xs text-muted-foreground">You</span>
-                      )}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {person.role === "owner" ? "Owner" : "Operator"}
-                    </p>
-                  </div>
-                </div>
-                {owner && person.role === "operator" && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={Trash2}
-                    className="text-muted-foreground"
-                    aria-label={`Remove ${person.name}`}
-                    onClick={() =>
-                      setAction({ kind: "remove-member", id: person.userId, name: person.name })
-                    }
-                  >
-                    Remove
-                  </Button>
-                )}
-              </li>
             ))}
-          </ul>
-        ))}
+        </section>
+        {devices && owner && (
+          <section aria-labelledby="this-browser-title" className="min-w-0 rounded-2xl bg-card p-6">
+            <span className="mb-5 flex size-11 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+              <AppWindow aria-hidden="true" className="size-5" />
+            </span>
+            <h2 id="this-browser-title" className="text-lg font-semibold tracking-tight">
+              This browser
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">Workspace management</p>
+            <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+              Use this browser’s camera or a local video as a capture source.
+            </p>
+            <Button
+              variant="secondary"
+              icon={Monitor}
+              className="mt-5 w-full"
+              onClick={() => setAction({ kind: "activate" })}
+            >
+              Use this device instead
+            </Button>
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              Switching signs you out of workspace management across this browser’s tabs.
+            </p>
+          </section>
+        )}
+      </div>
       {action && owner && (
         <WorkspaceActions
           action={action}

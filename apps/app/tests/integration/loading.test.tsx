@@ -164,7 +164,7 @@ test("sign-in feedback preserves values after failure and allows retry", async (
       return HttpResponse.json({ message: "Please check your password" }, { status: 401 });
     }),
   );
-  await open("/");
+  await open("/devices");
   const user = userEvent.setup();
   await user.type(await screen.findByLabelText("Email"), "alex@example.com");
   await user.type(screen.getByLabelText("Password"), "wrong-password");

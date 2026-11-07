@@ -16,6 +16,10 @@ Devices lists authorization, not remote capture health. **Add device** opens a c
 
 Paired devices show **Device connected** and **Open capture station**. Capture is available locally after the main-branch capture integration; AI detection and alerts remain unconnected. Do not imply that authorization means capture is running. All actions use specific pending labels and retain entered fields after a failed request.
 
+## Public landing page
+
+The public `/` page introduces Lookout before the access flow. Carry cobalt behind the navigation and centered headline, with light from the upper corners and large circular arcs at both sides. Let the footage preview overlap the lower hero, with two larger tilted warm-white cards carrying illustrative incident and review details behind it. Use the identity colors defined above. Keep the Horizon mark and the dark product preview so the composition remains Lookout's own. The preview uses a generated parking-area image and is labeled as an example, not live footage or a running assessment. The preview and cards lift slightly on scroll and stay still under reduced motion. The primary action opens the existing `/devices` access flow. Keep the explanation short and concrete so the page remains a useful first step for a hackathon demo.
+
 ## Product character
 
 Lookout helps a camera owner notice an event, inspect evidence, and own the response. The operational device needs a calm, legible status screen for long-running capture. The operator needs a clear workspace when an alert interrupts someone. The two clients have separate controls and permissions, even when they share visual components and deployment infrastructure.
