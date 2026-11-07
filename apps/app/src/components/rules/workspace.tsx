@@ -78,7 +78,7 @@ export function RuleWorkspace() {
         <div className="flex gap-3">
           <ActionForm submit="Reload triggers" pendingLabel="Reloading triggers…" action={reload} />
           <Button
-            disabled={!configuration?.sources.length}
+            disabled={!configuration}
             onClick={(event) => {
               editorTrigger.current = event.currentTarget;
               setEditor({ kind: "new", open: true });
@@ -160,7 +160,7 @@ export function RuleWorkspace() {
               No triggers yet.{" "}
               {configuration.sources.length
                 ? "Choose New trigger to define an event and its recipients."
-                : "Add a source to create your first trigger."}
+                : "Choose New trigger to define an incident and add its source."}
             </p>
           )}
           {editor.kind !== "closed" && (
@@ -181,12 +181,17 @@ export function RuleWorkspace() {
                   {editor.kind === "edit" ? "Edit trigger" : "New trigger"}
                 </DialogTitle>
                 <DialogDescription>
-                  Choose what to watch for and review who should receive the alert.
+                  Define the incident, choose a source, and review who should receive the alert.
                 </DialogDescription>
                 <RuleEditor
                   key={editor.kind === "edit" ? editor.rule.id : "new"}
                   configuration={configuration}
                   rule={editor.kind === "edit" ? editor.rule : undefined}
+                  onSourceAdded={(source) =>
+                    setConfiguration(
+                      (current) => current && { ...current, sources: [...current.sources, source] },
+                    )
+                  }
                   onSaved={saved}
                   onCancel={closeEditor}
                 />

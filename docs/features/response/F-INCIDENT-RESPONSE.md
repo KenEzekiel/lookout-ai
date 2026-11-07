@@ -20,6 +20,8 @@ Devices use the HTTP endpoints below. There is no production synthetic-event but
 
 ## Wiring and compatibility
 
+Custom incident definitions may carry optional exclusions. The shared rule schema preserves them in immutable incident snapshots, and the incident detail uses `conditionText` to show them. Older template snapshots and custom snapshots without exclusions remain readable.
+
 F-RULE-CONFIG owns [rule, source, and recipient references](../../../apps/app/src/lib/rules.ts). Report insertion checks the current enabled rule version and matching workspace source in the same SQL statement. It snapshots that source and complete authoritative rule definition, including recipients, severity, and escalation delay. Later configuration changes do not rewrite incident context. Client-provided recipient or severity fields are rejected.
 
 F-AUTH-ACCESS `member` protects inbox, detail, and commands. `monitoringDevice` protects session and report endpoints and checks revocation for every request. Workspace and device IDs come from the principal. Inserts recheck device revocation, and command writes recheck current membership. Devices cannot read the operator inbox or issue response commands. Cross-workspace reads and writes cannot access incidents.

@@ -16,7 +16,11 @@ export const ruleDefinitionSchema = z.object({
   name: z.string().trim().min(1).max(80),
   condition: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("template"), template: z.enum(["fall", "crash"]) }),
-    z.object({ kind: z.literal("custom"), text: z.string().trim().min(10).max(1000) }),
+    z.object({
+      kind: z.literal("custom"),
+      text: z.string().trim().min(10).max(1000),
+      exclusions: z.string().trim().max(1000).optional(),
+    }),
   ]),
   durationSeconds: z.number().int().min(1).max(3600).nullable(),
   severity: z.enum(["warning", "critical"]),
@@ -52,5 +56,9 @@ export type RuleInput = z.infer<typeof ruleInputSchema>;
 export type DeviceConfiguration = z.infer<typeof deviceConfigurationSchema>;
 export type OperatorConfiguration = z.infer<typeof operatorConfigurationSchema>;
 export function conditionText(condition: Rule["definition"]["condition"]) {
-  return condition.kind === "template" ? ruleTemplates[condition.template].text : condition.text;
+  return condition.kind === "template"
+    ? ruleTemplates[condition.template].text
+    : [condition.text, condition.exclusions ? `Exclude: ${condition.exclusions}` : ""]
+        .filter(Boolean)
+        .join("\n");
 }

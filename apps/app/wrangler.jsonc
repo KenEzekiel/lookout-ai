@@ -19,4 +19,23 @@
       "migrations_dir": "migrations",
     },
   ],
+  "env": {
+    "production": {
+      "name": "lookout-app",
+      "account_id": "2f6bb1f1780c697bf3f7756cbb9648c7",
+      "workers_dev": true,
+      "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+      "vars": {
+        "APP_URL": "https://lookout-app.lookout-ai.workers.dev",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "lookout-access",
+          "database_id": "7c08fc58-6be8-4b79-9e65-ce61f4c745c0",
+          "migrations_dir": "migrations",
+        },
+      ],
+    },
+  },
 }

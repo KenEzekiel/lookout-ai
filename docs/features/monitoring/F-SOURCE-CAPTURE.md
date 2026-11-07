@@ -20,9 +20,11 @@ Open `/device` using **Open capture station** from the paired-device home screen
 
 F-RULE-CONFIG creates named source metadata with stable `id`, `name`, and `kind` (`camera` or `replay`) in its [shared contract](../../../apps/app/src/lib/rules.ts). `/monitor` reads the catalog from `GET /api/config/device`. The existing `/device` capture screen still selects a camera or file independently; connecting its capture identity to this source ID remains unimplemented. Creating a source does not start capture.
 
-Use the paired device identity from F-AUTH-ACCESS. Pairing grants workspace-wide source access but does not start capture. The route gates capture on the device principal, and samples and recent-video handles carry its workspace and device IDs. A revoked principal unmounts the screen and stops capture on the next access check. No capture data is sent to the server in this slice.
+Use the paired device identity from F-AUTH-ACCESS. Pairing grants workspace-wide source access but does not start capture. The route gates capture on the device principal, and samples and recent-video handles carry its workspace and device IDs. A revoked principal unmounts the screen and stops capture on the next access check. No capture media is sent to the server. F-SOURCE-PEER can share video tracks with an authorized operator through direct WebRTC while capture runs.
 
 Expose source timestamps, capture run identity, lifecycle changes, and buffer access for later assessment and clip preservation. Seeking or restarting starts a new run and clears old frame samples. Camera segments rotate in browser memory; Stop releases the camera, sampler, and buffer. Event-interval extraction, rule assignment, assessment, and clip upload remain unconnected. Never persist untriggered video on the Lookout server.
+
+F-SOURCE-PEER uses `getPeerStream()` to clone the active camera stream or capture the existing local-video element where supported. Closing viewing stops only those outgoing tracks. The capture station starts and ends source presence with its active capture run. Pausing, seeking, stopping, and capture errors end the associated live session; retry creates another peer connection.
 
 The incident service now has server-owned per-source session leases. The local capture epoch is not that session ID. The future assessment integration must select a configured source, start a new `/api/incidents/sessions` lease for a capture run, and end it on Stop or failure. This connection is still missing, so local capture alone cannot submit an accepted incident.
 

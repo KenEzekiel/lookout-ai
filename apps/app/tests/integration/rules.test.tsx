@@ -78,7 +78,7 @@ async function open(path = "/triggers") {
   return userEvent.setup();
 }
 
-test("operators create fall, crash and custom triggers, edit and disable them, then reload", async () => {
+test("operators define incidents with exclusions, edit and disable them, then reload", async () => {
   principal = { ...owner, role: "operator" };
   server.use(
     http.post("/api/config/rules/disable", async ({ request }) => {
@@ -101,39 +101,45 @@ test("operators create fall, crash and custom triggers, edit and disable them, t
   expect(await screen.findByText(/No triggers yet/)).toBeVisible();
   await user.click(screen.getByRole("button", { name: "New trigger" }));
   expect(screen.getByLabelText("Alex (owner)")).toBeChecked();
-  await user.click(screen.getByRole("button", { name: "Save trigger" }));
+  expect(screen.queryByLabelText("Start from")).not.toBeInTheDocument();
+  await user.type(screen.getByLabelText("Incident name"), "Possible fall");
+  await user.click(screen.getByLabelText("What should count?"));
+  await user.paste("A person falls to the floor.");
+  await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByRole("article", { name: "Possible fall" })).toHaveTextContent(
     "Enabled · Version 1",
   );
   await user.click(screen.getByRole("button", { name: "New trigger" }));
-  await user.click(screen.getByLabelText("Start from"));
-  await user.click(await screen.findByRole("option", { name: "Possible crash" }));
+  await user.type(screen.getByLabelText("Incident name"), "Possible crash");
+  await user.click(screen.getByLabelText("What should count?"));
+  await user.paste("Two vehicles visibly collide.");
   await user.click(screen.getByLabelText("Source", { exact: true }));
   await user.click(await screen.findByRole("option", { name: /Replayed footage/ }));
-  await user.click(screen.getByRole("button", { name: "Save trigger" }));
+  await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByRole("article", { name: "Possible crash" })).toHaveTextContent(
     "Replayed footage",
   );
   await user.click(screen.getByRole("button", { name: "New trigger" }));
-  await user.click(screen.getByLabelText("Start from"));
-  await user.click(await screen.findByRole("option", { name: "Custom description" }));
-  await user.type(screen.getByLabelText("Trigger name"), "Blocked exit");
-  await user.type(
-    screen.getByLabelText("Observable event"),
-    "A vehicle blocks the marked emergency exit.",
-  );
+
+  await user.type(screen.getByLabelText("Incident name"), "Blocked exit");
+  await user.click(screen.getByLabelText("What should count?"));
+  await user.paste("A vehicle blocks the marked emergency exit.");
+  await user.click(screen.getByLabelText("What should not count? (optional)"));
+  await user.paste("Vehicles passing the exit without stopping.");
+  await user.click(screen.getByText("Timing and urgency"));
   await user.type(screen.getByLabelText("Duration condition (seconds, optional)"), "15");
   await user.click(screen.getByLabelText("Severity", { exact: true }));
   await user.click(await screen.findByRole("option", { name: "Warning" }));
   await user.click(screen.getByLabelText("Taylor (operator)"));
-  await user.click(screen.getByRole("button", { name: "Save trigger" }));
+  await user.click(screen.getByRole("button", { name: "Save enabled" }));
   const custom = await screen.findByRole("article", { name: "Blocked exit" });
+  expect(custom).toHaveTextContent("Exclude: Vehicles passing the exit without stopping.");
   expect(custom).toHaveTextContent("15 seconds");
   expect(custom).toHaveTextContent("Alex, Taylor");
   await user.click(screen.getByRole("button", { name: "Edit Possible fall" }));
-  await user.clear(screen.getByLabelText("Escalation delay (seconds)"));
-  await user.type(screen.getByLabelText("Escalation delay (seconds)"), "120");
-  await user.click(screen.getByRole("button", { name: "Save trigger" }));
+  await user.clear(screen.getByLabelText("Notify again if nobody acknowledges (seconds)"));
+  await user.type(screen.getByLabelText("Notify again if nobody acknowledges (seconds)"), "120");
+  await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByText("Possible fall saved. Enabled at version 2.")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Disable Possible fall" }));
   expect(await screen.findByRole("article", { name: "Possible fall" })).toHaveTextContent(
@@ -149,8 +155,10 @@ test("operators create fall, crash and custom triggers, edit and disable them, t
 test("recipient validation and stale-save errors preserve the draft and allow recovery", async () => {
   const user = await open();
   await user.click(await screen.findByRole("button", { name: "New trigger" }));
+  await user.type(screen.getByLabelText("Incident name"), "Possible fall");
+  await user.type(screen.getByLabelText("What should count?"), "A person falls to the floor.");
   await user.click(screen.getByLabelText("Alex (owner)"));
-  await user.click(screen.getByRole("button", { name: "Save trigger" }));
+  await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Choose at least one alert recipient.",
   );
@@ -164,9 +172,9 @@ test("recipient validation and stale-save errors preserve the draft and allow re
       ),
     ),
   );
-  await user.click(screen.getByRole("button", { name: "Save trigger" }));
+  await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Rule changed");
-  expect(screen.getByLabelText("Trigger name")).toHaveValue("Possible fall");
+  expect(screen.getByLabelText("Incident name")).toHaveValue("Possible fall");
   expect(screen.getByLabelText("Taylor (operator)")).toBeChecked();
   await user.click(screen.getByRole("button", { name: "Cancel editing" }));
   await user.click(screen.getByRole("button", { name: "Reload triggers" }));
@@ -185,7 +193,7 @@ test("empty sources guide setup, reject duplicate-source errors and enable trigg
     }),
   );
   const user = await open();
-  expect(await screen.findByRole("button", { name: "New trigger" })).toBeDisabled();
+  await waitFor(() => expect(screen.getByRole("button", { name: "New trigger" })).toBeEnabled());
   await user.type(await screen.findByLabelText("Source name"), "Living room");
   await user.click(screen.getByRole("button", { name: "Add source" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("already exists");
@@ -196,7 +204,7 @@ test("empty sources guide setup, reject duplicate-source errors and enable trigg
     ),
   );
   await user.click(screen.getByRole("button", { name: "Add source" }));
-  expect(await screen.findByRole("button", { name: "New trigger" })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole("button", { name: "New trigger" })).toBeEnabled());
   await user.click(screen.getByRole("button", { name: "New trigger" }));
   expect(screen.getByLabelText("Source", { exact: true })).toHaveTextContent(
     "Living room (Live camera)",
@@ -266,23 +274,25 @@ test("members navigate between workspace access and triggers with one active des
 test("trigger dropdowns show labels and support keyboard selection and dismissal", async () => {
   const user = await open();
   await user.click(await screen.findByRole("button", { name: "New trigger" }));
-  const template = screen.getByRole("combobox", { name: "Start from" });
-  expect(template).toHaveTextContent("Possible fall");
-  expect(screen.getByRole("combobox", { name: "Source" })).toHaveTextContent(
-    "Living room (Live camera)",
-  );
-  expect(screen.getByRole("combobox", { name: "Severity" })).toHaveTextContent("Critical");
-  template.focus();
+  await waitFor(() => expect(screen.getByLabelText("Incident name")).toHaveFocus());
+  const source = screen.getByRole("combobox", { name: "Source" });
+  expect(source).toHaveTextContent("Living room (Live camera)");
+  source.focus();
   await user.keyboard("{ArrowDown}");
   expect(await screen.findByRole("listbox")).toBeVisible();
-  await user.keyboard("{End}{Enter}");
-  expect(template).toHaveTextContent("Custom description");
-  expect(screen.getByLabelText("Observable event")).toBeVisible();
-  expect(template).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole("option", { name: "Living room (Live camera)" })).toHaveFocus(),
+  );
+  await user.keyboard("{End}");
+  await waitFor(() =>
+    expect(screen.getByRole("option", { name: "Crash demo (Replayed footage)" })).toHaveFocus(),
+  );
+  await user.keyboard("{Enter}");
+  expect(source).toHaveTextContent("Crash demo (Replayed footage)");
+  expect(source).toHaveFocus();
   await user.keyboard("{ArrowDown}{Escape}");
   expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-  expect(template).toHaveTextContent("Custom description");
-  expect(template).toHaveFocus();
+  expect(source).toHaveFocus();
   await user.click(screen.getByRole("button", { name: "Cancel editing" }));
   expect(screen.queryByRole("region", { name: "Trigger editor" })).not.toBeInTheDocument();
 });
@@ -301,15 +311,58 @@ test("trigger dialogs focus the editor and restore the opening button on cancel 
   const edit = screen.getByRole("button", { name: "Edit Possible fall" });
   await user.click(edit);
   expect(await screen.findByRole("dialog", { name: "Edit trigger" })).toBeVisible();
-  expect(screen.getByLabelText("Trigger name")).toHaveValue("Possible fall");
+  expect(screen.getByLabelText("Incident name")).toHaveValue("Possible fall");
   await user.click(screen.getByRole("button", { name: "Cancel editing" }));
   await waitFor(() => expect(edit).toHaveFocus());
   expect(configuration.rules).toEqual([fall]);
   await user.click(create);
-  await user.clear(screen.getByLabelText("Trigger name"));
-  await user.type(screen.getByLabelText("Trigger name"), "Unsaved draft");
+  await user.clear(screen.getByLabelText("Incident name"));
+  await user.type(screen.getByLabelText("Incident name"), "Unsaved draft");
   await user.click(screen.getByRole("button", { name: "Cancel editing" }));
   await waitFor(() => expect(create).toHaveFocus());
   await user.click(create);
-  expect(screen.getByLabelText("Trigger name")).toHaveValue("Possible fall");
+  expect(screen.getByLabelText("Incident name")).toHaveValue("");
+});
+
+test("a first trigger adds its source inline, reviews exclusions and saves disabled", async () => {
+  configuration.sources = [];
+  server.use(
+    http.post("/api/config/sources", async ({ request }) => {
+      expect(await request.json()).toEqual({ name: "Workshop", kind: "camera" });
+      const source = { id: "workshop", name: "Workshop", kind: "camera" as const };
+      configuration.sources.push(source);
+      return HttpResponse.json(source, { status: 201 });
+    }),
+  );
+  const user = await open();
+  await user.click(await screen.findByRole("button", { name: "New trigger" }));
+  const dialog = await screen.findByRole("dialog");
+  await user.type(within(dialog).getByLabelText("Incident name"), "Blocked doorway");
+  await user.type(
+    within(dialog).getByLabelText("What should count?"),
+    "A box obstructs the entire doorway.",
+  );
+  await user.type(
+    within(dialog).getByLabelText("What should not count? (optional)"),
+    "People walking through.",
+  );
+  await user.click(within(dialog).getByRole("button", { name: "Add source" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent("Enter a source name");
+  await user.type(within(dialog).getByLabelText("Source name"), "Workshop");
+  await user.click(within(dialog).getByRole("button", { name: "Add source" }));
+  await waitFor(() =>
+    expect(within(dialog).getByRole("combobox", { name: "Source" })).toHaveTextContent("Workshop"),
+  );
+  expect(within(dialog).getByRole("region", { name: "Review trigger" })).toHaveTextContent(
+    "Exclude: People walking through.",
+  );
+  await user.click(within(dialog).getByLabelText("Enable this trigger"));
+  await user.click(within(dialog).getByRole("button", { name: "Save disabled" }));
+  expect(await screen.findByRole("article", { name: "Blocked doorway" })).toHaveTextContent(
+    "Disabled",
+  );
+  await user.click(screen.getByRole("button", { name: "Edit Blocked doorway" }));
+  expect(screen.getByLabelText("What should not count? (optional)")).toHaveValue(
+    "People walking through.",
+  );
 });
