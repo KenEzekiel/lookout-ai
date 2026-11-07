@@ -1,7 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { LandingPage } from "@/components/landing-page";
 
 export const Route = createFileRoute("/")({
-  beforeLoad: () => {
-    throw redirect({ to: "/devices", replace: true });
-  },
+  head: () => ({ links: [{ rel: "preload", as: "image", href: "/landing-camera.jpg" }] }),
+  component: LandingPage,
 });

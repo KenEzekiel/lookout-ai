@@ -5,7 +5,7 @@ for (const width of [1440, 390]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 960 });
-    await page.goto("/");
+    await page.goto("/devices");
     await page.getByRole("button", { name: "Create an account" }).click();
     await page.getByLabel("Your name").fill("Typography owner");
     await page.getByLabel("Email", { exact: true }).fill(`${crypto.randomUUID()}@example.com`);
