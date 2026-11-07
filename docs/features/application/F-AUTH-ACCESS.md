@@ -6,6 +6,8 @@ Depends on: none
 
 ## Behavior
 
+The account-mode prompt centers its label and inline action with an explicit 8-pixel horizontal gap and shared vertical alignment. Both sign-in and registration prompts wrap between the label and action on narrow screens. This spacing fix is introduced by the current PR in [the account screen](../../../apps/app/src/components/access/account.tsx); authentication behavior is unchanged.
+
 Account, onboarding, pairing, invitation, retry, and removal controls use the shared action icons and size variants described by F-APP-SHELL. Live view and Remove access use the same compact size within each device row; dialogs retain visible labels and confirmation boundaries.
 
 Devices and Team use list skeletons until their first read completes. Account, onboarding, pairing, invitations, access removal, sign-out, retries, and configuration refresh use shared busy buttons with specific pending labels and duplicate-submit protection. Forms reserve label width and retain values on failure.

@@ -58,8 +58,8 @@ export function Account({
           }
         />
       </ActionForm>
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        {register ? "Already have an account?" : "New to Lookout?"}{" "}
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm text-muted-foreground">
+        <span>{register ? "Already have an account?" : "New to Lookout?"}</span>
         <Button
           variant="link"
           size="inline"
@@ -69,7 +69,7 @@ export function Account({
         >
           {register ? "Sign in" : "Create an account"}
         </Button>
-      </p>
+      </div>
       <div className="mt-10 border-t border-border pt-6 text-center text-sm">
         <Link to="/monitor" className="text-muted-foreground hover:text-foreground">
           Set up this device
