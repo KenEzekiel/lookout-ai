@@ -40,7 +40,11 @@ F-DETECT-REVIEW connects `/device` capture to a selected configured source and p
 
 F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to advance through in-app escalation levels while unacknowledged. Later rule edits do not reschedule it. F-ALERT-PUSH preserves the independent initial background-delivery path.
 
+F-DEVICE-HEALTH compares authoritative source rule versions, including disabled rules, with versions applied by the capture controller. Receipt on `/monitor` remains distinct from application. Operator health reads use the current stored configuration, so edits and disables are visible as mismatches until applied.
+
 ## Implementation
+
+The trigger workspace uses the shared 30 px page-title role and a level-one heading, matching Devices and Incidents. The editor dialog uses the shared 20 px panel-title role, and inherited body text follows the 15 px app default. [Typography browser journeys](../../../tests/e2e/typography.spec.ts) check the title, editor, Escape dismissal, and focus return at desktop and narrow widths. This PR changes presentation only; rule schemas and save semantics remain unchanged.
 
 [Shared schemas](../../../apps/app/src/lib/rules.ts), [configuration handlers](../../../apps/app/src/server/rules.ts), [route adapter](../../../apps/app/src/routes/api/config/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [migration](../../../apps/app/migrations/0002_rule_configuration.sql) implement storage and delivery. [Workspace operations](../../../apps/app/src/server/workspaces.ts) disable rules when recipients leave.
 

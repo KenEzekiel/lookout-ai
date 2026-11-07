@@ -23,6 +23,7 @@ import { Route as WorkspaceIncidentsIncidentIdRouteImport } from './routes/_work
 import { Route as ApiAccessSplatRouteImport } from './routes/api/access/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiConfigSplatRouteImport } from './routes/api/config/$'
+import { Route as ApiHealthSplatRouteImport } from './routes/api/health/$'
 import { Route as ApiIncidentsSplatRouteImport } from './routes/api/incidents/$'
 import { Route as ApiPeerSplatRouteImport } from './routes/api/peer/$'
 import { Route as ApiPushSplatRouteImport } from './routes/api/push/$'
@@ -97,6 +98,11 @@ const ApiConfigSplatRoute = ApiConfigSplatRouteImport.update({
   path: '/api/config/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthSplatRoute = ApiHealthSplatRouteImport.update({
+  id: '/api/health/$',
+  path: '/api/health/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiIncidentsSplatRoute = ApiIncidentsSplatRouteImport.update({
   id: '/api/incidents/$',
   path: '/api/incidents/$',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
+  '/api/health/$': typeof ApiHealthSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
   '/api/peer/$': typeof ApiPeerSplatRoute
   '/api/push/$': typeof ApiPushSplatRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
+  '/api/health/$': typeof ApiHealthSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
   '/api/peer/$': typeof ApiPeerSplatRoute
   '/api/push/$': typeof ApiPushSplatRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
+  '/api/health/$': typeof ApiHealthSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
   '/api/peer/$': typeof ApiPeerSplatRoute
   '/api/push/$': typeof ApiPushSplatRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
+    | '/api/health/$'
     | '/api/incidents/$'
     | '/api/peer/$'
     | '/api/push/$'
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
+    | '/api/health/$'
     | '/api/incidents/$'
     | '/api/peer/$'
     | '/api/push/$'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
+    | '/api/health/$'
     | '/api/incidents/$'
     | '/api/peer/$'
     | '/api/push/$'
@@ -237,6 +249,7 @@ export interface RootRouteChildren {
   ApiAccessSplatRoute: typeof ApiAccessSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiConfigSplatRoute: typeof ApiConfigSplatRoute
+  ApiHealthSplatRoute: typeof ApiHealthSplatRoute
   ApiIncidentsSplatRoute: typeof ApiIncidentsSplatRoute
   ApiPeerSplatRoute: typeof ApiPeerSplatRoute
   ApiPushSplatRoute: typeof ApiPushSplatRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConfigSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health/$': {
+      id: '/api/health/$'
+      path: '/api/health/$'
+      fullPath: '/api/health/$'
+      preLoaderRoute: typeof ApiHealthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/incidents/$': {
       id: '/api/incidents/$'
       path: '/api/incidents/$'
@@ -396,6 +416,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAccessSplatRoute: ApiAccessSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiConfigSplatRoute: ApiConfigSplatRoute,
+  ApiHealthSplatRoute: ApiHealthSplatRoute,
   ApiIncidentsSplatRoute: ApiIncidentsSplatRoute,
   ApiPeerSplatRoute: ApiPeerSplatRoute,
   ApiPushSplatRoute: ApiPushSplatRoute,
@@ -403,12 +424,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
