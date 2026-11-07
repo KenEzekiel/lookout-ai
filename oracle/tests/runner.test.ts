@@ -67,6 +67,7 @@ test("requests, history, progress and replies preserve names, paths and credenti
       ],
       truncated: false,
     }),
+    profiles: async () => ({ users: [], unresolved: [], mappings: "available", truncated: false }),
   });
   const oracle = await createOracle({
     sessions,
@@ -167,6 +168,7 @@ test("saved main-checkout conversations resume in worktree threads with their hi
     workspace: "/workspace/oracle",
     policy: async () => "Operating rules",
     context: async () => ({ kind: "unavailable" }),
+    profiles: async () => ({ users: [], unresolved: [], mappings: "available", truncated: false }),
     client: {
       launch: async ({ workspace }) => {
         assert.equal(workspace, "/workspace/oracle");
@@ -226,6 +228,7 @@ test("a backend that binds the wrong workspace never receives a coding message",
     workspace: "/workspace/oracle",
     policy: async () => "Rules",
     context: async () => ({ kind: "unavailable" }),
+    profiles: async () => ({ users: [], unresolved: [], mappings: "available", truncated: false }),
     client: {
       launch: async () => ({ threadId: "wrong-thread", projectId: "project", runId: null }),
       read: async () => ({

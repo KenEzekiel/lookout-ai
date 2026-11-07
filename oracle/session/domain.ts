@@ -26,6 +26,18 @@ export type ThreadContext =
       truncated: boolean;
     }
   | { kind: "unavailable" };
+export type UserProfiles = {
+  users: readonly {
+    slackUserId: string;
+    slackUsername: string | null;
+    displayName: string | null;
+    realName: string | null;
+    githubLogin: string | null;
+  }[];
+  unresolved: readonly string[];
+  mappings: "available" | "unavailable";
+  truncated: boolean;
+};
 export const outcomeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("reply"), text: z.string().min(1).max(6000) }),
   z.object({ kind: z.literal("silent") }),

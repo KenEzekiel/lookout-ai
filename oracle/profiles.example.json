@@ -1,0 +1,9 @@
+{
+  "teamId": "TTEAM1",
+  "users": [
+    {
+      "slackUserId": "UTEAMMATE1",
+      "githubLogin": "example-teammate"
+    }
+  ]
+}

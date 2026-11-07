@@ -74,6 +74,55 @@ and includes bounded context with the current request and saved conversation
 history. A bare mention can refer to the preceding request. Missing history is
 reported to the model so it can ask for context rather than invent it.
 
+## Resolve teammate identities
+
+Slack names come from `users.info` using the existing `users:read` scope. Oracle
+includes profiles for the requester, mentioned users, thread authors, and configured
+teammates, up to 64 identities per turn. Only verified, active human members of the
+connected workspace receive profiles. Profile fields include username, display name,
+and real name, bounded to 200 characters each. Emails and custom profile fields
+are not included. Slack profiles use the same process-local cache as membership
+verification.
+
+Copy `profiles.example.json` to `.local/profiles.json` in the Oracle service
+checkout. Replace the example workspace ID, Slack user IDs, and GitHub logins
+with confirmed identities. The file is ignored by Git. Its shape is:
+
+```json
+{
+  "teamId": "TTEAM1",
+  "users": [{ "slackUserId": "UTEAMMATE1", "githubLogin": "example-teammate" }]
+}
+```
+
+Each Slack ID and GitHub login must appear at most once. The map accepts up to
+64 people and must match the connected workspace. Oracle reads it before every
+turn, so edits take effect without restarting. A missing file means no GitHub
+accounts are mapped. Invalid, unreadable, duplicate, or foreign-workspace maps
+produce an unavailable status without supplying any GitHub associations.
+
+Oracle uses configured GitHub logins for assignments and asks in Slack when a
+login is missing. It never guesses a login from a Slack name or the local GitHub
+CLI account. An explicit Slack answer can resolve the current task. Maintainers
+own durable map edits. A configured association does not grant project permissions.
+
+Ordinary questions use the existing reply protocol and stay in the originating
+Slack thread. The next Slack reply resumes the same conversation. Sensitive
+questions and tool approvals use T3's private input flow. Only a generic notice
+goes to Slack when private input is needed. This routing is an operating instruction
+to the model, not an automatic content classifier. Unexpected backend input gates
+retain the existing generic T3 fallback.
+
+The dispatcher owns profile resolution and membership checks. The session runner
+receives a typed `profiles` object alongside the request and thread context.
+Keeping resolution at this boundary avoids giving the coding agent Slack tokens
+or another message destination. A prompt-only directory would leave names
+unresolved, while matching names or emails automatically would guess account
+ownership. The explicit workspace-scoped map supplies associations for verified
+members without changing transport permissions.
+
+## Slack connection
+
 The Slack app needs `users:read`, `chat:write`, `assistant:write`, `app_mentions:read`,
 and history scopes for the conversations it serves. Enable Socket Mode and subscribe
 to `app_mention`, `message.channels`, `message.groups`, and `message.im` to receive
