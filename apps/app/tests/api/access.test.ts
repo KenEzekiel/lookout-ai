@@ -641,7 +641,7 @@ test("device event retries create one persistent incident with authoritative sou
     status: "open",
     version: 1,
     owner: null,
-    evidenceStatus: "pending",
+    evidenceStatus: "preparing",
     notificationStatus: "not-sent",
   });
   expect(first.timeline).toHaveLength(1);
@@ -891,7 +891,7 @@ test("acknowledgment records one owner and stale concurrent responses never over
   expect(acknowledged).toMatchObject({
     status: "acknowledged",
     version: 2,
-    evidenceStatus: "pending",
+    evidenceStatus: "preparing",
   });
   expect(acknowledged.owner?.userId).toBe(acknowledged.timeline[1]?.actorId);
   expect(acknowledged.timeline).toHaveLength(2);
@@ -931,6 +931,172 @@ test("dismiss records incorrect-alert feedback independently of resolution", asy
     reportReceiptSchema.parse(await (await device.request("/api/incidents/reports", report)).json())
       .incident,
   ).toEqual(dismissed);
+});
+
+const mp4Clip = new Uint8Array([0, 0, 0, 12, 102, 116, 121, 112, 105, 115, 111, 109, 1, 2, 3, 4]);
+async function uploadClip(
+  device: Browser,
+  id: string,
+  sessionId: string,
+  eventId: string,
+  bytes = mp4Clip,
+) {
+  return harness.fetch(`${origin}/api/incidents/evidence/${id}`, {
+    method: "PUT",
+    headers: {
+      Origin: origin,
+      Cookie: [...device.cookies].map(([key, value]) => `${key}=${value}`).join("; "),
+      "Content-Type": "video/mp4",
+      "X-Lookout-Session": sessionId,
+      "X-Lookout-Event": eventId,
+      "X-Clip-Duration-Ms": "20000",
+      "X-Event-Offset-Ms": "10000",
+    },
+    body: bytes,
+  });
+}
+
+test("evidence upload survives a lost response, stays separate from response state, and supports byte ranges", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const incident = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  const detail = `/api/incidents/detail/${incident.id}`;
+  expect(incident.evidenceStatus).toBe("preparing");
+  expect(
+    (
+      await device.request(`/api/incidents/evidence-start/${incident.id}`, {
+        sessionId: report.sessionId,
+        eventId: report.eventId,
+      })
+    ).status,
+  ).toBe(200);
+  expect(incidentSchema.parse(await (await admin.request(detail)).json())).toMatchObject({
+    evidenceStatus: "uploading",
+    status: "open",
+    version: 1,
+  });
+  const firstUpload = await uploadClip(device, incident.id, report.sessionId, report.eventId);
+  expect(firstUpload.status).toBe(200);
+  const retry = await uploadClip(device, incident.id, report.sessionId, report.eventId);
+  expect(retry.status).toBe(200);
+  expect(await retry.json()).toMatchObject({ evidenceStatus: "ready" });
+  const acknowledged = incidentSchema.parse(
+    await (
+      await admin.request(`/api/incidents/commands/${incident.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).json(),
+  );
+  expect(acknowledged.evidenceStatus).toBe("ready");
+  const replay = await admin.request(`/api/incidents/evidence/${incident.id}`);
+  expect(replay.status).toBe(200);
+  expect(new Uint8Array(await replay.arrayBuffer())).toEqual(mp4Clip);
+  const range = await harness.fetch(`${origin}/api/incidents/evidence/${incident.id}`, {
+    headers: {
+      Cookie: [...admin.cookies].map(([key, value]) => `${key}=${value}`).join("; "),
+      Range: "bytes=4-7",
+    },
+  });
+  expect(range.status).toBe(206);
+  expect(range.headers.get("Content-Range")).toBe("bytes 4-7/16");
+  expect(new Uint8Array(await range.arrayBuffer())).toEqual(mp4Clip.slice(4, 8));
+  const invalidRange = await harness.fetch(`${origin}/api/incidents/evidence/${incident.id}`, {
+    headers: {
+      Cookie: [...admin.cookies].map(([key, value]) => `${key}=${value}`).join("; "),
+      Range: "bytes=999-1000",
+    },
+  });
+  expect(invalidRange.status).toBe(416);
+  expect(incidentSchema.parse(await (await admin.request(detail)).json())).toMatchObject({
+    evidenceStatus: "ready",
+    status: "acknowledged",
+    version: 2,
+  });
+});
+
+test("evidence timeout, missing footage, missing objects, expiry and access checks are explicit", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const other = await owner("Other workspace");
+  const otherDevice = await paired(other);
+  const removedMember = await teammate(admin);
+  const incident = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  const start = `/api/incidents/evidence-start/${incident.id}`;
+  const detail = `/api/incidents/detail/${incident.id}`;
+  expect(
+    (
+      await device.request(`/api/incidents/evidence-unavailable/${incident.id}`, {
+        sessionId: report.sessionId,
+        eventId: report.eventId,
+        reason: "No camera footage remained.",
+      })
+    ).status,
+  ).toBe(200);
+  expect(incidentSchema.parse(await (await admin.request(detail)).json())).toMatchObject({
+    evidenceStatus: "unavailable",
+    evidenceReason: "No camera footage remained.",
+  });
+  expect(
+    (await otherDevice.request(start, { sessionId: report.sessionId, eventId: report.eventId }))
+      .status,
+  ).toBe(404);
+  expect((await other.request(`/api/incidents/evidence/${incident.id}`)).status).toBe(404);
+  const removedActor = memberSchema.parse(
+    await (await removedMember.request("/api/access/principal")).json(),
+  );
+  expect(
+    (await admin.request("/api/access/remove-member", { id: removedActor.userId })).status,
+  ).toBe(200);
+  expect((await removedMember.request(`/api/incidents/evidence/${incident.id}`)).status).toBe(403);
+  expect((await uploadClip(device, incident.id, report.sessionId, "wrong-event")).status).toBe(404);
+  expect(
+    (await device.request(start, { sessionId: report.sessionId, eventId: report.eventId })).status,
+  ).toBe(200);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE incident_evidence SET updated_at=0 WHERE incident_id=?")
+    .bind(incident.id)
+    .run();
+  expect(await (await admin.request(detail)).json()).toMatchObject({
+    evidenceStatus: "unavailable",
+    evidenceReason: "Upload interrupted. Retry from the device.",
+  });
+  expect((await uploadClip(device, incident.id, report.sessionId, report.eventId)).status).toBe(
+    200,
+  );
+  const actor = devicePrincipalSchema.parse(
+    await (await device.request("/api/access/principal")).json(),
+  );
+  const key = `${actor.workspaceId}/${incident.id}.mp4`;
+  await env.EVIDENCE.delete(key);
+  expect(await (await admin.request(detail)).json()).toMatchObject({
+    evidenceStatus: "unavailable",
+    evidenceReason: "Saved clip is missing.",
+  });
+  expect(
+    (
+      await device.request(`/api/incidents/evidence-unavailable/${incident.id}`, {
+        sessionId: report.sessionId,
+        eventId: report.eventId,
+        reason: "No camera footage remained.",
+      })
+    ).status,
+  ).toBe(200);
+  expect((await uploadClip(device, incident.id, report.sessionId, report.eventId)).status).toBe(
+    200,
+  );
+  await env.DB.prepare("UPDATE incident_evidence SET expires_at=0 WHERE incident_id=?")
+    .bind(incident.id)
+    .run();
+  expect((await admin.request(`/api/incidents/evidence/${incident.id}`)).status).toBe(404);
+  expect(incidentSchema.parse(await (await admin.request(detail)).json()).evidenceReason).toBe(
+    "Clip expired.",
+  );
+  expect((await uploadClip(device, incident.id, report.sessionId, report.eventId)).status).toBe(
+    410,
+  );
 });
 
 async function liveSetup() {

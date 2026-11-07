@@ -185,6 +185,27 @@ export const incident = sqliteTable(
   ],
 );
 
+export const incidentEvidence = sqliteTable(
+  "incident_evidence",
+  {
+    incidentId: text("incident_id")
+      .primaryKey()
+      .references(() => incident.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["preparing", "uploading", "ready", "unavailable"] }).notNull(),
+    reason: text("reason"),
+    objectKey: text("object_key"),
+    bytes: integer("bytes"),
+    updatedAt: integer("updated_at").notNull(),
+    expiresAt: integer("expires_at"),
+  },
+  (table) => [
+    check(
+      "evidence_status",
+      sql`${table.status} IN ('preparing','uploading','ready','unavailable')`,
+    ),
+  ],
+);
+
 export const source = sqliteTable(
   "source",
   {

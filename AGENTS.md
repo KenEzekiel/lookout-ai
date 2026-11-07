@@ -34,6 +34,10 @@ Preserve existing behavior unless the task authorizes changing it. Explain inten
 
 ## Application conventions and verification
 
+Use shadcn/ui components whenever a suitable component exists. Before building UI, check `apps/app/src/components/ui` and reuse the existing components and project wrappers. If the needed component is missing, add the shadcn component using `apps/app/components.json` and adapt it to the app's styles. Do not default to raw browser controls or hand-built equivalents because the component is not installed yet.
+
+This applies to buttons, form controls, selects, dialogs, tooltips, and disclosure panels. Use the shared accordion or collapsible component for disclosures instead of raw `<details>` and `<summary>`. Keep semantic HTML for document structure and inside shared component implementations. When no shadcn component fits a requirement, use an accessible alternative and explain the exception in the PR. Before opening a UI PR, check new and changed controls for missed reuse so component replacements do not require a follow-up cleanup PR like [PR #77](https://github.com/KenEzekiel/lookout-ai/pull/77).
+
 Run `pnpm verify` before opening an application PR. Follow `docs/verification.md` for code boundaries and test setup.
 Use integration or end-to-end tests only. UI integration tests may mock our backend API and external services at the HTTP boundary using MSW. API integration tests must keep handlers, internal modules, and the database real, and may mock external services only.
 Use Vitest and React Testing Library with a virtual DOM for automated UI checks. Use Playwright for manual QA of the built app, outside the required CI checks.
