@@ -11,7 +11,7 @@ export const peerSessionSchema = z.object({
   offer: z.string().nullable(),
   answer: z.string().nullable(),
 });
-export const peerSyncSchema = z.object({ session: peerSessionSchema.nullable() });
+export const peerSyncSchema = z.object({ sessions: z.array(peerSessionSchema) });
 export const peerAcceptedSchema = z.object({ accepted: z.literal(true) });
 export const peerOpenSchema = z.object({ deviceId: z.string().min(1).max(100) });
 export const peerIdSchema = z.object({ id: z.string().uuid() });
