@@ -12,13 +12,13 @@ The hackathon demos target a **prerecorded car crash** and a **person falling in
 
 Configure a rule → observe footage → verify a candidate → open an incident → call the owner → acknowledge and stop escalation.
 
-**Current source status:** the repository contains the application scaffold and agent harness. The home page is a placeholder. Incident monitoring, AI assessment, evidence storage, notifications, authentication, and MCP are planned, not implemented in this snapshot.
+**Current source status:** the repository contains the application scaffold, agent harness, and design foundation. The home page is a placeholder. Incident monitoring, AI assessment, evidence storage, notifications, authentication, and MCP are planned, not implemented in this snapshot.
 
 Read the [PRD](PRD.md) for agreed behavior, demo outcomes, priorities, and open decisions. It is the source of truth for product direction. This README owns development setup and repository orientation.
 
 ## Develop
 
-The pnpm workspace contains the full-stack application, `@lookout/app`, in `apps/app`, and the Oracle engineering factory, `@lookout/oracle`, in `oracle`. The application uses TanStack Start, React, TypeScript, and Cloudflare Workers, with Tailwind CSS and shadcn/ui using Base UI.
+The pnpm workspace contains the full-stack application, `@lookout/app`, in `apps/app`, and the Oracle engineering factory, `@lookout/oracle`, in `oracle`. The application uses TanStack Start, React, TypeScript, and Cloudflare Workers, with Tailwind CSS and shadcn/ui using Base UI. Motion for React is installed for interaction transitions. [DESIGN.md](DESIGN.md) records the dark theme and component guidance.
 
 Use Node.js **24.18.0**, pinned in [.node-version](.node-version), and pnpm **10.33.4**, pinned in [package.json](package.json).
 
