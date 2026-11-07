@@ -14,6 +14,8 @@ The interface separates Team and Devices. Only owners see invitation, pairing, a
 
 Access dialogs and action buttons use the shared interaction motion styles. Pending labels and new validation feedback use a short opacity reveal while retaining the existing disabled state, field retention, and accessible feedback. Reduced motion presents these changes immediately.
 
+The Devices screen places the owner-only **Use this device instead** action in a labeled **This browser** card above connected devices. It identifies the current workspace-management role and explains cross-tab sign-out before opening the existing name-and-confirm dialog. Connected-device rows group each name with its authorization badge, a prominent **Live view** action, and the owner-only secondary **Remove access** control. Revoked rows have no viewing action. No session, pairing, or permission contract changes.
+
 ## Entry points
 
 Open `/` (redirects to `/devices`) for registration, sign-in, create-or-join onboarding, and workspace access controls. `/join?token=...` preserves an invitation through signup and opens the join action directly instead of showing a competing workspace-creation form. Successful onboarding replaces the invitation URL with the Devices destination so used invitations are not offered again after membership removal. A secondary action accepts an invitation code or returns to workspace creation. `/monitor` pairs a browser without entering the owner's password. Devices offers **Add device** for a code displayed on another device and **Use this device instead** for an explicitly confirmed same-browser switch. The paired screen links to the capture station and distinguishes local capture from unimplemented AI assessment. Revoked devices display the failure and can return to sign-in.
@@ -39,6 +41,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 [Browser journey](../../../tests/e2e/access.spec.ts) verifies separate owner/operator/device sessions, link registration, refresh, owner sign-out, revocation, member removal, same-browser switching, and recovery. Interactive Playwright QA on the production build also exercised code-based joining, an invalid invitation, keyboard navigation, narrow-screen layout, and cross-tab access changes without internal mocks. The current PR records the tested revision and results. Cloud deployment verification on November 7, 2026 exercised signup, workspace creation, sign-in, secure cookies, and sign-out against the deployed Worker and D1 database. The temporary account and workspace were removed. [Deployment setup](../../../README.md#cloudflare-deployment) records the production origin and commands. Monitoring consumers remain unverified.
 
 ## Decisions and sources
+
+The current PR implements Ken’s approved browser-card mockup and request to restore and emphasize connected-device Live view. Existing access and peer behavior is preserved. Complete-screen access integration tests cover activation confirmation/cancellation, role restrictions, viewing entry/retry/close, and removal of viewing access after revocation. Manual QA results belong in the PR.
 
 This PR implements the user-approved access-flow and copy refinement. API schemas, session semantics, invitation lifetimes, and device privileges remain unchanged. Existing capture and planned consumers continue to use the same principal boundary.
 

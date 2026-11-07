@@ -10,6 +10,8 @@ Visitors open Lookout to sign in or register. Access and capture headers share t
 
 Shared controls use the [interaction motion styles](../../../apps/app/src/styles.css): enabled buttons give subtle press feedback, overlays use reversible opacity/transform transitions, and new feedback appears briefly. Navigation and typing remain immediate. The active workspace underline slides between destinations in 220 ms through Motion shared layout, including browser history and incident detail navigation. Reduced motion moves it immediately. Dialogs enter in 180 ms and exit in 120 ms; menus use 120 ms. Reduced motion disables CSS animation and transitions, including existing control effects. No animation delays an action or changes focus management.
 
+Devices separates an owner-only **This browser** card from the **Connected devices** list. The card explains local capture and cross-tab sign-out. Device rows pair authorization status with a primary Live view action and secondary owner-only removal. The layout wraps at narrow widths and reuses the shared Button and Badge components.
+
 ## Entry points
 
 The shared member navigation also opens `/incidents` and `/incidents/$incidentId` through the existing access gate. Devices do not receive incident response controls. [Incident routes and screens](../../../apps/app/src/components/incidents/workspace.tsx) use the existing theme, buttons, and responsive layout.
@@ -43,6 +45,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 [Route integration tests](../../../apps/app/tests/integration/app.test.tsx) cover the home redirect, direct Devices and Team links, visitor denial, persistent header and access connection, path navigation, browser back and forward, and unknown-route fallback. [Capture UI tests](../../../apps/app/tests/integration/device.test.tsx) cover paired-device entry and visitor denial. Run `pnpm test`. [Access browser journeys](../../../tests/e2e/access.spec.ts) exercise entry, joining, and monitoring-mode navigation against the built app.
 
 ## Decisions and sources
+
+The current PR implements Ken’s approved browser-card mockup and request to restore and emphasize connected-device Live view. Existing access and peer behavior is preserved. Complete-screen access integration tests cover activation confirmation/cancellation, role restrictions, viewing entry/retry/close, and removal of viewing access after revocation. Manual QA results belong in the PR.
 
 The current animation change follows Ken’s request to show navigation state sliding between destinations. It builds on PR #74’s persistent workspace layout, keeps route/session ownership intact, and uses the existing Motion dependency with reduced-motion support.
 
