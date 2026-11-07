@@ -1,5 +1,67 @@
 # Lookout AI
 
+pnpm workspace with one full-stack application in `apps/app`, named `@lookout/app`.
+The app uses TanStack Start, React, TypeScript, and Cloudflare Workers. UI components
+use shadcn/ui with Base UI and Tailwind CSS. Oxfmt formats the project and Oxlint
+checks application code.
+
+This is project setup only. The home page is a placeholder. Database, authentication,
+video processing, AI providers, and notifications are not configured.
+
+## Develop
+
+Use Node.js 24, pinned in `.node-version`, and pnpm 10.33.4.
+
+```sh
+pnpm install
+pnpm dev
+```
+
+Open `http://localhost:3000`. The Cloudflare Vite plugin runs the server in the local
+Workers runtime. No Cloudflare account is needed for local development.
+
+```sh
+pnpm check
+pnpm build
+pnpm preview
+```
+
+`pnpm check` runs formatting, linting, and TypeScript checks. Use `pnpm format` and
+`pnpm lint:fix` to apply fixes. The generated route tree is excluded from formatting
+and linting. Vendored agent tooling is outside the application checks.
+
+Add UI components inside the app package:
+
+```sh
+pnpm --filter @lookout/app ui add button
+```
+
+The app's `components.json` selects the Base UI preset. Components stay in the app
+until another package needs to share them. Add future workspace packages under
+`packages/` and reference them with `workspace:*`.
+
+## Cloudflare Workers
+
+Check the deployment bundle without uploading:
+
+```sh
+pnpm --filter @lookout/app deploy:check
+```
+
+When ready to deploy, authenticate and deploy from the app package:
+
+```sh
+pnpm --filter @lookout/app exec wrangler login
+pnpm --filter @lookout/app deploy
+```
+
+Set the Worker name in `apps/app/wrangler.jsonc`. Add bindings there when services
+are selected, then run `pnpm --filter @lookout/app cf-typegen` to refresh their types.
+Store local secrets in `apps/app/.dev.vars`, which Git ignores. Use Wrangler secrets
+for production values.
+
+## Agent tooling
+
 A repository-owned, Codex-first pstack harness copied from [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude) at `df9bc05b818e2457ac23d3343e96e4ff284dd9e9`.
 
 Open this repository in a fresh Codex session to load `AGENTS.md` and discover its 67 skills. Use `$poteto-mode` for workflow routing, `$architect` for design, `$tdd` for test-driven implementation, or `$setup-pstack` for local model preferences. You can also ask Codex to read the corresponding `.agents/skills/<name>/SKILL.md` directly if the host has not refreshed skill discovery.

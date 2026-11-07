@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [
+    ".agents/**",
+    "vendor/**",
+    "AGENTS.md",
+    "pnpm-lock.yaml",
+    "**/routeTree.gen.ts",
+    "**/worker-configuration.d.ts",
+    "docs/product/**"
+  ]
+}
