@@ -8,6 +8,21 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+  --text-page-title: 1.875rem;
+  --text-page-title--line-height: 1.2;
+  --text-page-title--font-weight: 600;
+  --text-page-title--letter-spacing: -0.02em;
+  --text-panel-title: 1.25rem;
+  --text-panel-title--line-height: 1.3;
+  --text-panel-title--font-weight: 600;
+  --text-access-title: 1.5rem;
+  --text-access-title--line-height: 1.25;
+  --text-access-title--font-weight: 600;
+  --text-access-title--letter-spacing: -0.02em;
   --color-surface-raised: var(--surface-raised);
   --color-signal: var(--signal);
   --color-incident: var(--incident);
@@ -143,10 +158,20 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-sm text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  @media (width < 40rem) {
+    input:not([type="checkbox"], [type="radio"], [type="range"]),
+    textarea,
+    select {
+      font-size: 1rem;
+    }
   }
 }
 

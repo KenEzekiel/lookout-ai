@@ -34,6 +34,8 @@ The incident service now has server-owned per-source session leases. The local c
 
 ## Implementation
 
+Capture consumes [shared typography roles](../../../apps/app/src/styles.css): a 30 px page title, 20 px panel headings, 15 px actions, and 13 px metadata replace independent pixel sizes. [Typography browser journeys](../../../tests/e2e/typography.spec.ts) reach capture through real device activation and inspect titles, actions, metadata, and narrow-screen overflow. Source selection, local retention, and capture permissions remain unchanged.
+
 [Capture route](../../../apps/app/src/routes/device.tsx), [paired-device gate](../../../apps/app/src/components/access/app.tsx), [device screen](../../../apps/app/src/components/device-screen.tsx), and [capture session](../../../apps/app/src/lib/capture-session.ts) implement local capture. The [event clip builder](../../../apps/app/src/lib/event-clip.ts) prepares a playable MP4 from a pinned local-file interval or completed camera segments. The [synthetic confirmation handoff](../../../apps/app/src/lib/incident-evidence.ts) ties that clip to #19's accepted incident. [Device monitoring](../../../apps/app/src/lib/device-monitoring.ts) supplies real confirmed reports and server capture sessions. Calling the clip handoff remains incomplete.
 
 ## Verification

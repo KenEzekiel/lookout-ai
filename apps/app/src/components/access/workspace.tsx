@@ -48,7 +48,7 @@ export function Workspace({
     <section className="py-8 sm:py-12">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-5">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{devices ? "Devices" : "Team"}</h1>
+          <h1 className="text-page-title">{devices ? "Devices" : "Team"}</h1>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
             {devices
               ? "Manage the devices connected to your workspace."

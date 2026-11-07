@@ -84,15 +84,21 @@ A subtle warm charcoal gradient may soften the outer canvas. Keep video controls
 
 ## Type and icons
 
-Use Geist Variable, which the app already imports, as the primary font. Do not use Instrument Serif. Keep the wordmark lowercase. Use the following scale as a starting point, then adjust it against real content.
+Use Geist Variable, which the app already imports, as the primary font. Do not use Instrument Serif. Keep the wordmark lowercase. Use the shared typography roles defined in [the app stylesheet](apps/app/src/styles.css). The body defaults to the same size as explicit body copy so inherited text stays consistent between screens. Sizes use rem units and line heights are unitless.
 
-| Use               | Size and line height      | Treatment                          |
-| ----------------- | ------------------------- | ---------------------------------- |
-| Main screen title | 30 to 36 px, 1.1 to 1.2   | Semibold, slightly tight tracking. |
-| Incident title    | 28 to 34 px, 1.15 to 1.25 | Semibold and plain language.       |
-| Panel heading     | 20 to 24 px, 1.2 to 1.3   | Semibold.                          |
-| Body and actions  | 15 to 16 px, 1.4 to 1.5   | Regular or medium.                 |
-| Metadata          | 13 to 14 px, 1.35 to 1.45 | Muted, never faint.                |
+| Use                  | Size and line height | Treatment                                                    |
+| -------------------- | -------------------- | ------------------------------------------------------------ |
+| Main screen title    | 30 px, 1.2           | `text-page-title`, semibold, -0.02em tracking.               |
+| Incident title       | 30 px, 1.2           | `text-page-title`, wraps for long names.                     |
+| Access title         | 24 px, 1.25          | `text-access-title`, focused account panels.                 |
+| Panel/dialog heading | 20 px, 1.3           | `text-panel-title`, semibold.                                |
+| Body                 | 15 px, 1.5           | `text-sm`, regular or medium.                                |
+| Button actions       | 15 px, 1.4           | Shared Button; compact line height preserves 40 px controls. |
+| Metadata             | 13 px, 1.4           | `text-xs`, muted, never faint.                               |
+
+Editable controls use 16 px below 640 px to avoid automatic focus zoom on mobile browsers. Page titles stay at the same size across Devices, Team, Triggers, Incidents, incident detail, and Capture. Account panels retain their smaller access title. Panel and dialog headings share one role.
+
+The [pitch deck](packages/pitchdeck/README.md) uses the same Geist Variable family and graphite, warm white, and periwinkle identity. Its responsive presentation type scale remains larger for projected slides. The build embeds the variable font in the standalone HTML so exported decks do not rely on an installed font or a network request.
 
 Use negative letter spacing only on large headings, around `-0.01em` to `-0.025em` after visual review. Keep body text open. Use tabular numerals for clocks and durations so updating values do not shift. Use monospace only for technical identifiers when it helps. Avoid italics, all-caps subtitles, and eyebrow labels above titles. A period in a title is a deliberate tone choice, not a default.
 
