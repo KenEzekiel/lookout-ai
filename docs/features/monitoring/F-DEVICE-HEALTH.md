@@ -16,7 +16,7 @@ Inspect device status in the operator client and local source health in the oper
 
 F-RULE-CONFIG displays received rule versions from its [shared contract](../../../apps/app/src/lib/rules.ts) on `/monitor` and polls every five seconds. These values do not prove the separate capture screen applied the configuration. Health reporting must distinguish received and applied versions when connected.
 
-F-AUTH-ACCESS shows paired/revoked authorization. The local capture screen separately shows running, paused, stopped, disconnected, and source-error states. It stops capture when hidden or when the device principal is revoked on the next access check. Reuse device identity and workspace scope when adding server health reports. Assessment health, operator-visible heartbeat, and configuration freshness remain unimplemented.
+F-AUTH-ACCESS shows paired/revoked authorization. The local capture screen separately shows running, paused, stopped, disconnected, and source-error states. It stops capture when hidden or when the device principal is revoked on the next access check. Reuse device identity and workspace scope when adding server health reports. The [capture station monitoring panel](../../../apps/app/src/components/device-monitoring.tsx) now shows local assessment failures, slow requests, applied rule versions, and configuration outages. Operator-visible heartbeat and remote configuration freshness remain unimplemented.
 
 Combine capture status, assessment status, last contact, and applied rule version. Revocation and configuration changes must affect reported readiness.
 
@@ -26,7 +26,7 @@ Combine capture status, assessment status, last contact, and applied rule versio
 
 ## Verification
 
-The [UI integration tests](../../../apps/app/tests/integration/device.test.tsx) cover pause, disconnect, denied permission, and unavailable camera. Stale heartbeat, provider failure, reconnect, delayed configuration application, and operator-visible health still require implementation and verification. Closing the operator client must not stop a separate active device.
+The [UI integration tests](../../../apps/app/tests/integration/device.test.tsx) cover pause, disconnect, denied permission, and unavailable camera. [Monitoring integration tests](../../../apps/app/tests/integration/device.test.tsx) cover provider failure, slow assessment, and disabled-rule cancellation. Stale heartbeat, remote reconnect, and operator-visible health still require implementation and verification. Closing the operator client must not stop a separate active device.
 
 ## Decisions and sources
 
