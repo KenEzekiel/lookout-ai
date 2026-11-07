@@ -22,6 +22,8 @@ Use the paired device identity from F-AUTH-ACCESS. Pairing grants workspace-wide
 
 Expose source timestamps, capture run identity, lifecycle changes, and buffer access for later assessment and clip preservation. Seeking or restarting starts a new run and clears old frame samples. Camera segments rotate in browser memory; Stop releases the camera, sampler, and buffer. Event-interval extraction, rule assignment, assessment, and clip upload remain unconnected. Never persist untriggered video on the Lookout server.
 
+The incident service now has server-owned per-source session leases. The local capture epoch is not that session ID. The future assessment integration must select a configured source, start a new `/api/incidents/sessions` lease for a capture run, and end it on Stop or failure. This connection is still missing, so local capture alone cannot submit an accepted incident.
+
 ## Implementation
 
 [Capture route](../../../apps/app/src/routes/device.tsx), [paired-device gate](../../../apps/app/src/components/access/app.tsx), [device screen](../../../apps/app/src/components/device-screen.tsx), and [capture session](../../../apps/app/src/lib/capture-session.ts) implement local capture. The server-owned assessment and incident path remains planned.

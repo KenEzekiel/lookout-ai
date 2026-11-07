@@ -1,37 +1,57 @@
 # F-INCIDENT-RESPONSE: Incident ownership and response
 
-Status: planned
+Status: partial
 
 Depends on: F-AUTH-ACCESS, F-RULE-CONFIG
 
 ## Behavior
 
-An incident records source, event time, rule match, owner, evidence, and timeline. Acknowledge records ownership and stops new paging. Resolve closes the response. Dismiss records incorrect-alert feedback.
+An accepted device report persists one workspace incident with event time, source and rule snapshots, severity, configured recipients, owner, and timeline. Evidence remains pending and notification delivery remains not-sent in this slice. Operators can respond before a saved clip exists.
+
+Acknowledge changes open to acknowledged and records the responding member as owner. Resolve changes acknowledged to resolved. Dismiss changes open or acknowledged to dismissed and records incorrect-alert feedback. Dismissed and resolved are distinct terminal states. Opening an incident changes nothing. Every response requires the last-read version, increments it, and appends one timeline entry atomically. Any current workspace member can respond, including resolving a colleague's acknowledged incident. Ownership is preserved after resolution or dismissal.
 
 ## Entry points
 
-Open an incident from the dashboard or alert. A cleared scene adds evidence without resolving the incident automatically.
+Members open **Incidents** in shared navigation, then select an inbox row. `/incidents` shows up to 100 incidents with open and acknowledged responses first. `/incidents/$incidentId` shows context, evidence availability, ownership, and response actions. Both refresh every five seconds and offer explicit reload. Failed reads hide the data and response controls. Conflicting commands show an error and require current state before another successful response.
+
+Devices use the HTTP endpoints below. There is no production synthetic-event button. Scene-clear observations, incoming alerts, and evidence updates are not connected yet and never auto-resolve an incident.
 
 ## Wiring and compatibility
 
-F-RULE-CONFIG now owns [rule, source, and recipient references](../../../apps/app/src/lib/rules.ts). Future event handlers must validate `sourceId`, rule `id`, current `version`, and `enabled` against stored workspace configuration, and use its recipient IDs and severity. Disabled rule versions are retained. Incident handling and stale-report rejection remain unimplemented.
+F-RULE-CONFIG owns [rule, source, and recipient references](../../../apps/app/src/lib/rules.ts). Report insertion checks the current enabled rule version and matching workspace source in the same SQL statement. It snapshots that source and complete authoritative rule definition, including recipients, severity, and escalation delay. Later configuration changes do not rewrite incident context. Client-provided recipient or severity fields are rejected.
 
-Use F-AUTH-ACCESS members for human response actions and paired device identities for event submission. Derive workspace scope server-side. Devices cannot acknowledge, dismiss, resolve, or choose recipients. Incident endpoints and these authorization tests remain unimplemented.
+F-AUTH-ACCESS `member` protects inbox, detail, and commands. `monitoringDevice` protects session and report endpoints and checks revocation for every request. Workspace and device IDs come from the principal. Inserts recheck device revocation, and command writes recheck current membership. Devices cannot read the operator inbox or issue response commands. Cross-workspace reads and writes cannot access incidents.
 
-Deduplicate event reports and repeated observations. Share authoritative incident state with alerts, escalation, replay, and MCP. Keep severity, response status, notification state, and evidence readiness separate.
+`POST /api/incidents/sessions` accepts `{sourceId}` and returns `{id,sourceId,startedAt,expiresAt}`. It creates a 12-hour session for that device and source, superseding the previous session. `POST /api/incidents/sessions/end` accepts `{id}` and invalidates only that device's matching current session. Starting or ending an API session does not operate the browser camera. The assessment producer must start a session for each capture run and end it on Stop. This connection to local capture remains missing.
+
+`POST /api/incidents/reports` accepts `{sessionId,eventId,ruleId,ruleVersion,eventTime}`. Event time is a UTC millisecond timestamp, separate from server receipt time and source media position. A new report requires a current session, current enabled rule, and a matching source. Event time can precede session start by up to 30 seconds for buffered footage and can be at most 60 seconds ahead of server receipt. Expired, ended, superseded, foreign, and stale-version reports cannot create incidents.
+
+The idempotency key is device, session, event ID, and rule ID. The producer must reuse it for retrying delivery and repeated reports of the same event. The endpoint returns `{incident}` with 201 for insertion or 200 for an exact retry. Reusing a key with another event time or rule version returns 409. An authenticated retry can retrieve its existing incident after the rule or session changes, but cannot create another one. Revoked devices are denied even on retry. This slice does not yet enrich observations or infer ongoing-event identity across capture runs.
+
+`GET /api/incidents/inbox` returns `{incidents}`. `GET /api/incidents/detail/:id` returns the shared incident view. `POST /api/incidents/commands/:id` accepts `{action,version}` with acknowledge, dismiss, or resolve and returns the updated incident. Unavailable or stale transitions return 409 without a write. Reads are workspace scoped. The list is bounded to 100 rows and has no pagination yet.
+
+[Shared schemas and transitions](../../../apps/app/src/lib/incidents.ts) publish the report, receipt, incident view, and command contract for assessment, alerts, evidence, escalation, and MCP. Evidence upload, notification delivery, scheduling, and external-agent authentication remain unimplemented. No alert or follow-up is claimed as delivered or scheduled. Future paging must consult incident status so acknowledgment or a terminal response prevents new attempts. A response never deletes capture data.
 
 ## Implementation
 
-Not implemented in the current application. Add actual source links when implementation lands.
+[Incident service](../../../apps/app/src/server/incidents.ts), [route adapter](../../../apps/app/src/routes/api/incidents/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [real migration](../../../apps/app/migrations/0003_incident_response.sql) implement persistence, authorization, deduplication, sessions, and versioned responses.
+
+[Inbox and detail screens](../../../apps/app/src/components/incidents/workspace.tsx), [inbox route](../../../apps/app/src/routes/incidents.index.tsx), [detail route](../../../apps/app/src/routes/incidents.$incidentId.tsx), and [access gate](../../../apps/app/src/components/access/app.tsx) implement operator handling. Status remains partial because assessment submission, capture lifecycle integration, observation enrichment, evidence, and notification consumers are not connected.
 
 ## Verification
 
-Verify repeated reports create one incident, distinct acknowledge/dismiss/resolve actions, cross-user denial, concurrent responses, and scene-clear behavior. Verify acknowledgment while replay is unavailable.
+[Real-handler API tests](../../../apps/app/tests/api/access.test.ts) use the built Worker, isolated D1, and committed migrations. The incident cases passed locally and cover concurrent retries, persisted reads, immutable source/rule context, idempotency collisions, stale or disabled rules, stale and expired sessions, invalid event times, device revocation, origin checks, workspace and membership boundaries, acknowledgment ownership, competing operators, stale commands, terminal states, and distinct dismissal.
+
+[Complete-screen UI tests](../../../apps/app/tests/integration/incidents.test.tsx) passed locally through MSW HTTP boundaries. They cover inbox and detail loading, empty and failed reads, reload recovery, opening without acknowledgment, pending evidence, acknowledge then resolve, dismissal, stale-action recovery, current navigation, and device exclusion.
+
+`pnpm verify` passed with 28 UI integration tests and 18 real-handler API tests. Interactive Chromium QA against the production Worker and isolated D1 exercised account creation, joining, pairing, trigger creation, empty inbox, duplicate synthetic delivery, persistence after refresh, two-operator ownership conflicts, reload recovery, cross-session resolution, separate dismissal, keyboard incident entry, and a 390-pixel mobile layout. A temporary HTTP 503 interception verified inbox failure and recovery; successful report and response paths used real handlers without mocks. Screenshots, video, tested revision, and results are recorded in the PR.
 
 ## Decisions and sources
 
-[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#19](https://github.com/KenEzekiel/lookout-ai/issues/19). Issue status is not implementation evidence.
+[Issue #19](https://github.com/KenEzekiel/lookout-ai/issues/19), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
+
+The current PR introduces this contract. Synthesis decision: reuse D1 and the configuration schemas, store immutable context and the short timeline as JSON, and update response state and timeline in one version-checked SQL statement. This avoids a second rule format and a separate event framework. Sessions provide server-verifiable freshness independently of the unfinished assessment loop. Schema variants require an owner for acknowledged and resolved states. Polling fits the demo's shared-state requirement without another transport.
 
 ## Open questions
 
-Identity, state, deduplication keys, and persistence contracts must be agreed with dependent work. Feedback does not imply automatic retraining.
+Connect local capture runs and assessment to session start/end and report retries. Integrate observation enrichment, private evidence, alerts, and escalation against the published incident identity and version. Long-lived capture needs a new session after the 12-hour lease. No session-renewal endpoint, incident pagination, reopening, or reassignment is included. Feedback does not imply automatic retraining.

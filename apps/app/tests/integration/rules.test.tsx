@@ -1,5 +1,5 @@
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, expect, test } from "vitest";
@@ -285,4 +285,24 @@ test("trigger dropdowns show labels and support keyboard selection and dismissal
   expect(template).toHaveFocus();
   await user.click(screen.getByRole("button", { name: "Cancel editing" }));
   expect(screen.queryByRole("region", { name: "Trigger editor" })).not.toBeInTheDocument();
+});
+
+test("trigger dialogs focus the editor and restore the opening button on cancel or Escape", async () => {
+  configuration.rules = [fall];
+  const user = await open();
+  const create = await screen.findByRole("button", { name: "New trigger" });
+  await waitFor(() => expect(create).toBeEnabled());
+  await user.click(create);
+  const dialog = await screen.findByRole("dialog", { name: "New trigger" });
+  await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(create).toHaveFocus());
+  const edit = screen.getByRole("button", { name: "Edit Possible fall" });
+  await user.click(edit);
+  expect(await screen.findByRole("dialog", { name: "Edit trigger" })).toBeVisible();
+  expect(screen.getByLabelText("Trigger name")).toHaveValue("Possible fall");
+  await user.click(screen.getByRole("button", { name: "Cancel editing" }));
+  await waitFor(() => expect(edit).toHaveFocus());
+  expect(configuration.rules).toEqual([fall]);
 });

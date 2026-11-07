@@ -10,6 +10,12 @@ import { randomBytes } from "node:crypto";
 import { beforeEach, afterAll, expect, test } from "vitest";
 import { createTestHarness } from "wrangler";
 import {
+  captureSessionSchema,
+  incidentInboxSchema,
+  incidentSchema,
+  reportReceiptSchema,
+} from "../../src/lib/incidents";
+import {
   type RuleInput,
   ruleSchema,
   sourceSchema,
@@ -575,4 +581,289 @@ test("operators configure rules and removing a recipient disables and versions a
   expect((await admin.request("/api/config/rules/update", { ...shared, version: 2 })).status).toBe(
     409,
   );
+});
+
+async function incidentSetup() {
+  const workspace = await configuredWorkspace();
+  const rule = ruleSchema.parse(
+    await (await workspace.admin.request("/api/config/rules/create", workspace.input)).json(),
+  );
+  const device = await paired(workspace.admin);
+  const session = captureSessionSchema.parse(
+    await (
+      await device.request("/api/incidents/sessions", { sourceId: workspace.source.id })
+    ).json(),
+  );
+  const report = {
+    sessionId: session.id,
+    eventId: crypto.randomUUID(),
+    ruleId: rule.id,
+    ruleVersion: rule.version,
+    eventTime: Date.now(),
+  };
+  return { ...workspace, rule, device, session, report };
+}
+async function teammate(admin: Browser) {
+  const invitation = inviteSchema.parse(
+    await (await admin.request("/api/access/invitations", {})).json(),
+  );
+  const operator = new Browser();
+  await operator.register("Responder");
+  expect((await operator.request("/api/access/join", { code: invitation.code })).status).toBe(200);
+  return operator;
+}
+
+test("device event retries create one persistent incident with authoritative source and rule snapshots", async () => {
+  const { admin, device, report, source, rule } = await incidentSetup();
+  const deliveries = await Promise.all([
+    device.request("/api/incidents/reports", report),
+    device.request("/api/incidents/reports", report),
+  ]);
+  expect(deliveries.map((result) => result.status).sort()).toEqual([200, 201]);
+  const first = reportReceiptSchema.parse(await deliveries[0]!.json()).incident;
+  const retry = reportReceiptSchema.parse(await deliveries[1]!.json()).incident;
+  expect(retry).toEqual(first);
+  expect(first).toMatchObject({
+    source,
+    rule,
+    eventTime: report.eventTime,
+    status: "open",
+    version: 1,
+    owner: null,
+    evidenceStatus: "pending",
+    notificationStatus: "not-sent",
+  });
+  expect(first.timeline).toHaveLength(1);
+  const reloaded = new Browser();
+  reloaded.cookies = new Map(admin.cookies);
+  expect(
+    incidentInboxSchema.parse(await (await reloaded.request("/api/incidents/inbox")).json())
+      .incidents,
+  ).toEqual([first]);
+  await admin.request("/api/config/rules/update", {
+    ...rule,
+    definition: { ...rule.definition, name: "Changed later", severity: "warning" },
+  });
+  expect(
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${first.id}`)).json()),
+  ).toEqual(first);
+  expect((await device.request("/api/incidents/reports", report)).status).toBe(200);
+  expect(
+    (await device.request("/api/incidents/reports", { ...report, eventTime: report.eventTime + 1 }))
+      .status,
+  ).toBe(409);
+  expect(
+    (await device.request("/api/incidents/reports", { ...report, ruleVersion: 2 })).status,
+  ).toBe(409);
+  expect(
+    incidentInboxSchema.parse(await (await admin.request("/api/incidents/inbox")).json()).incidents,
+  ).toHaveLength(1);
+});
+
+test("stale, disabled, ended, expired and superseded sessions cannot create new incidents", async () => {
+  const { admin, device, report, source, rule } = await incidentSetup();
+  const freshReport = () => ({ ...report, eventId: crypto.randomUUID() });
+  expect(
+    (await device.request("/api/incidents/reports", { ...freshReport(), ruleVersion: 2 })).status,
+  ).toBe(409);
+  expect(
+    (
+      await device.request("/api/incidents/reports", {
+        ...freshReport(),
+        eventTime: Date.now() + 120_000,
+      })
+    ).status,
+  ).toBe(409);
+  expect(
+    (
+      await device.request("/api/incidents/reports", {
+        ...freshReport(),
+        eventTime: Date.now() - 60_000,
+      })
+    ).status,
+  ).toBe(409);
+  const current = captureSessionSchema.parse(
+    await (await device.request("/api/incidents/sessions", { sourceId: source.id })).json(),
+  );
+  expect((await device.request("/api/incidents/reports", freshReport())).status).toBe(409);
+  const currentReport = { ...freshReport(), sessionId: current.id };
+  await device.request("/api/incidents/sessions/end", { id: current.id });
+  expect((await device.request("/api/incidents/reports", currentReport)).status).toBe(409);
+  const expired = captureSessionSchema.parse(
+    await (await device.request("/api/incidents/sessions", { sourceId: source.id })).json(),
+  );
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE incident_capture_session SET expires_at=0 WHERE id=?")
+    .bind(expired.id)
+    .run();
+  expect(
+    (await device.request("/api/incidents/reports", { ...freshReport(), sessionId: expired.id }))
+      .status,
+  ).toBe(409);
+  const active = captureSessionSchema.parse(
+    await (await device.request("/api/incidents/sessions", { sourceId: source.id })).json(),
+  );
+  await admin.request("/api/config/rules/disable", { id: rule.id, version: rule.version });
+  expect(
+    (await device.request("/api/incidents/reports", { ...freshReport(), sessionId: active.id }))
+      .status,
+  ).toBe(409);
+  expect(
+    (
+      await device.request("/api/incidents/reports", {
+        ...freshReport(),
+        sessionId: active.id,
+        ruleVersion: 2,
+      })
+    ).status,
+  ).toBe(409);
+  expect(
+    incidentInboxSchema.parse(await (await admin.request("/api/incidents/inbox")).json()).incidents,
+  ).toEqual([]);
+});
+
+test("report and incident endpoints enforce workspace, device, origin and membership boundaries", async () => {
+  const { admin, device, report, actor, source } = await incidentSetup();
+  const other = await owner("Unrelated workspace");
+  const otherDevice = await paired(other);
+  const visitor = new Browser();
+  const accepted = await device.request("/api/incidents/reports", report);
+  expect(accepted.status).toBe(201);
+  const incident = reportReceiptSchema.parse(await accepted.json()).incident;
+  expect((await visitor.request("/api/incidents/reports", report)).status).toBe(401);
+  expect((await visitor.request("/api/incidents/inbox")).status).toBe(401);
+  expect((await admin.request("/api/incidents/reports", report)).status).toBe(403);
+  expect((await admin.request("/api/incidents/sessions", { sourceId: source.id })).status).toBe(
+    403,
+  );
+  expect(
+    (await otherDevice.request("/api/incidents/sessions", { sourceId: source.id })).status,
+  ).toBe(403);
+  expect((await otherDevice.request("/api/incidents/reports", report)).status).toBe(409);
+  expect((await device.request("/api/incidents/inbox")).status).toBe(403);
+  expect((await device.request(`/api/incidents/detail/${incident.id}`)).status).toBe(403);
+  expect(
+    (
+      await device.request(`/api/incidents/commands/${incident.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).status,
+  ).toBe(403);
+  expect((await other.request(`/api/incidents/detail/${incident.id}`)).status).toBe(404);
+  expect(
+    (
+      await other.request(`/api/incidents/commands/${incident.id}`, {
+        action: "dismiss",
+        version: 1,
+      })
+    ).status,
+  ).toBe(409);
+  expect(
+    incidentInboxSchema.parse(
+      await (await other.request(`/api/incidents/inbox?workspaceId=${actor.workspaceId}`)).json(),
+    ).incidents,
+  ).toEqual([]);
+  expect(
+    (
+      await device.request("/api/incidents/reports", {
+        ...report,
+        eventId: "forged",
+        recipientIds: [actor.userId],
+      })
+    ).status,
+  ).toBe(400);
+  const denied = await harness.fetch(origin + "/api/incidents/reports", {
+    method: "POST",
+    headers: { Origin: "https://other.example", "Content-Type": "application/json" },
+    body: JSON.stringify(report),
+  });
+  expect(denied.status).toBe(403);
+  const operator = await teammate(admin);
+  const operatorActor = memberSchema.parse(
+    await (await operator.request("/api/access/principal")).json(),
+  );
+  await admin.request("/api/access/remove-member", { id: operatorActor.userId });
+  expect((await operator.request(`/api/incidents/detail/${incident.id}`)).status).toBe(403);
+  expect(
+    (
+      await operator.request(`/api/incidents/commands/${incident.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).status,
+  ).toBe(403);
+  const deviceActor = devicePrincipalSchema.parse(
+    await (await device.request("/api/access/principal")).json(),
+  );
+  await admin.request("/api/access/devices/revoke", { id: deviceActor.deviceId });
+  expect((await device.request("/api/incidents/reports", report)).status).toBe(401);
+  expect((await device.request("/api/incidents/sessions", { sourceId: source.id })).status).toBe(
+    401,
+  );
+  expect(
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${incident.id}`)).json())
+      .status,
+  ).toBe("open");
+});
+
+test("acknowledgment records one owner and stale concurrent responses never overwrite newer state", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const operator = await teammate(admin);
+  const incident = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  const path = `/api/incidents/commands/${incident.id}`;
+  expect((await admin.request(path, { action: "resolve", version: 1 })).status).toBe(409);
+  const responses = await Promise.all([
+    admin.request(path, { action: "acknowledge", version: 1 }),
+    operator.request(path, { action: "acknowledge", version: 1 }),
+  ]);
+  expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+  const acknowledged = incidentSchema.parse(
+    await (await operator.request(`/api/incidents/detail/${incident.id}`)).json(),
+  );
+  expect(acknowledged).toMatchObject({
+    status: "acknowledged",
+    version: 2,
+    evidenceStatus: "pending",
+  });
+  expect(acknowledged.owner?.userId).toBe(acknowledged.timeline[1]?.actorId);
+  expect(acknowledged.timeline).toHaveLength(2);
+  expect((await admin.request(path, { action: "dismiss", version: 1 })).status).toBe(409);
+  const resolved = await operator.request(path, { action: "resolve", version: 2 });
+  expect(resolved.status).toBe(200);
+  const result = incidentSchema.parse(await resolved.json());
+  expect(result).toMatchObject({ status: "resolved", version: 3, owner: acknowledged.owner });
+  expect(result.timeline.map((entry) => entry.kind)).toEqual([
+    "reported",
+    "acknowledged",
+    "resolved",
+  ]);
+  expect((await admin.request(path, { action: "dismiss", version: 3 })).status).toBe(409);
+  expect((await admin.request(path, { action: "reopen", version: 3 })).status).toBe(400);
+  expect(
+    incidentSchema.parse(
+      await (await admin.request(`/api/incidents/detail/${incident.id}`)).json(),
+    ),
+  ).toEqual(result);
+});
+
+test("dismiss records incorrect-alert feedback independently of resolution", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const incident = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  const path = `/api/incidents/commands/${incident.id}`;
+  const response = await admin.request(path, { action: "dismiss", version: 1 });
+  expect(response.status).toBe(200);
+  const dismissed = incidentSchema.parse(await response.json());
+  expect(dismissed).toMatchObject({ status: "dismissed", version: 2, owner: null });
+  expect(dismissed.timeline.map((entry) => entry.kind)).toEqual(["reported", "dismissed"]);
+  expect((await admin.request(path, { action: "acknowledge", version: 2 })).status).toBe(409);
+  expect((await admin.request(path, { action: "resolve", version: 2 })).status).toBe(409);
+  expect(
+    reportReceiptSchema.parse(await (await device.request("/api/incidents/reports", report)).json())
+      .incident,
+  ).toEqual(dismissed);
 });

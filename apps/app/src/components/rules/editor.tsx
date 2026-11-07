@@ -46,11 +46,7 @@ export function RuleEditor({
   }));
   const defaultRecipient = configuration.recipients.find((person) => person.role === "owner");
   return (
-    <section aria-label="Trigger editor" className="rounded-xl border border-border bg-card p-6">
-      <h2 className="mb-2 text-xl font-semibold">{rule ? "Edit trigger" : "New trigger"}</h2>
-      <p className="mb-6 text-sm text-muted-foreground">
-        Choose what to watch for and review who should receive the alert.
-      </p>
+    <section aria-label="Trigger editor">
       <ActionForm
         submit="Save trigger"
         pendingLabel="Saving trigger…"
@@ -256,7 +252,7 @@ export function RuleSummary({
 }: {
   rule: Rule;
   configuration: OperatorConfiguration;
-  onEdit: () => void;
+  onEdit: (trigger: HTMLButtonElement) => void;
   onDisabled: (rule: Rule) => void;
 }) {
   const source = configuration.sources.find((source) => source.id === rule.sourceId);
@@ -308,7 +304,11 @@ export function RuleSummary({
         </div>
       </dl>
       <div className="flex flex-wrap gap-3">
-        <Button variant="outline" onClick={onEdit} aria-label={`Edit ${rule.definition.name}`}>
+        <Button
+          variant="outline"
+          onClick={(event) => onEdit(event.currentTarget)}
+          aria-label={`Edit ${rule.definition.name}`}
+        >
           Edit
         </Button>
         {rule.enabled && (

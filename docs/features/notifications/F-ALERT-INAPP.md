@@ -16,6 +16,8 @@ Receive a confirmed incident in the desktop or mobile operator client. Keep the 
 
 Receive incident state without waiting for clip upload. Response actions use the shared incident service. Render evidence availability independently. Respect keyboard navigation and reduced motion.
 
+F-INCIDENT-RESPONSE now supplies workspace-scoped inbox/detail reads and versioned response commands in [its shared contract](../../../apps/app/src/lib/incidents.ts). The `/incidents` inbox polls every five seconds, but the prominent incoming-alert experience, sound, and delivery remain unimplemented. Opening an incident does not acknowledge it. A future alert must use the last-read incident version for acknowledgment and handle a 409 conflict.
+
 ## Implementation
 
 Not implemented in the current application. Add actual source links when implementation lands.

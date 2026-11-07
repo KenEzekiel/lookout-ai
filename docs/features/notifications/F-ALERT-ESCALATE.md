@@ -18,6 +18,8 @@ F-RULE-CONFIG now stores [recipient IDs and escalation delay](../../../apps/app/
 
 Use authoritative shared incident state and the configured policy. Handle retries and restarts without duplicate follow-up attempts. Cancellation must agree across operator devices.
 
+F-INCIDENT-RESPONSE now snapshots the authoritative rule definition, recipients, and follow-up delay. Its [incident contract](../../../apps/app/src/lib/incidents.ts) distinguishes open, acknowledged, dismissed, and resolved. The future scheduler must attempt paging only while open and recheck authoritative state at execution. The current incident UI explicitly reports that no follow-up is scheduled, and no scheduler or delivery is implemented.
+
 ## Implementation
 
 Not implemented in the current application. Add actual source links when implementation lands.

@@ -54,6 +54,51 @@ test("deduplication across Slack listeners admits and executes one turn", async 
   assert.deepEqual(messages, ["Checked."]);
 });
 
+test("a turn outlives the former three-minute limit and delivers its result", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  const entered = deferred<void>();
+  const release = deferred<void>();
+  const messages: string[] = [];
+  let activeSignal: AbortSignal | undefined;
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: {
+      async run({ signal, report }) {
+        activeSignal = signal;
+        entered.resolve();
+        await release.promise;
+        await report("Still working.");
+        return { kind: "reply", text: "Finished the long request." };
+      },
+    },
+    publish: async (_, text) => {
+      messages.push(text);
+    },
+  });
+  t.after(async () => {
+    release.resolve();
+    await oracle.close();
+  });
+  const request = input("Complete a long request");
+  await oracle.receive(request);
+  await entered.promise;
+  t.mock.timers.tick(3_600_000);
+  assert.equal(activeSignal?.aborted, false);
+  assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "running");
+  assert.deepEqual(messages, []);
+  release.resolve();
+  await oracle.idle();
+  assert.deepEqual(messages, ["Still working.", "Finished the long request."]);
+  assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
+});
+
 test("conversation FIFO preserves order while an unrelated conversation runs", async (t) => {
   const sessions = createSessionStore({
     directory: await directory(t),
