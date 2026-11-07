@@ -20,6 +20,8 @@ Devices separates an owner-only **This browser** card from the **Connected devic
 
 ## Entry points
 
+Every workspace page exposes **Switch to device mode** in the shared header. The [device-mode action](../../../apps/app/src/components/access/device-mode-action.tsx) uses F-AUTH-ACCESS membership to open the owner's existing activation dialog or send an operator to `/monitor` for owner-approved pairing. Header actions wrap on narrow screens. The pairing screen offers **Back to workspace** before a successful device claim. Visitors, unassigned users, paired devices, and the pairing screen do not receive the switch action.
+
 The shared member navigation also opens `/incidents` and `/incidents/$incidentId` through the existing access gate. Devices do not receive incident response controls. [Incident routes and screens](../../../apps/app/src/components/incidents/workspace.tsx) use the existing theme, buttons, and responsive layout.
 
 Open `/`, `/devices`, `/team`, `/join`, `/monitor`, `/device`, `/triggers`, `/incidents`, an incident detail URL, or an unknown URL. The paired-device capture route has its own video-led header; access routes retain the shared access header and unknown-route fallback.
@@ -46,6 +48,8 @@ The shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel
 
 Browser QA at 390 × 844 confirmed changing shader pixels, reduced-motion unmounting and restoration, and a visible static mark with WebGL disabled, without page errors. The access integration suite checks the retained home link and static mark. QA media remains outside version control; PR attachment publication remains pending.
 
+The [access integration tests](../../../apps/app/tests/integration/access.test.tsx) verify the header action from Team for both member roles, cancellation, activation retry, and the operator pairing journey. Production-build Chromium QA verified owner entry from Devices, Team, Triggers, and Incidents, keyboard activation and dismissal, and both roles reaching restricted device mode. The main-branch integration recheck preserved the browser-card shortcut. Header, owner-dialog, and operator-pairing checks passed at 1280, 390, and 320 pixels. The implementation PR records the isolated runtime, one mocked activation failure, and screenshots.
+
 The [rendered-button regression](../../../tests/e2e/buttons.spec.ts) checks actual production CSS dimensions and decorative icons at 1280px and 320px. It covers default trigger/source/dialog/inbox actions, compact header/alert/device-row actions, reload pending/failure/recovery, and overflow. Run `pnpm exec playwright test tests/e2e/buttons.spec.ts` after building, or `pnpm qa:browser` for the full browser suite. Reinstating the historical form height and standalone-button size made both viewport cases fail with a 44px Reload where 40px was expected; restoring the shared sizes made them pass. HTTP principal, team, configuration, and incident fixtures keep this a UI layout regression rather than backend verification. Browser tests remain outside required CI under the repository verification policy.
 
 Button-consistency verification passed `pnpm verify`, including 46 complete-screen UI tests and 33 real-Worker API tests. The new [reload regression](../../../apps/app/tests/integration/rules.test.tsx) covers decorative icons, accessible labels, pending submission, failure, and retry. Production-build Chromium QA measured Reload and New trigger at 40 pixels with 16-pixel icons and device-row actions at 36 pixels. It exercised trigger creation/edit/disable, reload recovery, invitation copy, pairing, and incident response at desktop and narrow widths. Per-run screenshots, exact HTTP interceptions, revision, and remaining platform limitations belong in the PR.
@@ -61,6 +65,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 [Route integration tests](../../../apps/app/tests/integration/app.test.tsx) cover the home redirect, direct Devices and Team links, visitor denial, persistent header and access connection, path navigation, browser back and forward, and unknown-route fallback. [Capture UI tests](../../../apps/app/tests/integration/device.test.tsx) cover paired-device entry and visitor denial. Run `pnpm test`. [Access browser journeys](../../../tests/e2e/access.spec.ts) exercise entry, joining, and monitoring-mode navigation against the built app.
 
 ## Decisions and sources
+
+[Issue #86](https://github.com/KenEzekiel/lookout-ai/issues/86) adds device-mode entry in the shared member header while retaining the owner-only **This browser** card introduced by [PR #84](https://github.com/KenEzekiel/lookout-ai/pull/84). Model the Domain keeps role-dependent header entry in one component using the existing `Member` shape. Both owner shortcuts use the existing activation dialog and endpoint. Owner-approved operator pairing, capture entry, and device restrictions retain their existing endpoints and permissions.
 
 The current PR implements Ken’s approved browser-card mockup and request to restore and emphasize connected-device Live view. Existing access and peer behavior is preserved. Complete-screen access integration tests cover activation confirmation/cancellation, role restrictions, viewing entry/retry/close, and removal of viewing access after revocation. Manual QA results belong in the PR.
 
