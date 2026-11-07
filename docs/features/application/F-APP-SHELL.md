@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+The shared header mark now layers Paper Liquid Metal over the original Horizon SVG using a local [mask](../../../apps/app/public/horizon-mask.svg). The wordmark, accessible name, footprint, and favicon stay unchanged. The shader loads only on the client, unmounts for reduced motion or hidden documents, and leaves the static SVG visible while loading or when WebGL cannot render. This decision follows Ken's request to animate the logo with Paper shaders.
+
 Action buttons share a 40-pixel minimum height, 16-pixel icons, and consistent spacing. Compact header, row, and alert-preference actions use the explicit 36-pixel size. Inline text actions keep their compact layout. Labels wrap on narrow screens; icons supplement visible labels and remain hidden from assistive technology.
 
 Initial access and route waits use shared, labeled skeletons. List and detail placeholders reserve content space without exposing protected records. Route fallback starts after 200 ms and imposes no minimum wait. Reduced motion keeps all loading indicators static. Shared buttons support an explicit busy state. Background polling retains existing content while requests are in flight.
@@ -39,6 +41,8 @@ The shell uses the completed account/session portion of F-AUTH-ACCESS through sa
 [Workspace layout](../../../apps/app/src/routes/_workspace.tsx), [Devices route](../../../apps/app/src/routes/_workspace.devices.tsx), [Team route](../../../apps/app/src/routes/_workspace.team.tsx), [member context](../../../apps/app/src/components/access/workspace-context.tsx), [home redirect](../../../apps/app/src/routes/index.tsx), [capture route](../../../apps/app/src/routes/device.tsx), [root route](../../../apps/app/src/routes/__root.tsx), [router](../../../apps/app/src/router.tsx), [access UI](../../../apps/app/src/components/access/app.tsx), [brand](../../../apps/app/src/components/access/brand.tsx), and [favicon](../../../apps/app/public/favicon.svg).
 
 ## Verification
+
+Browser QA at 390 × 844 confirmed changing shader pixels, reduced-motion unmounting and restoration, and a visible static mark with WebGL disabled, without page errors. The access integration suite checks the retained home link and static mark. QA media remains outside version control; PR attachment publication remains pending.
 
 The [rendered-button regression](../../../tests/e2e/buttons.spec.ts) checks actual production CSS dimensions and decorative icons at 1280px and 320px. It covers default trigger/source/dialog/inbox actions, compact header/alert/device-row actions, reload pending/failure/recovery, and overflow. Run `pnpm exec playwright test tests/e2e/buttons.spec.ts` after building, or `pnpm qa:browser` for the full browser suite. Reinstating the historical form height and standalone-button size made both viewport cases fail with a 44px Reload where 40px was expected; restoring the shared sizes made them pass. HTTP principal, team, configuration, and incident fixtures keep this a UI layout regression rather than backend verification. Browser tests remain outside required CI under the repository verification policy.
 
