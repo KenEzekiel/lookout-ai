@@ -2,6 +2,7 @@ import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import geistLatin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url";
 import stylesheet from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -13,6 +14,13 @@ export const Route = createRootRoute({
       { title: "Lookout" },
     ],
     links: [
+      {
+        rel: "preload",
+        href: geistLatin,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
       { rel: "stylesheet", href: stylesheet },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "manifest", href: "/manifest.webmanifest" },

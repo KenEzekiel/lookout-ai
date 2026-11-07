@@ -1,4 +1,5 @@
 import { peerSessionSchema, peerSyncSchema } from "../../src/lib/peer";
+import { deviceHealthSchema, healthStatus, type HealthReport } from "../../src/lib/device-health";
 import assert from "node:assert/strict";
 import {
   inviteSchema,
@@ -115,6 +116,135 @@ async function owner(name = "Workspace") {
   expect((await browser.request("/api/access/workspace", { name })).status).toBe(201);
   return browser;
 }
+
+function events(response: Awaited<ReturnType<Browser["request"]>>) {
+  const reader = response.body?.getReader();
+  assert(reader);
+  const decoder = new TextDecoder();
+  let buffer = "";
+  return {
+    cancel: () => reader.cancel(),
+    async next(): Promise<string | null> {
+      for (;;) {
+        const end = buffer.indexOf("\n\n");
+        if (end !== -1) {
+          const event = buffer.slice(0, end);
+          buffer = buffer.slice(end + 2);
+          return event;
+        }
+        const chunk = await reader.read();
+        if (chunk.done) return null;
+        buffer += decoder.decode(chunk.value, { stream: true });
+      }
+    },
+    async team() {
+      for (;;) {
+        const event = await this.next();
+        assert(event !== null, "stream ended before team snapshot");
+        const data = event.split("\n").find((line) => line.startsWith("data: "));
+        if (data) return teamSchema.parse(JSON.parse(data.slice(6)));
+      }
+    },
+  };
+}
+
+test("team SSE delivers cross-browser pairing and revocation with workspace isolation", async () => {
+  const admin = await owner();
+  const foreign = await owner("Foreign workspace");
+  const response = await admin.request("/api/access/team/events");
+  expect(response.headers.get("content-type")).toBe("text/event-stream");
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  const stream = events(response);
+  const foreignStream = events(await foreign.request("/api/access/team/events"));
+  try {
+    expect((await stream.team()).devices).toEqual([]);
+    expect((await foreignStream.team()).devices).toEqual([]);
+    const device = new Browser();
+    const pairing = pairingSchema.parse(
+      await (await device.request("/api/access/pairing/start", {})).json(),
+    );
+    expect(
+      (
+        await admin.request("/api/access/pairing/approve", {
+          code: pairing.code,
+          name: "New camera",
+        })
+      ).status,
+    ).toBe(200);
+    const connected = await stream.team();
+    expect(connected.devices).toEqual([
+      { id: expect.any(String), name: "New camera", revokedAt: null },
+    ]);
+    expect(await foreignStream.next()).toBe(": heartbeat");
+    const deviceId = connected.devices[0]?.id;
+    expect((await admin.request("/api/access/devices/revoke", { id: deviceId })).status).toBe(200);
+    expect((await stream.team()).devices).toEqual([
+      { id: deviceId, name: "New camera", revokedAt: expect.any(Number) },
+    ]);
+    const reconnected = events(await admin.request("/api/access/team/events"));
+    try {
+      expect((await reconnected.team()).devices[0]?.revokedAt).toEqual(expect.any(Number));
+    } finally {
+      await reconnected.cancel();
+    }
+  } finally {
+    await stream.cancel();
+    await foreignStream.cancel();
+  }
+});
+
+test("team SSE denies visitors, unassigned accounts, and paired devices", async () => {
+  const browser = new Browser();
+  expect((await browser.request("/api/access/team/events")).status).toBe(401);
+  await browser.register();
+  expect((await browser.request("/api/access/team/events")).status).toBe(403);
+  expect((await browser.request("/api/access/workspace", { name: "Workspace" })).status).toBe(201);
+  expect((await browser.request("/api/access/devices/activate", { name: "Camera" })).status).toBe(
+    200,
+  );
+  expect((await browser.request("/api/access/team/events")).status).toBe(403);
+});
+
+test("team SSE rechecks operator membership and closes after removal", async () => {
+  const admin = await owner();
+  const invitation = inviteSchema.parse(
+    await (await admin.request("/api/access/invitations", {})).json(),
+  );
+  const operator = new Browser();
+  await operator.register("Operator");
+  expect((await operator.request("/api/access/join", { code: invitation.code })).status).toBe(200);
+  const actor = memberSchema.parse(await (await operator.request("/api/access/principal")).json());
+  const stream = events(await operator.request("/api/access/team/events"));
+  try {
+    expect((await stream.team()).members).toHaveLength(2);
+    expect((await admin.request("/api/access/remove-member", { id: actor.userId })).status).toBe(
+      200,
+    );
+    expect(await stream.next()).toBe("event: unavailable\ndata: {}");
+    expect(await stream.next()).toBeNull();
+    expect((await operator.request("/api/access/team/events")).status).toBe(403);
+  } finally {
+    await stream.cancel();
+  }
+});
+
+test("team SSE ends a bounded stream and reconnects to the current state", async () => {
+  const admin = await owner();
+  const stream = events(await admin.request("/api/access/team/events"));
+  try {
+    expect((await stream.team()).devices).toEqual([]);
+    for (let poll = 0; poll < 5; poll++) expect(await stream.next()).toBe(": heartbeat");
+    expect(await stream.next()).toBeNull();
+    const renewed = events(await admin.request("/api/access/team/events"));
+    try {
+      expect((await renewed.team()).devices).toEqual([]);
+    } finally {
+      await renewed.cancel();
+    }
+  } finally {
+    await stream.cancel();
+  }
+}, 40_000);
 
 test("invitations redeem once across link and code; operators cannot administer", async () => {
   const admin = await owner();
@@ -316,8 +446,10 @@ async function configuredWorkspace() {
       condition: { kind: "template", template: "fall" },
       durationSeconds: null,
       severity: "critical",
-      recipientIds: [actor.userId],
-      escalationDelaySeconds: 60,
+      escalationLevels: [
+        { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 60 },
+        { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+      ],
     },
   };
   return { admin, actor, source, input };
@@ -333,6 +465,227 @@ async function paired(admin: Browser, name = "Monitoring browser") {
   expect((await device.request("/api/access/pairing/claim", {})).status).toBe(200);
   return device;
 }
+
+test("device health persists metadata, detects stale capture and contact, and reconnects without inventing observations", async () => {
+  const { admin, input, source } = await configuredWorkspace();
+  const device = await paired(admin);
+  const rule = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/create", input)).json(),
+  );
+  const report: HealthReport = {
+    sourceId: source.id,
+    capture: "running",
+    lastObservationAt: Date.now(),
+    assessment: "ready",
+    lastAssessmentAt: Date.now(),
+    configurationAvailable: true,
+    appliedRules: [{ id: rule.id, version: rule.version }],
+  };
+  async function health() {
+    const response = await admin.request("/api/health/operator");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const result = deviceHealthSchema.parse(await response.json());
+    const first = result.devices[0];
+    assert(first);
+    return { device: first, status: healthStatus(first, result.serverTime) };
+  }
+  expect((await health()).status).toBe("No reports yet");
+  expect((await device.request("/api/health/report", report)).status).toBe(200);
+  const active = await health();
+  expect(active.status).toBe("Monitoring");
+  expect(active.device.source).toEqual(source);
+  expect(active.device.report).toEqual(report);
+  expect(active.device.lastContactAt).toBeGreaterThanOrEqual(report.lastObservationAt ?? 0);
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        capture: "stopped",
+        lastObservationAt: null,
+        lastAssessmentAt: null,
+        assessment: "unavailable",
+      })
+    ).status,
+  ).toBe(200);
+  const stopped = await health();
+  expect(stopped.status).toBe("Stopped");
+  expect(stopped.device.report?.lastObservationAt).toBe(report.lastObservationAt);
+  expect(
+    (await device.request("/api/health/report", { ...report, capture: "paused" })).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Paused");
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        lastObservationAt: Date.now() - 11_000,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Capture stalled");
+  expect(
+    (await device.request("/api/health/report", { ...report, assessment: "degraded" })).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Assessment degraded");
+  expect(
+    (await device.request("/api/health/report", { ...report, assessment: "unavailable" })).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Assessment unavailable");
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        lastAssessmentAt: Date.now() - 46_000,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Assessment stale");
+  expect((await device.request("/api/health/report", report)).status).toBe(200);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE device_health SET last_contact_at=?")
+    .bind(Date.now() - 21_000)
+    .run();
+  expect((await health()).status).toBe("Disconnected / stale");
+  expect((await device.request("/api/health/report", report)).status).toBe(200);
+  const resumed = await health();
+  expect(resumed.status).toBe("Monitoring");
+  expect(resumed.device.report?.lastObservationAt).toBe(report.lastObservationAt);
+  expect(resumed.device.lastContactAt).toBeGreaterThan(active.device.lastContactAt ?? 0);
+  const stored = await env.DB.prepare("SELECT report FROM device_health").first<{
+    report: string;
+  }>();
+  expect(JSON.parse(stored?.report ?? "null")).toEqual(report);
+});
+
+test("health shows assigned versus applied rule versions through edits and disable", async () => {
+  const { admin, input, source } = await configuredWorkspace();
+  const device = await paired(admin);
+  const rule = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/create", input)).json(),
+  );
+  const report: HealthReport = {
+    sourceId: source.id,
+    capture: "running",
+    lastObservationAt: Date.now(),
+    assessment: "ready",
+    lastAssessmentAt: Date.now(),
+    configurationAvailable: true,
+    appliedRules: [{ id: rule.id, version: 1 }],
+  };
+  await device.request("/api/health/report", report);
+  const edited = ruleSchema.parse(
+    await (
+      await admin.request("/api/config/rules/update", {
+        ...rule,
+        definition: { ...rule.definition, name: "Updated trigger" },
+      })
+    ).json(),
+  );
+  const result = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  const first = result.devices[0];
+  assert(first);
+  expect(first.assignedRules).toEqual([
+    { id: rule.id, name: "Updated trigger", enabled: true, version: 2 },
+  ]);
+  expect(first.report?.appliedRules).toEqual(report.appliedRules);
+  expect(healthStatus(first, result.serverTime)).toBe("Configuration out of date");
+  await device.request("/api/health/report", {
+    ...report,
+    appliedRules: [{ id: rule.id, version: edited.version }],
+  });
+  const current = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  assert(current.devices[0]);
+  expect(healthStatus(current.devices[0], current.serverTime)).toBe("Monitoring");
+  await admin.request("/api/config/rules/disable", { id: rule.id, version: 2 });
+  const disabled = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  assert(disabled.devices[0]);
+  expect(healthStatus(disabled.devices[0], disabled.serverTime)).toBe("Configuration out of date");
+  await device.request("/api/health/report", {
+    ...report,
+    appliedRules: [{ id: rule.id, version: 3 }],
+  });
+  const applied = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  assert(applied.devices[0]);
+  expect(healthStatus(applied.devices[0], applied.serverTime)).toBe("No enabled triggers");
+});
+
+test("health rejects unauthorized, cross-workspace, media, oversized, future and revoked reports", async () => {
+  const { admin, source } = await configuredWorkspace();
+  const other = await owner("Other workspace");
+  const device = await paired(admin);
+  const stranger = new Browser();
+  const report: HealthReport = {
+    sourceId: source.id,
+    capture: "stopped",
+    lastObservationAt: null,
+    assessment: "unavailable",
+    lastAssessmentAt: null,
+    configurationAvailable: false,
+    appliedRules: [],
+  };
+  expect((await stranger.request("/api/health/report", report)).status).toBe(401);
+  expect((await admin.request("/api/health/report", report)).status).toBe(403);
+  expect((await device.request("/api/health/operator")).status).toBe(403);
+  expect((await stranger.request("/api/health/operator")).status).toBe(401);
+  const foreign = sourceSchema.parse(
+    await (await other.request("/api/config/sources", { name: "Private", kind: "camera" })).json(),
+  );
+  expect(
+    (await device.request("/api/health/report", { ...report, sourceId: foreign.id })).status,
+  ).toBe(404);
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        image: "data:image/jpeg;base64,AAAA",
+      })
+    ).status,
+  ).toBe(400);
+  expect(
+    (await device.request("/api/health/report", { ...report, workspaceId: "injected" })).status,
+  ).toBe(400);
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        lastObservationAt: Date.now() + 60_000,
+      })
+    ).status,
+  ).toBe(400);
+  expect(
+    (await device.request("/api/health/report", { ...report, video: "x".repeat(17_000) })).status,
+  ).toBe(413);
+  const wrongOrigin = await harness.fetch(origin + "/api/health/report", {
+    method: "POST",
+    headers: { Origin: "https://evil.example", "Content-Type": "application/json" },
+    body: JSON.stringify(report),
+  });
+  expect(wrongOrigin.status).toBe(403);
+  expect((await device.request("/api/health/report", report)).status).toBe(200);
+  expect(
+    deviceHealthSchema.parse(await (await other.request("/api/health/operator")).json()).devices,
+  ).toEqual([]);
+  const status = devicePrincipalSchema.parse(
+    await (await device.request("/api/access/devices/status")).json(),
+  );
+  await admin.request("/api/access/devices/revoke", { id: status.deviceId });
+  expect(
+    (await device.request("/api/health/report", { ...report, capture: "running" })).status,
+  ).toBe(401);
+  const revoked = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  assert(revoked.devices[0]);
+  expect(healthStatus(revoked.devices[0], revoked.serverTime)).toBe("Access removed");
+});
 
 test("template and custom triggers persist, and a device receives edits and disabled versions", async () => {
   const { admin, input } = await configuredWorkspace();
@@ -359,7 +712,9 @@ test("template and custom triggers persist, and a device receives edits and disa
       },
       durationSeconds: 15,
       severity: "warning",
-      escalationDelaySeconds: 90,
+      escalationLevels: input.definition.escalationLevels.map((level, index) =>
+        index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 90 } : level,
+      ),
     },
   };
   const customResponse = await admin.request("/api/config/rules/create", customInput);
@@ -373,11 +728,27 @@ test("template and custom triggers persist, and a device receives edits and disa
   );
   expect(configuration.rules).toEqual([fall, custom]);
   expect(configuration.sources).toHaveLength(2);
-  const edit = { ...fall, definition: { ...fall.definition, escalationDelaySeconds: 120 } };
+  const edit = {
+    ...fall,
+    definition: {
+      ...fall.definition,
+      escalationLevels: fall.definition.escalationLevels.map((level, index) =>
+        index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 120 } : level,
+      ),
+    },
+  };
   const edited = ruleSchema.parse(
     await (await admin.request("/api/config/rules/update", edit)).json(),
   );
-  expect(edited).toMatchObject({ version: 2, definition: { escalationDelaySeconds: 120 } });
+  expect(edited).toMatchObject({
+    version: 2,
+    definition: {
+      escalationLevels: [
+        { acknowledgmentTimeoutSeconds: 120 },
+        { acknowledgmentTimeoutSeconds: null },
+      ],
+    },
+  });
   let delivered = deviceConfigurationSchema.parse(
     await (await device.request("/api/config/device")).json(),
   );
@@ -418,28 +789,99 @@ test("invalid conditions, settings, sources and recipients reject the entire sav
       ...input,
       definition: { ...input.definition, condition: { kind: "template", template: "unknown" } },
     },
-    { ...input, definition: { ...input.definition, recipientIds: [] } },
     {
       ...input,
       definition: {
         ...input.definition,
-        recipientIds: [...input.definition.recipientIds, outsiderActor.userId],
+        escalationLevels: [{ recipientIds: [], acknowledgmentTimeoutSeconds: null }],
       },
     },
-    { ...input, definition: { ...input.definition, recipientIds: ["nonexistent"] } },
     {
       ...input,
       definition: {
         ...input.definition,
-        recipientIds: [...input.definition.recipientIds, ...input.definition.recipientIds],
+        escalationLevels: [
+          {
+            recipientIds: [
+              ...input.definition.escalationLevels[0]!.recipientIds,
+              outsiderActor.userId,
+            ],
+            acknowledgmentTimeoutSeconds: null,
+          },
+        ],
       },
     },
-    { ...input, definition: { ...input.definition, escalationDelaySeconds: 0 } },
+    {
+      ...input,
+      definition: {
+        ...input.definition,
+        escalationLevels: [{ recipientIds: ["nonexistent"], acknowledgmentTimeoutSeconds: null }],
+      },
+    },
+    {
+      ...input,
+      definition: {
+        ...input.definition,
+        escalationLevels: [
+          {
+            recipientIds: [
+              ...input.definition.escalationLevels[0]!.recipientIds,
+              ...input.definition.escalationLevels[0]!.recipientIds,
+            ],
+            acknowledgmentTimeoutSeconds: null,
+          },
+        ],
+      },
+    },
+    {
+      ...input,
+      definition: {
+        ...input.definition,
+        escalationLevels: input.definition.escalationLevels.map((level, index) =>
+          index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 0 } : level,
+        ),
+      },
+    },
     { ...input, definition: { ...input.definition, durationSeconds: -1 } },
     { ...input, definition: { ...input.definition, severity: "unknown" } },
     { ...input, sourceId: outsiderSource.id },
     { ...input, sourceId: "nonexistent" },
   ];
+  invalid.push(
+    ...[
+      [],
+      Array.from({ length: 7 }, (_, index) => ({
+        recipientIds: [input.definition.escalationLevels[0]!.recipientIds[0]!],
+        acknowledgmentTimeoutSeconds: index === 6 ? null : 60,
+      })),
+      [
+        {
+          recipientIds: input.definition.escalationLevels[0]!.recipientIds,
+          acknowledgmentTimeoutSeconds: 60,
+        },
+      ],
+      [
+        {
+          recipientIds: input.definition.escalationLevels[0]!.recipientIds,
+          acknowledgmentTimeoutSeconds: null,
+        },
+        {
+          recipientIds: input.definition.escalationLevels[0]!.recipientIds,
+          acknowledgmentTimeoutSeconds: null,
+        },
+      ],
+      [
+        {
+          recipientIds: input.definition.escalationLevels[0]!.recipientIds,
+          acknowledgmentTimeoutSeconds: 60,
+        },
+        { recipientIds: [outsiderActor.userId], acknowledgmentTimeoutSeconds: null },
+      ],
+    ].map((escalationLevels) => ({
+      ...input,
+      definition: { ...input.definition, escalationLevels },
+    })),
+  );
   for (const body of invalid)
     expect((await admin.request("/api/config/rules/create", body)).status).toBe(400);
   const empty = operatorConfigurationSchema.parse(
@@ -456,7 +898,9 @@ test("invalid conditions, settings, sources and recipients reject the entire sav
         definition: {
           ...rule.definition,
           name: "Must not persist",
-          recipientIds: [outsiderActor.userId],
+          escalationLevels: [
+            { recipientIds: [outsiderActor.userId], acknowledgmentTimeoutSeconds: null },
+          ],
         },
       })
     ).status,
@@ -569,7 +1013,10 @@ test("operators configure rules and removing a recipient disables and versions a
     await (
       await operator.request("/api/config/rules/create", {
         ...input,
-        definition: { ...input.definition, recipientIds: [actor.userId] },
+        definition: {
+          ...input.definition,
+          escalationLevels: [{ recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null }],
+        },
       })
     ).json(),
   );
@@ -595,7 +1042,14 @@ async function incidentSetup(escalationDelaySeconds = 60) {
     await (
       await workspace.admin.request("/api/config/rules/create", {
         ...workspace.input,
-        definition: { ...workspace.input.definition, escalationDelaySeconds },
+        definition: {
+          ...workspace.input.definition,
+          escalationLevels: workspace.input.definition.escalationLevels.map((level, index) =>
+            index === 0
+              ? { ...level, acknowledgmentTimeoutSeconds: escalationDelaySeconds }
+              : level,
+          ),
+        },
       })
     ).json(),
   );
@@ -686,7 +1140,15 @@ test("incoming delivery is recipient-scoped, retry-safe and stops for every reci
     await (
       await admin.request("/api/config/rules/update", {
         ...rule,
-        definition: { ...rule.definition, recipientIds: [actor.userId, operatorActor.userId] },
+        definition: {
+          ...rule.definition,
+          escalationLevels: [
+            {
+              recipientIds: [actor.userId, operatorActor.userId],
+              acknowledgmentTimeoutSeconds: null,
+            },
+          ],
+        },
       })
     ).json(),
   );
@@ -694,19 +1156,22 @@ test("incoming delivery is recipient-scoped, retry-safe and stops for every reci
   const incident = reportReceiptSchema.parse(
     await (await device.request("/api/incidents/reports", currentReport)).json(),
   ).incident;
-  expect(await alerts(admin)).toEqual([incident]);
-  expect(await alerts(operator)).toEqual([incident]);
+  expect(await alerts(admin)).toEqual([{ ...incident, deliveryLevel: 1 }]);
+  expect(await alerts(operator)).toEqual([{ ...incident, deliveryLevel: 1 }]);
   expect(await alerts(otherMember)).toEqual([]);
   expect(await alerts(outsider)).toEqual([]);
   expect((await new Browser().request("/api/incidents/alerts")).status).toBe(401);
   expect((await device.request("/api/incidents/alerts")).status).toBe(403);
   await device.request("/api/incidents/reports", currentReport);
-  expect(await alerts(admin)).toEqual([incident]);
+  expect(await alerts(admin)).toEqual([{ ...incident, deliveryLevel: 1 }]);
   await admin.request("/api/config/rules/update", {
     ...currentRule,
-    definition: { ...currentRule.definition, recipientIds: [actor.userId] },
+    definition: {
+      ...currentRule.definition,
+      escalationLevels: [{ recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null }],
+    },
   });
-  expect(await alerts(operator)).toEqual([incident]);
+  expect(await alerts(operator)).toEqual([{ ...incident, deliveryLevel: 1 }]);
   expect(
     (
       await operator.request(`/api/incidents/commands/${incident.id}`, {
@@ -834,7 +1299,7 @@ test("report and incident endpoints enforce workspace, device, origin and member
       await device.request("/api/incidents/reports", {
         ...report,
         eventId: "forged",
-        recipientIds: [actor.userId],
+        escalationLevels: [{ recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null }],
       })
     ).status,
   ).toBe(400);
@@ -1297,7 +1762,12 @@ test("a real alarm survives object eviction and publishes one follow-up using th
   await harness.getWorker().evictDurableObject("INCIDENT_FOLLOW_UP", { name: created.id });
   await admin.request("/api/config/rules/update", {
     ...rule,
-    definition: { ...rule.definition, escalationDelaySeconds: 3600 },
+    definition: {
+      ...rule.definition,
+      escalationLevels: rule.definition.escalationLevels.map((level, index) =>
+        index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 3600 } : level,
+      ),
+    },
   });
   const detail = async () =>
     incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${created.id}`)).json());
@@ -1321,7 +1791,7 @@ test("a real alarm survives object eviction and publishes one follow-up using th
   expect(
     incidentInboxSchema.parse(await (await admin.request("/api/incidents/alerts")).json())
       .incidents,
-  ).toEqual([attempted]);
+  ).toEqual([{ ...attempted, deliveryLevel: 2 }]);
 });
 
 test("acknowledge, dismiss and resolve prevent new follow-up attempts, including repeated alarm delivery", async () => {
@@ -1446,4 +1916,203 @@ test("a failed creation resets the object and recovers its durable intent throug
   ]);
   expect((await device.request("/api/incidents/reports", report)).status).toBe(200);
   expect(await inbox()).toEqual(recovered);
+});
+
+test("levels activate sequentially with full acknowledgment windows and recipient-scoped delivery", async () => {
+  const { admin, device, report, rule, actor } = await incidentSetup();
+  const operator = await teammate(admin);
+  const operatorActor = memberSchema.parse(
+    await (await operator.request("/api/access/principal")).json(),
+  );
+  const updated = ruleSchema.parse(
+    await (
+      await admin.request("/api/config/rules/update", {
+        ...rule,
+        definition: {
+          ...rule.definition,
+          escalationLevels: [
+            { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 60 },
+            { recipientIds: [operatorActor.userId], acknowledgmentTimeoutSeconds: 120 },
+            {
+              recipientIds: [actor.userId, operatorActor.userId],
+              acknowledgmentTimeoutSeconds: null,
+            },
+          ],
+        },
+      })
+    ).json(),
+  );
+  const created = reportReceiptSchema.parse(
+    await (
+      await device.request("/api/incidents/reports", {
+        ...report,
+        ruleVersion: updated.version,
+      })
+    ).json(),
+  ).incident;
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  const detail = async () =>
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${created.id}`)).json());
+  const alerts = async (browser: Browser) =>
+    incidentInboxSchema.parse(await (await browser.request("/api/incidents/alerts")).json())
+      .incidents;
+  expect(await alerts(operator)).toEqual([]);
+  expect((await alerts(admin))[0]?.deliveryLevel).toBe(1);
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  const alarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+  await Promise.all([alarm.dispatch(), alarm.dispatch()]);
+  const second = await detail();
+  expect(second.escalationActivations).toHaveLength(2);
+  expect(second.escalationDueAt).toBe(second.escalationActivations[1]! + 120_000);
+  expect((await alerts(operator))[0]?.deliveryLevel).toBe(2);
+  expect((await alerts(admin))[0]?.deliveryLevel).toBe(1);
+  await alarm.dispatch();
+  expect(await detail()).toEqual(second);
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  await alarm.dispatch();
+  const final = await detail();
+  expect(final.escalationActivations).toHaveLength(3);
+  expect(final.escalationDueAt).toBeNull();
+  expect(final.status).toBe("open");
+  expect(final.version).toBe(1);
+  expect((await alerts(admin))[0]?.deliveryLevel).toBe(3);
+  await alarm.dispatch();
+  expect(await detail()).toEqual(final);
+  expect(
+    (
+      await admin.request(`/api/incidents/commands/${created.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).status,
+  ).toBe(200);
+  expect(await alerts(operator)).toEqual([]);
+});
+
+test("acknowledgment by an earlier recipient cancels later levels and removal disables future-recipient rules", async () => {
+  const { admin, device, report, rule, actor } = await incidentSetup();
+  const operator = await teammate(admin);
+  const operatorActor = memberSchema.parse(
+    await (await operator.request("/api/access/principal")).json(),
+  );
+  const policy = [
+    { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 60 },
+    { recipientIds: [operatorActor.userId], acknowledgmentTimeoutSeconds: 60 },
+    { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+  ];
+  const updated = ruleSchema.parse(
+    await (
+      await admin.request("/api/config/rules/update", {
+        ...rule,
+        definition: { ...rule.definition, escalationLevels: policy },
+      })
+    ).json(),
+  );
+  const created = reportReceiptSchema.parse(
+    await (
+      await device.request("/api/incidents/reports", {
+        ...report,
+        ruleVersion: updated.version,
+      })
+    ).json(),
+  ).incident;
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  await env.INCIDENT_FOLLOW_UP.getByName(created.id).dispatch();
+  expect(
+    (
+      await admin.request(`/api/incidents/commands/${created.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).status,
+  ).toBe(200);
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  await env.INCIDENT_FOLLOW_UP.getByName(created.id).dispatch();
+  const stopped = incidentSchema.parse(
+    await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+  );
+  expect(stopped.escalationActivations).toHaveLength(2);
+  expect(stopped.status).toBe("acknowledged");
+  expect(
+    (await admin.request("/api/access/remove-member", { id: operatorActor.userId })).status,
+  ).toBe(200);
+  const config = operatorConfigurationSchema.parse(
+    await (await admin.request("/api/config/operator")).json(),
+  );
+  expect(config.rules[0]).toMatchObject({ enabled: false, version: updated.version + 1 });
+  expect((await operator.request("/api/incidents/alerts")).status).toBe(403);
+});
+
+test("the migration preserves legacy pending, attempted and unscheduled incident state", async () => {
+  const { admin, device, report, rule, actor } = await incidentSetup(3600);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  const incidents = [];
+  for (let index = 0; index < 3; index++) {
+    incidents.push(
+      reportReceiptSchema.parse(
+        await (
+          await device.request("/api/incidents/reports", {
+            ...report,
+            eventId: crypto.randomUUID(),
+          })
+        ).json(),
+      ).incident,
+    );
+  }
+  const [pending, attempted, unscheduled] = incidents;
+  assert(pending && attempted && unscheduled);
+  await env.DB.prepare("UPDATE incident SET follow_up_attempted_at=received_at+1000 WHERE id=?")
+    .bind(attempted.id)
+    .run();
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=NULL WHERE id=?")
+    .bind(unscheduled.id)
+    .run();
+  const legacy = { ...rule.definition, recipientIds: [actor.userId], escalationDelaySeconds: 3600 };
+  const { escalationLevels: _levels, ...definition } = legacy;
+  await env.DB.prepare("UPDATE monitoring_rule SET definition=? WHERE id=?")
+    .bind(JSON.stringify(definition), rule.id)
+    .run();
+  await env.DB.prepare("UPDATE incident SET context=json_set(context,'$.rule.definition',json(?))")
+    .bind(JSON.stringify(definition))
+    .run();
+  await env.DB.prepare("ALTER TABLE incident DROP COLUMN escalation_activations").run();
+  const { readFile } = await import("node:fs/promises");
+  const migration = await readFile(
+    new URL("../../migrations/0007_escalation_levels.sql", import.meta.url),
+    "utf8",
+  );
+  await env.DB.batch(
+    migration
+      .split(";")
+      .map((sql) => sql.trim())
+      .filter(Boolean)
+      .map((sql) => env.DB.prepare(sql)),
+  );
+  const detail = async (id: string) =>
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${id}`)).json());
+  expect((await detail(pending.id)).escalationDueAt).toBe(pending.receivedAt + 3_600_000);
+  expect((await detail(attempted.id)).escalationActivations).toEqual([
+    attempted.receivedAt,
+    attempted.receivedAt + 1000,
+  ]);
+  expect((await detail(attempted.id)).escalationDueAt).toBeNull();
+  expect((await detail(unscheduled.id)).escalationDueAt).toBeNull();
+  const configuration = operatorConfigurationSchema.parse(
+    await (await admin.request("/api/config/operator")).json(),
+  );
+  expect(configuration.rules[0]?.definition.escalationLevels).toEqual([
+    { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 3600 },
+    { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+  ]);
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(pending.id).run();
+  await env.INCIDENT_FOLLOW_UP.getByName(pending.id).dispatch();
+  expect((await detail(pending.id)).escalationActivations).toHaveLength(2);
+  await env.INCIDENT_FOLLOW_UP.getByName(attempted.id).dispatch();
+  expect((await detail(attempted.id)).escalationActivations).toEqual([
+    attempted.receivedAt,
+    attempted.receivedAt + 1000,
+  ]);
+  await env.INCIDENT_FOLLOW_UP.getByName(unscheduled.id).dispatch();
+  expect((await detail(unscheduled.id)).escalationActivations).toEqual([unscheduled.receivedAt]);
 });

@@ -26,8 +26,10 @@ const incident = {
       condition: { kind: "template", template: "fall" },
       durationSeconds: null,
       severity: "critical",
-      recipientIds: [actor.userId],
-      escalationDelaySeconds: 60,
+      escalationLevels: [
+        { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 60 },
+        { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+      ],
     },
   },
   status: "open",

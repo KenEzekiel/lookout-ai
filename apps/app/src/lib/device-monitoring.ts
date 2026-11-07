@@ -3,7 +3,14 @@ import { request } from "./api";
 import { createAssessmentClient } from "./assessment";
 import { type CaptureSession, type FrameSample } from "./capture-session";
 import { captureSessionSchema, reportReceiptSchema } from "./incidents";
+import {
+  preserveIncidentEvidence,
+  uploadIncidentEvidence,
+  retryIncidentEvidence,
+  type EvidenceUploadStatus,
+} from "./incident-evidence";
 import { type Rule } from "./rules";
+import { type HealthReport } from "./device-health";
 
 type EventWindow = {
   id: string;
@@ -18,21 +25,41 @@ type RuleState = {
   clearSince: number | null;
   positiveSince: number | null;
   notice: string;
+  assessment: HealthReport["assessment"];
+  lastAssessmentAt: number | null;
   event:
     | { kind: "armed" }
     | { kind: "observing" | "candidate"; window: EventWindow }
-    | { kind: "reporting"; window: EventWindow }
+    | {
+        kind: "reporting";
+        window: EventWindow;
+        preserved: ReturnType<typeof preserveIncidentEvidence>;
+      }
     | { kind: "held"; window: EventWindow };
 };
 export type MonitoringStatus = {
+  sourceId: string;
+  epoch: number;
+  assessment: HealthReport["assessment"];
+  lastAssessmentAt: number | null;
+  appliedRules: HealthReport["appliedRules"];
   notice: string;
   rules: { id: string; name: string; version: number; notice: string }[];
-  latest: { eventTime: number; from: number; to: number; incidentId: string } | null;
+  latest: {
+    eventTime: number;
+    from: number;
+    to: number;
+    incidentId: string;
+    evidence: EvidenceUploadStatus;
+  } | null;
 };
 
 export class DeviceMonitoring {
   private states: RuleState[] = [];
   private configured = false;
+  private appliedRules: HealthReport["appliedRules"] = [];
+  private delayed = false;
+  private requestFailed = false;
   private disposed = false;
   private revision = 0;
   private abort = new AbortController();
@@ -59,9 +86,17 @@ export class DeviceMonitoring {
       this.configured === (rules !== null) &&
       JSON.stringify(enabled?.map(({ id, version }) => [id, version])) ===
         JSON.stringify(this.states.map(({ rule }) => [rule.id, rule.version]));
-    if (unchanged) return;
+    this.appliedRules =
+      rules
+        ?.filter((rule) => rule.sourceId === this.sourceId)
+        .map(({ id, version }) => ({ id, version })) ?? [];
+    if (unchanged) {
+      this.emit();
+      return;
+    }
     this.invalidate();
     this.configured = rules !== null;
+    this.requestFailed = false;
     for (const state of this.states) {
       state.positiveSince = null;
       state.clearSince = null;
@@ -77,6 +112,8 @@ export class DeviceMonitoring {
             clearSince: null,
             positiveSince: null,
             notice: "Waiting for a fresh observation.",
+            assessment: "unavailable",
+            lastAssessmentAt: null,
             event: { kind: "armed" },
           },
       );
@@ -105,6 +142,20 @@ export class DeviceMonitoring {
     clearTimeout(this.timer);
     if (this.session) this.endSession(this.session.id);
     this.states = [];
+  }
+
+  retryEvidence() {
+    const latest = this.latest;
+    if (latest?.evidence.kind !== "unavailable" || !latest.evidence.retryable) return;
+    void retryIncidentEvidence(latest.incidentId, (status) =>
+      this.evidenceChanged(latest.incidentId, status),
+    );
+  }
+
+  private evidenceChanged(incidentId: string, evidence: EvidenceUploadStatus) {
+    if (this.latest?.incidentId !== incidentId) return;
+    this.latest = { ...this.latest, evidence };
+    this.emit();
   }
 
   private invalidate() {
@@ -137,7 +188,24 @@ export class DeviceMonitoring {
     this.notice = notice;
     if (!this.disposed)
       this.publish({
+        sourceId: this.sourceId,
+        epoch: this.epoch,
         notice,
+        assessment:
+          !this.configured || !this.states.length
+            ? "unavailable"
+            : this.delayed ||
+                this.requestFailed ||
+                this.states.some((state) => state.assessment === "degraded")
+              ? "degraded"
+              : this.states.every((state) => state.assessment === "ready")
+                ? "ready"
+                : "unavailable",
+        lastAssessmentAt:
+          this.states.length && this.states.every((state) => state.lastAssessmentAt !== null)
+            ? Math.min(...this.states.map((state) => state.lastAssessmentAt ?? 0))
+            : null,
+        appliedRules: this.appliedRules,
         rules: this.states.map(({ rule, notice }) => ({
           id: rule.id,
           name: rule.definition.name,
@@ -151,9 +219,11 @@ export class DeviceMonitoring {
   private async tick() {
     const revision = this.revision;
     let slow: ReturnType<typeof setTimeout> | undefined;
+    let assessing: RuleState | undefined;
     try {
       if (!this.current(revision)) return;
       if (this.states.length > 8) {
+        this.requestFailed = true;
         this.emit(
           "Monitoring degraded: this device supports at most eight enabled rules per source.",
         );
@@ -164,15 +234,18 @@ export class DeviceMonitoring {
         return;
       }
       if (this.session && this.session.expiresAt <= Date.now()) {
+        this.requestFailed = true;
         this.emit("Monitoring degraded: session expired. Stop and restart capture.");
         return;
       }
       const signal = AbortSignal.any([this.abort.signal, AbortSignal.timeout(20_000)]);
       slow = setTimeout(() => {
-        if (this.current(revision))
+        if (this.current(revision)) {
+          this.delayed = true;
           this.emit(
             "Monitoring degraded: assessment is behind capture. New frames replace older pending frames.",
           );
+        }
       }, 5000);
       if (!this.session) {
         this.emit("Starting monitoring session…");
@@ -190,6 +263,7 @@ export class DeviceMonitoring {
       }
       const state = this.states[this.nextRule++ % this.states.length];
       if (!state) return;
+      assessing = state;
       if (state.event.kind === "reporting") {
         await this.report(state, signal, revision);
         return;
@@ -229,12 +303,17 @@ export class DeviceMonitoring {
       );
       if (!this.current(revision)) return;
       if (result.kind !== "assessment") {
+        state.assessment = "degraded";
         state.positiveSince = null;
         state.clearSince = null;
         state.notice = `Assessment unavailable: ${result.kind === "unavailable" ? result.reason : "invalid_result"}.`;
         this.emit("Monitoring degraded. Assessment will retry with fresh frames.");
         return;
       }
+      state.assessment = "ready";
+      state.lastAssessmentAt = Date.now();
+      this.requestFailed = false;
+      this.delayed = false;
       if (result.matchProbability >= 0.7) {
         state.clearSince = null;
         if (state.event.kind === "held") {
@@ -291,6 +370,8 @@ export class DeviceMonitoring {
       this.emit("Monitoring assigned rules.");
     } catch {
       if (this.current(revision)) {
+        this.requestFailed = true;
+        if (assessing) assessing.assessment = "degraded";
         for (const state of this.states) {
           state.positiveSince = null;
           state.clearSince = null;
@@ -301,6 +382,8 @@ export class DeviceMonitoring {
       }
     } finally {
       clearTimeout(slow);
+      this.delayed = false;
+      this.emit();
       if (!this.disposed) this.timer = setTimeout(() => void this.tick(), 1500);
     }
   }
@@ -330,6 +413,7 @@ export class DeviceMonitoring {
     if (latest.mediaTimeMs - first.mediaTimeMs > 30_000) {
       state.event = { kind: "held", window };
       state.notice = "Review inconclusive: evidence window expired. Waiting for scene clear.";
+      state.assessment = "degraded";
       this.emit("Monitoring degraded: candidate could not be confirmed.");
       return;
     }
@@ -352,37 +436,56 @@ export class DeviceMonitoring {
     );
     if (!this.current(revision)) return;
     if (result.kind !== "review") {
+      state.assessment = "degraded";
       state.notice = `Review unavailable: ${result.kind === "unavailable" ? result.reason : "invalid_result"}. Candidate retained.`;
       this.emit("Monitoring degraded. Candidate review will retry.");
-    } else if (result.outcome === "positive") {
-      state.event = { kind: "reporting", window };
-      state.notice = "Candidate confirmed. Reporting incident…";
-      this.emit();
-      await this.report(state, signal, revision);
-    } else if (result.outcome === "rejected") {
-      state.event = { kind: "held", window };
-      state.notice = `Candidate rejected. ${result.explanation}`;
-      this.emit("Monitoring. Rejected candidate will not alert; waiting for scene clear.");
     } else {
-      state.notice = `More evidence needed. ${result.explanation}`;
-      this.emit("Candidate retained. Waiting for fresh evidence before another review.");
+      state.assessment = "ready";
+      state.lastAssessmentAt = Date.now();
+      this.requestFailed = false;
+      this.delayed = false;
+      if (result.outcome === "positive") {
+        state.event = {
+          kind: "reporting",
+          window,
+          preserved: preserveIncidentEvidence(this.capture, {
+            epoch: this.epoch,
+            sourceTimeMs:
+              this.capture.getSnapshot().source === "camera" ? window.eventTime : window.from,
+          }),
+        };
+        state.notice = "Candidate confirmed. Reporting incident…";
+        this.emit();
+        await this.report(state, signal, revision);
+      } else if (result.outcome === "rejected") {
+        state.event = { kind: "held", window };
+        state.notice = `Candidate rejected. ${result.explanation}`;
+        this.emit("Monitoring. Rejected candidate will not alert; waiting for scene clear.");
+      } else {
+        state.notice = `More evidence needed. ${result.explanation}`;
+        this.emit("Candidate retained. Waiting for fresh evidence before another review.");
+      }
     }
   }
 
   private async report(state: RuleState, signal: AbortSignal, revision: number) {
     if (state.event.kind !== "reporting" || !this.session) return;
-    const window = state.event.window;
+    const { window, preserved } = state.event;
+    const report = {
+      sessionId: this.session.id,
+      eventId: window.id,
+      ruleId: state.rule.id,
+      ruleVersion: state.rule.version,
+      eventTime: window.eventTime,
+    };
     const { incident } = await request(
       "/api/incidents/reports",
       reportReceiptSchema,
-      {
-        sessionId: this.session.id,
-        eventId: window.id,
-        ruleId: state.rule.id,
-        ruleVersion: state.rule.version,
-        eventTime: window.eventTime,
-      },
+      report,
       signal,
+    );
+    void uploadIncidentEvidence(preserved, incident.id, report, (status) =>
+      this.evidenceChanged(incident.id, status),
     );
     if (!this.current(revision)) return;
     state.event = { kind: "held", window };
@@ -392,6 +495,7 @@ export class DeviceMonitoring {
       from: window.from,
       to: window.to,
       incidentId: incident.id,
+      evidence: { kind: "preparing" },
     };
     this.emit("Incident reported. Monitoring continues without repeating the initial alert.");
   }

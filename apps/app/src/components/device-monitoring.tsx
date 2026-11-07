@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { Button } from "@/components/ui/button";
+import { LoadingStatus } from "@/components/ui/loading";
 import { request } from "@/lib/api";
 import { type CaptureSession, type CaptureSnapshot } from "@/lib/capture-session";
 import { DeviceMonitoring, type MonitoringStatus } from "@/lib/device-monitoring";
 import { deviceConfigurationSchema, type DeviceConfiguration } from "@/lib/rules";
+import { HealthReporting } from "@/components/device-health-reporting";
 import {
   Select,
   SelectContent,
@@ -24,8 +27,13 @@ export function MonitoringControls({
   const [configuration, setConfiguration] = useState<DeviceConfiguration | null>(null);
   const [configurationNotice, setConfigurationNotice] = useState("Loading assigned sources…");
   const [sourceId, setSourceId] = useState("");
-  const [status, setStatus] = useState<MonitoringStatus | null>(null);
+  const [monitoringStatus, setStatus] = useState<MonitoringStatus | null>(null);
+  const status =
+    monitoringStatus?.sourceId === sourceId && monitoringStatus.epoch === snapshot.epoch
+      ? monitoringStatus
+      : null;
   const configurationRef = useRef(configuration);
+  const [configurationAvailable, setConfigurationAvailable] = useState(false);
   const [reload, setReload] = useState(0);
   const active = snapshot.state === "running" || snapshot.state === "paused";
   const source = configuration?.sources.find((source) => source.id === sourceId);
@@ -45,12 +53,14 @@ export function MonitoringControls({
         );
         if (disposed) return;
         configurationRef.current = next;
+        setConfigurationAvailable(true);
         controller.current?.configure(next.rules);
         setConfiguration(next);
         setConfigurationNotice("Assigned configuration is current.");
       } catch {
         if (disposed) return;
         configurationRef.current = null;
+        setConfigurationAvailable(false);
         controller.current?.configure(null);
         setConfigurationNotice("Monitoring degraded: configuration unavailable. Retrying…");
       } finally {
@@ -108,13 +118,15 @@ export function MonitoringControls({
         </SelectContent>
       </Select>
       <p className="mt-2 text-xs text-muted-foreground">{configurationNotice}</p>
-      <button
+      <Button
         type="button"
-        className="mt-2 text-xs text-primary underline"
+        variant="ghost"
+        size="sm"
+        className="mt-2"
         onClick={() => setReload((value) => value + 1)}
       >
         Refresh assigned rules
-      </button>
+      </Button>
       {configuration?.sources.length === 0 && (
         <p className="mt-2 text-xs">
           An operator must create a source and assign an enabled trigger.
@@ -152,13 +164,44 @@ export function MonitoringControls({
             Source interval: {(status.latest.from / 1000).toFixed(1)}–
             {(status.latest.to / 1000).toFixed(1)}s
           </p>
-          <p>Replay unavailable. Clip upload is not connected.</p>
+          {status.latest.evidence.kind === "preparing" ||
+          status.latest.evidence.kind === "uploading" ? (
+            <LoadingStatus
+              label={
+                status.latest.evidence.kind === "preparing"
+                  ? "Preparing incident video…"
+                  : "Uploading incident video…"
+              }
+            />
+          ) : status.latest.evidence.kind === "ready" ? (
+            <output>Incident video ready for replay.</output>
+          ) : (
+            <div>
+              <output>Incident video unavailable. {status.latest.evidence.reason}</output>
+              {status.latest.evidence.retryable && (
+                <Button className="mt-2" onClick={() => controller.current?.retryEvidence()}>
+                  Retry video upload
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
         Monitoring sends sampled frames for remote AI assessment. Capture must remain open and
         visible.
       </p>
+      <HealthReporting
+        report={{
+          sourceId: sourceId || null,
+          capture: snapshot.state,
+          lastObservationAt: snapshot.lastSampleAt,
+          assessment: active && compatible ? (status?.assessment ?? "unavailable") : "unavailable",
+          lastAssessmentAt: status?.lastAssessmentAt ?? null,
+          configurationAvailable,
+          appliedRules: status?.appliedRules ?? [],
+        }}
+      />
     </section>
   );
 }

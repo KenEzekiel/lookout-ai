@@ -24,7 +24,7 @@ test("owner, operator and monitoring browser complete the access journey", async
   for (const page of [owner, operator, device])
     page.on("pageerror", (error) => errors.push(error.message));
   try {
-    await owner.goto("/");
+    await owner.goto("/devices");
     const email = await register(owner, "Demo owner");
     await owner.getByLabel("Workspace name").fill("Hackathon workspace");
     await owner.getByRole("button", { name: "Create workspace", exact: true }).click();
@@ -84,10 +84,10 @@ test("owner, operator and monitoring browser complete the access journey", async
     await expect(operator.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
     await owner.screenshot({ path: "test-results/owner-workspace.png", fullPage: true });
     const secondTab = await ownerContext.newPage();
-    await secondTab.goto("/");
+    await secondTab.goto("/devices");
     await expect(secondTab.getByRole("button", { name: "Add device" })).toBeVisible();
     await owner.getByRole("link", { name: "Devices", exact: true }).click();
-    await owner.getByRole("button", { name: "Use this device instead" }).click();
+    await owner.getByRole("button", { name: "Switch to device mode" }).click();
     await owner.getByLabel("Device name").fill("Owner laptop");
     await owner.getByRole("button", { name: "Sign out and set up device" }).click();
     await expect(owner.getByRole("heading", { name: "Device connected" })).toBeVisible();

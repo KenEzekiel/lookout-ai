@@ -46,7 +46,7 @@ export function WorkspaceActions({
         "On the other device, open Lookout and choose “Set up this device”. Enter the code shown there.",
     },
     activate: {
-      title: "Use this device",
+      title: "Switch to device mode",
       description:
         "This signs you out of workspace management in every tab of this browser and switches to device mode. You can sign in again to return.",
     },
@@ -69,9 +69,7 @@ export function WorkspaceActions({
       }}
     >
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:max-w-md">
-        <DialogTitle className="pr-6 text-xl font-semibold tracking-tight">
-          {content.title}
-        </DialogTitle>
+        <DialogTitle className="pr-6 text-panel-title">{content.title}</DialogTitle>
         <DialogDescription className="mb-2 leading-relaxed">
           {content.description}
         </DialogDescription>

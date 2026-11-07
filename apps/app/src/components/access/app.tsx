@@ -9,6 +9,7 @@ import { PushSetup } from "@/components/incidents/push-setup";
 import { DeviceScreen } from "@/components/device-screen";
 import { Account } from "./account";
 import { Brand } from "./brand";
+import { DeviceModeAction } from "./device-mode-action";
 import { Onboarding } from "./onboarding";
 import { WorkspaceContext } from "./workspace-context";
 import { Monitor, PairBrowser } from "./monitor";
@@ -87,7 +88,10 @@ export function AccessApp({
             </span>
           )}
           {actor?.kind === "member" && !pairing && <WorkspaceNavigation />}
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-3">
+            {actor?.kind === "member" && !pairing && (
+              <DeviceModeAction actor={actor} onActivated={refresh} />
+            )}
             {actor?.kind === "device" && (
               <Link to="/device" className="text-sm text-signal">
                 Capture station

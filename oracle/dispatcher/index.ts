@@ -10,6 +10,7 @@ import {
   keyOf,
   type Limits,
   type Outcome,
+  type OutputFile,
   outcomeSchema,
   type ShutdownMode,
 } from "../session/domain.js";
@@ -43,6 +44,18 @@ type ActiveTurn = {
 const failureReply = "The turn could not finish. Send a fresh request to continue.";
 const failureReplies = new Map([
   [
+    "file_path_invalid",
+    "The output file must be inside this turn's output directory. Send a fresh request to regenerate it.",
+  ],
+  [
+    "file_too_large",
+    "The output file exceeds Slack bridge's 20 MiB limit. Ask for a smaller file or an authorized download link.",
+  ],
+  [
+    "files_unavailable",
+    "File handling is unavailable in this Oracle session. A maintainer must check the Slack file transport.",
+  ],
+  [
     "turn_needs_input",
     "The coding thread needs input in T3 Code. Send a fresh request after resolving it.",
   ],
@@ -63,7 +76,12 @@ const failureReplies = new Map([
 export async function createOracle(deps: {
   sessions: SessionStore;
   runner: TurnRunner;
-  publish: (address: Address, text: string) => Promise<void>;
+  publish: (
+    address: Address,
+    text: string,
+    files?: OutputFile[],
+    signal?: AbortSignal,
+  ) => Promise<void>;
   setStatus?: (address: Address, status: "processing" | "active") => Promise<void>;
   setCompleted?: (address: Address, completed: boolean) => Promise<void>;
   limits: Limits;
@@ -108,10 +126,12 @@ export async function createOracle(deps: {
     address: Address,
     kind: Parameters<SessionStore["delivery"]>[1],
     text: string,
+    files?: OutputFile[],
+    signal?: AbortSignal,
   ): Promise<boolean> => {
-    const id = await sessions.delivery(address, kind, text);
+    const id = await sessions.delivery(address, kind, text, files);
     try {
-      await deps.publish(address, text);
+      await deps.publish(address, text, files, signal);
     } catch {
       await sessions.settle(address, id, "uncertain");
       deps.onFault?.("delivery_uncertain");
@@ -163,7 +183,13 @@ export async function createOracle(deps: {
       await sessions.complete(input, outcome);
       assertActive(controller.signal);
       if (outcome.kind === "silent") return false;
-      const sent = await deliver(input.address, "result", outcome.text);
+      const sent = await deliver(
+        input.address,
+        "result",
+        outcome.text,
+        outcome.files,
+        controller.signal,
+      );
       assertActive(controller.signal);
       return succeeded && sent;
     } catch (error) {

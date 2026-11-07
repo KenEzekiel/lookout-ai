@@ -18,6 +18,8 @@ Camera viewing reuses a clone of the existing capture stream. Local-file viewing
 
 The Devices layout gives each authorized device a primary **Live view** button with a video icon. Access badges remain **Paired** or **Access removed**, never a claim of active capture. Owners retain a secondary removal action; operators can view but cannot remove devices. Opening, retrying, and closing reuse the existing player and peer lifecycle.
 
+F-AUTH-ACCESS now synchronizes the device list over SSE and exposes manual refresh. Revocation from another browser removes its viewing action on the next snapshot and closes an open player for that device. This does not change signaling, source leases, capture ownership, or concurrent viewer access.
+
 ## Entry points
 
 On Devices, choose Live view beside an authorized device. The player supports Close live view and Retry live view. A stopped or offline device shows an actionable error. An existing viewer does not block another viewer. The capture station shows live-view availability and viewer connection status.
@@ -32,6 +34,8 @@ F-SOURCE-CAPTURE owns source capture, monitoring resources, and memory buffers. 
 
 ## Implementation
 
+The [live-view panel](../../../apps/app/src/components/live-view.tsx) uses the shared 20 px panel-title role from [the app stylesheet](../../../apps/app/src/styles.css). Body and controls inherit the common type scale. Signaling, stream ownership, and access checks remain unchanged; existing live-view journey coverage remains the regression check.
+
 [Shared signaling schemas and free ICE configuration](../../../apps/app/src/lib/peer.ts), [peer connection and ICE gathering](../../../apps/app/src/lib/peer-connection.ts), [device peer lifecycle](../../../apps/app/src/components/live-source.tsx), [operator player](../../../apps/app/src/components/live-view.tsx), [capture station](../../../apps/app/src/components/device-screen.tsx), [Devices entry](../../../apps/app/src/components/access/workspace.tsx), [server handlers](../../../apps/app/src/server/peer.ts), and [initial migration](../../../apps/app/migrations/0004_peer_view.sql) and [multiple-viewer migration](../../../apps/app/migrations/0005_peer_multiple_viewers.sql) implement the local path. The new migration rebuilds the signaling table without the unique device constraint and preserves existing rows. Apply migrations through the normal application deployment process. After deploying the changed device-sync contract, reload capture stations to load the new client and restart capture. Existing already-loaded clients use the previous singular response and cannot negotiate new viewers until reloaded. No external service provisioning or deployment is included.
 
 ## Verification
@@ -42,9 +46,15 @@ F-SOURCE-CAPTURE owns source capture, monitoring resources, and memory buffers. 
 
 The multiple-viewer production-build Chromium check used isolated D1, real signaling and WebRTC, and a simulated camera. Two owner tabs and a separate operator received simultaneous 640×480 video with advancing playback. Closing and reopening one viewer preserved the others. Stopping capture ended all viewers; restarting capture and retrying restored all three. The operator layout at 390 pixels had no horizontal overflow, and keyboard Enter opened a viewer. These local checks do not establish physical-phone capacity or cross-network connectivity. Per-run media and results belong in the current PR.
 
+The same complete-screen UI suite covers a remote SSE revocation removing the Live view action and closing the selected player. The list synchronization PR records production-browser observations; this check does not establish cross-network media connectivity.
+
 The production-build Chromium run on source revision 08a803c used separate owner/device browser contexts, isolated D1, and a simulated camera with real peer connections. It received 640×480 video, confirmed capture and buffer continuity across close/reopen, resumed video after source restart and retry, ended viewing on revocation, and checked keyboard close and a 375-pixel layout without overflow. The selected ICE pair was host/host; same-machine RTT was reported as zero and does not establish cross-network or end-to-end video latency. Successful baseline requests and the browser console had no errors. `pnpm verify` passed with 38 UI and 23 API integration tests. [PR #67](https://github.com/KenEzekiel/lookout-ai/pull/67) contains the manual steps, screenshots, recording, and remaining verification gaps. Physical separate-device, desktop/mobile, and same-network/cross-network verification from issue #28 remain required before claiming the feature implemented. Local browser contexts do not establish cross-network connectivity. Record actual selected ICE candidate types and observed latency. No production TURN integration is claimed or required under the accepted free-only scope.
 
+The Devices layout integration coverage in [access tests](../../../apps/app/tests/integration/access.test.tsx) exercises first-device pairing from the empty state, the registered-device count, authorization labels, and list-before-browser reading order. Existing tests retain removal confirmation, owner/operator permissions, activation cancellation, load retry, and Live view recovery. Manual production-build verification and evidence for this layout are recorded in [PR #90](https://github.com/KenEzekiel/lookout-ai/pull/90); do not infer remote capture health from a Paired badge.
+
 ## Decisions and sources
+
+The device synchronization change follows Aji's request for SSE and a manual refresh button. The existing workspace component owns the selected player, so it clears selection when a streamed snapshot no longer authorizes that device. No peer transport changes are needed.
 
 The current PR implements the user request to remove the one-viewer-per-device limit. Synthesis decision: retain direct WebRTC and the existing access boundary, return every live session to the source, and own each peer independently in a session-ID map. An SFU or TURN deployment would add infrastructure outside the requested change. No arbitrary concurrent-viewer ceiling is introduced. The existing admission rate limit of 20 opens per user per minute remains separate from concurrency.
 
@@ -57,6 +67,8 @@ The current PR implements the user’s request for app-wide loading feedback. It
 [Implementation PR #67](https://github.com/KenEzekiel/lookout-ai/pull/67), [issue #28](https://github.com/KenEzekiel/lookout-ai/issues/28), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 
 The user selected Cloudflare WebRTC and then required free-only operation without a credit card or balance in this conversation. [Cloudflare documents free unlimited STUN and metered TURN](https://developers.cloudflare.com/realtime/turn/faq/). This PR therefore omits TURN entirely. Synthesis decision: reuse the existing authenticated HTTP and D1 boundaries for bounded, short-lived signaling rather than add a WebSocket service or private network. Exchange complete SDP after ICE gathering instead of storing trickled candidates. [Media element capture has limited browser availability](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/captureStream). The existing Workers/D1 Free plan quotas still apply; quota exhaustion is a visible connection failure and must not trigger an upgrade. No cloud account plan was changed or provisioned.
+
+Ken requested improved design and layout for `/devices` in the Slack conversation for the current PR. Synthesis decision: keep the existing schema-derived team snapshot, Workspace state, dialogs, and API calls. Make the device list primary and browser activation secondary. The merge resolution preserves the Monitoring health panel above the list, the Paired devices heading, manual Refresh, server-sent list updates, and shared page-title typography from main. The [workspace screen](../../../apps/app/src/components/access/workspace.tsx) owns the layout. No shared signature, session, capture, or peer contract changes.
 
 ## Open questions
 
