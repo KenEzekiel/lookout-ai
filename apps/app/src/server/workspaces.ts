@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { env } from "cloudflare:workers";
-import { joinSchema, nameSchema } from "@/lib/access";
+import { joinSchema, nameSchema, teamSchema } from "@/lib/access";
 import { member, unassigned } from "./access";
 import { AccessError, codeDigest, digest, json, limit, secret, shortCode } from "./http";
 
@@ -32,6 +32,9 @@ export async function createWorkspace(request: Request) {
   return json({ id }, 201);
 }
 export async function team(request: Request) {
+  return json(await readTeam(request));
+}
+export async function readTeam(request: Request) {
   const actor = await member(request);
   const [members, devices] = await env.DB.batch([
     env.DB.prepare(
@@ -41,7 +44,7 @@ export async function team(request: Request) {
       "SELECT id,name,revoked_at AS revokedAt FROM device WHERE workspace_id=? ORDER BY created_at DESC",
     ).bind(actor.workspaceId),
   ]);
-  return json({ members: members?.results, devices: devices?.results });
+  return teamSchema.parse({ members: members?.results, devices: devices?.results });
 }
 export async function createInvitation(request: Request) {
   const actor = await member(request, true);

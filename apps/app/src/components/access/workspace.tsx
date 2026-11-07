@@ -1,5 +1,5 @@
 import { LoadingState } from "@/components/ui/loading";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppWindow, Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
 import { type z } from "zod";
 import { type Member, teamSchema } from "@/lib/access";
@@ -22,25 +22,66 @@ export function Workspace({
   const [team, setTeam] = useState<z.infer<typeof teamSchema>>();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [liveError, setLiveError] = useState(false);
+  const revision = useRef(0);
   const [action, setAction] = useState<WorkspaceAction | null>(null);
   const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null);
   const owner = actor.role === "owner";
   async function refresh(notice: string) {
-    setTeam(await request("/api/access/team", teamSchema));
-    setError("");
-    setNotice(notice);
+    const version = ++revision.current;
+    setRefreshing(true);
+    setNotice("");
+    try {
+      const next = await request("/api/access/team", teamSchema);
+      if (version === revision.current) {
+        setTeam(next);
+        setError("");
+      }
+      setNotice(notice);
+    } finally {
+      setRefreshing(false);
+    }
   }
   useEffect(() => {
     let active = true;
+    const version = ++revision.current;
     void request("/api/access/team", teamSchema)
       .then((next) => {
-        if (active) setTeam(next);
+        if (active && version === revision.current) setTeam(next);
       })
       .catch((error) => {
-        if (active) setError(message(error));
+        if (active && version === revision.current) setError(message(error));
       });
+    const events = new EventSource(new URL("/api/access/team/events", window.location.origin));
+    events.onmessage = (event) => {
+      try {
+        const next = teamSchema.parse(JSON.parse(event.data));
+        ++revision.current;
+        setTeam(next);
+        setError("");
+        setLiveError(false);
+        setViewing((current) =>
+          current &&
+          next.devices.some((device) => device.id === current.id && device.revokedAt === null)
+            ? current
+            : null,
+        );
+      } catch {
+        setLiveError(true);
+      }
+    };
+    events.onopen = () => setLiveError(false);
+    events.onerror = () => setLiveError(true);
+    events.addEventListener("unavailable", () => {
+      setLiveError(true);
+      setTeam(undefined);
+      setError("Could not update workspace access. Refresh to try again.");
+      events.close();
+    });
     return () => {
       active = false;
+      events.close();
     };
   }, [actor.workspaceId]);
   const devices = view === "devices";
@@ -55,11 +96,26 @@ export function Workspace({
               : "The people who have access to your workspace."}
           </p>
         </div>
-        {owner && (
-          <Button icon={Plus} onClick={() => setAction({ kind: devices ? "pair" : "invite" })}>
-            {devices ? "Add device" : "Invite member"}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            icon={RotateCw}
+            loading={refreshing}
+            disabled={refreshing}
+            onClick={() => {
+              void refresh(devices ? "Devices refreshed." : "Team refreshed.").catch((error) =>
+                setError(message(error)),
+              );
+            }}
+          >
+            {refreshing ? "Refreshing…" : "Refresh"}
           </Button>
-        )}
+          {owner && (
+            <Button icon={Plus} onClick={() => setAction({ kind: devices ? "pair" : "invite" })}>
+              {devices ? "Add device" : "Invite member"}
+            </Button>
+          )}
+        </div>
       </div>
       {devices && owner && (
         <section
@@ -109,6 +165,11 @@ export function Workspace({
         </p>
       )}
       {notice && <output className="block mb-5 text-sm text-resolved">{notice}</output>}
+      {liveError && (
+        <output className="mb-5 block text-sm text-muted-foreground">
+          Live updates interrupted. Use Refresh to load the latest list.
+        </output>
+      )}
       {error && (
         <div className="mb-5 flex flex-wrap items-center gap-3">
           <p role="alert" className="text-sm text-destructive">

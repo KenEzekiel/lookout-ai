@@ -49,6 +49,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.2.1",
     "drizzle-kit": "^0.31.11",
+    "eventsource": "^5.1.4",
     "jsdom": "31.0.0",
     "miniflare": "5.20261104.0-beta",
     "msw": "3.0.4",

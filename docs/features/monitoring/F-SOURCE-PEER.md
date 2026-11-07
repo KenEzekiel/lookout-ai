@@ -18,6 +18,8 @@ Camera viewing reuses a clone of the existing capture stream. Local-file viewing
 
 The Devices layout gives each authorized device a primary **Live view** button with a video icon. Access badges remain **Paired** or **Access removed**, never a claim of active capture. Owners retain a secondary removal action; operators can view but cannot remove devices. Opening, retrying, and closing reuse the existing player and peer lifecycle.
 
+F-AUTH-ACCESS now synchronizes the device list over SSE and exposes manual refresh. Revocation from another browser removes its viewing action on the next snapshot and closes an open player for that device. This does not change signaling, source leases, capture ownership, or concurrent viewer access.
+
 ## Entry points
 
 On Devices, choose Live view beside an authorized device. The player supports Close live view and Retry live view. A stopped or offline device shows an actionable error. An existing viewer does not block another viewer. The capture station shows live-view availability and viewer connection status.
@@ -42,9 +44,13 @@ F-SOURCE-CAPTURE owns source capture, monitoring resources, and memory buffers. 
 
 The multiple-viewer production-build Chromium check used isolated D1, real signaling and WebRTC, and a simulated camera. Two owner tabs and a separate operator received simultaneous 640×480 video with advancing playback. Closing and reopening one viewer preserved the others. Stopping capture ended all viewers; restarting capture and retrying restored all three. The operator layout at 390 pixels had no horizontal overflow, and keyboard Enter opened a viewer. These local checks do not establish physical-phone capacity or cross-network connectivity. Per-run media and results belong in the current PR.
 
+The same complete-screen UI suite covers a remote SSE revocation removing the Live view action and closing the selected player. The list synchronization PR records production-browser observations; this check does not establish cross-network media connectivity.
+
 The production-build Chromium run on source revision 08a803c used separate owner/device browser contexts, isolated D1, and a simulated camera with real peer connections. It received 640×480 video, confirmed capture and buffer continuity across close/reopen, resumed video after source restart and retry, ended viewing on revocation, and checked keyboard close and a 375-pixel layout without overflow. The selected ICE pair was host/host; same-machine RTT was reported as zero and does not establish cross-network or end-to-end video latency. Successful baseline requests and the browser console had no errors. `pnpm verify` passed with 38 UI and 23 API integration tests. [PR #67](https://github.com/KenEzekiel/lookout-ai/pull/67) contains the manual steps, screenshots, recording, and remaining verification gaps. Physical separate-device, desktop/mobile, and same-network/cross-network verification from issue #28 remain required before claiming the feature implemented. Local browser contexts do not establish cross-network connectivity. Record actual selected ICE candidate types and observed latency. No production TURN integration is claimed or required under the accepted free-only scope.
 
 ## Decisions and sources
+
+The device synchronization change follows Aji's request for SSE and a manual refresh button. The existing workspace component owns the selected player, so it clears selection when a streamed snapshot no longer authorizes that device. No peer transport changes are needed.
 
 The current PR implements the user request to remove the one-viewer-per-device limit. Synthesis decision: retain direct WebRTC and the existing access boundary, return every live session to the source, and own each peer independently in a session-ID map. An SFU or TURN deployment would add infrastructure outside the requested change. No arbitrary concurrent-viewer ceiling is introduced. The existing admission rate limit of 20 opens per user per minute remains separate from concurrency.
 

@@ -116,6 +116,135 @@ async function owner(name = "Workspace") {
   return browser;
 }
 
+function events(response: Awaited<ReturnType<Browser["request"]>>) {
+  const reader = response.body?.getReader();
+  assert(reader);
+  const decoder = new TextDecoder();
+  let buffer = "";
+  return {
+    cancel: () => reader.cancel(),
+    async next(): Promise<string | null> {
+      for (;;) {
+        const end = buffer.indexOf("\n\n");
+        if (end !== -1) {
+          const event = buffer.slice(0, end);
+          buffer = buffer.slice(end + 2);
+          return event;
+        }
+        const chunk = await reader.read();
+        if (chunk.done) return null;
+        buffer += decoder.decode(chunk.value, { stream: true });
+      }
+    },
+    async team() {
+      for (;;) {
+        const event = await this.next();
+        assert(event !== null, "stream ended before team snapshot");
+        const data = event.split("\n").find((line) => line.startsWith("data: "));
+        if (data) return teamSchema.parse(JSON.parse(data.slice(6)));
+      }
+    },
+  };
+}
+
+test("team SSE delivers cross-browser pairing and revocation with workspace isolation", async () => {
+  const admin = await owner();
+  const foreign = await owner("Foreign workspace");
+  const response = await admin.request("/api/access/team/events");
+  expect(response.headers.get("content-type")).toBe("text/event-stream");
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  const stream = events(response);
+  const foreignStream = events(await foreign.request("/api/access/team/events"));
+  try {
+    expect((await stream.team()).devices).toEqual([]);
+    expect((await foreignStream.team()).devices).toEqual([]);
+    const device = new Browser();
+    const pairing = pairingSchema.parse(
+      await (await device.request("/api/access/pairing/start", {})).json(),
+    );
+    expect(
+      (
+        await admin.request("/api/access/pairing/approve", {
+          code: pairing.code,
+          name: "New camera",
+        })
+      ).status,
+    ).toBe(200);
+    const connected = await stream.team();
+    expect(connected.devices).toEqual([
+      { id: expect.any(String), name: "New camera", revokedAt: null },
+    ]);
+    expect(await foreignStream.next()).toBe(": heartbeat");
+    const deviceId = connected.devices[0]?.id;
+    expect((await admin.request("/api/access/devices/revoke", { id: deviceId })).status).toBe(200);
+    expect((await stream.team()).devices).toEqual([
+      { id: deviceId, name: "New camera", revokedAt: expect.any(Number) },
+    ]);
+    const reconnected = events(await admin.request("/api/access/team/events"));
+    try {
+      expect((await reconnected.team()).devices[0]?.revokedAt).toEqual(expect.any(Number));
+    } finally {
+      await reconnected.cancel();
+    }
+  } finally {
+    await stream.cancel();
+    await foreignStream.cancel();
+  }
+});
+
+test("team SSE denies visitors, unassigned accounts, and paired devices", async () => {
+  const browser = new Browser();
+  expect((await browser.request("/api/access/team/events")).status).toBe(401);
+  await browser.register();
+  expect((await browser.request("/api/access/team/events")).status).toBe(403);
+  expect((await browser.request("/api/access/workspace", { name: "Workspace" })).status).toBe(201);
+  expect((await browser.request("/api/access/devices/activate", { name: "Camera" })).status).toBe(
+    200,
+  );
+  expect((await browser.request("/api/access/team/events")).status).toBe(403);
+});
+
+test("team SSE rechecks operator membership and closes after removal", async () => {
+  const admin = await owner();
+  const invitation = inviteSchema.parse(
+    await (await admin.request("/api/access/invitations", {})).json(),
+  );
+  const operator = new Browser();
+  await operator.register("Operator");
+  expect((await operator.request("/api/access/join", { code: invitation.code })).status).toBe(200);
+  const actor = memberSchema.parse(await (await operator.request("/api/access/principal")).json());
+  const stream = events(await operator.request("/api/access/team/events"));
+  try {
+    expect((await stream.team()).members).toHaveLength(2);
+    expect((await admin.request("/api/access/remove-member", { id: actor.userId })).status).toBe(
+      200,
+    );
+    expect(await stream.next()).toBe("event: unavailable\ndata: {}");
+    expect(await stream.next()).toBeNull();
+    expect((await operator.request("/api/access/team/events")).status).toBe(403);
+  } finally {
+    await stream.cancel();
+  }
+});
+
+test("team SSE ends a bounded stream and reconnects to the current state", async () => {
+  const admin = await owner();
+  const stream = events(await admin.request("/api/access/team/events"));
+  try {
+    expect((await stream.team()).devices).toEqual([]);
+    for (let poll = 0; poll < 5; poll++) expect(await stream.next()).toBe(": heartbeat");
+    expect(await stream.next()).toBeNull();
+    const renewed = events(await admin.request("/api/access/team/events"));
+    try {
+      expect((await renewed.team()).devices).toEqual([]);
+    } finally {
+      await renewed.cancel();
+    }
+  } finally {
+    await stream.cancel();
+  }
+}, 40_000);
+
 test("invitations redeem once across link and code; operators cannot administer", async () => {
   const admin = await owner();
   const invitation = inviteSchema.parse(
