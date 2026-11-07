@@ -6,6 +6,7 @@ import { request, message } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LiveView } from "@/components/live-view";
+import { DeviceHealthPanel } from "@/components/device-health";
 import { WorkspaceActions, type WorkspaceAction } from "./workspace-actions";
 
 export function Workspace({
@@ -92,12 +93,13 @@ export function Workspace({
           </div>
         </section>
       )}
-      {devices && <h2 className="mb-3 font-medium">Connected devices</h2>}
+      {devices && <DeviceHealthPanel />}
+      {devices && <h2 className="mb-3 font-medium">Paired devices</h2>}
       {viewing && devices && <LiveView device={viewing} onClose={() => setViewing(null)} />}
       {devices && (
         <p className="mb-6 rounded-lg bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-          Paired devices can capture a camera or local video. Automatic AI detection and device
-          reports are not available yet.
+          Paired devices can monitor assigned sources while capture remains open and visible.
+          Pairing authorizes a device; monitoring health above shows its reported activity.
         </p>
       )}
       {!owner && (

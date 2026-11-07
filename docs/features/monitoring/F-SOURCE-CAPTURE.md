@@ -30,6 +30,8 @@ F-SOURCE-PEER uses `getPeerStream()` to clone the active camera stream or captur
 
 The incident service now has server-owned per-source session leases. The local capture epoch is not that session ID. F-DETECT-REVIEW selects a configured source, starts a `/api/incidents/sessions` lease for its capture epoch, and ends it on Stop or failure. Samples expose stable UUIDs, JPEG Blobs, source media time, and wall-clock capture time; overlapping windows reuse these values.
 
+F-DEVICE-HEALTH consumes the existing snapshot state and last sampled observation time through monitoring controls. It adds no capture loop and sends no images or video. A running capture with no fresh samples is shown remotely as stalled; Stop and pause remain distinct from stale contact.
+
 ## Implementation
 
 [Capture route](../../../apps/app/src/routes/device.tsx), [paired-device gate](../../../apps/app/src/components/access/app.tsx), [device screen](../../../apps/app/src/components/device-screen.tsx), and [capture session](../../../apps/app/src/lib/capture-session.ts) implement local capture. The [event clip builder](../../../apps/app/src/lib/event-clip.ts) prepares a playable MP4 from a pinned local-file interval or completed camera segments. The [synthetic confirmation handoff](../../../apps/app/src/lib/incident-evidence.ts) ties that clip to #19's accepted incident. [Device monitoring](../../../apps/app/src/lib/device-monitoring.ts) supplies real confirmed reports and server capture sessions. Calling the clip handoff remains incomplete.
