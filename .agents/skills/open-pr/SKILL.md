@@ -15,6 +15,9 @@ Read the [repository runtime contract](../poteto-mode/references/codex-tools.md)
    Before committing, inspect the staged diff for QA screenshots, videos, traces, and reports. Keep them in ignored or temporary storage, upload images/videos as PR attachments following `docs/verification.md`, and verify the saved attachment URLs. Never commit evidence as an upload workaround.
 
 3. Commit the focused change and push the feature branch. Reuse its existing open PR when present. Otherwise create a PR against `main` with a concise Conventional Commit title and a description of the problem, resulting behavior, validation, and remaining gaps. Follow `.github/pull_request_template.md`, including affected feature codes, consumer checks, and wiring gaps, or a reason for no Lookout feature impact. Use a structured body or `gh --body-file`.
+
+   When the PR completes a tracked issue, include `Closes #N` in the PR description, where `N` is the issue number. Add a separate closing reference for each issue completed. For an issue in another repository, use `Closes owner/repo#N`. Verify that each referenced issue matches the work and that the saved PR description contains the closing references. For partial work, use `Related to #N` instead. Omit issue references when no issue is associated with the work.
+
 4. Link the PR with `link_pull_request` as the next tool call after creation or a push to an existing PR. Do not stop at publishing. Continue with CI follow-up, including for documentation-only PRs.
 
 ## Follow CI
