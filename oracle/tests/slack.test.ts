@@ -189,6 +189,25 @@ test("Slack results and status updates retain the originating thread", async () 
   await transport.setStatus(address, "processing");
   await transport.publish(address, "The handler is fixed.");
   await transport.setStatus(address, "active");
+  const control = calls.find(({ method }) => method === "chat.postMessage")?.args;
+  assert.deepEqual(control?.blocks, [
+    {
+      type: "section",
+      text: { type: "mrkdwn", text: "Oracle received your request." },
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          action_id: "oracle_stop",
+          text: { type: "plain_text", text: "Stop Oracle" },
+          style: "danger",
+          value: address.rootTs,
+        },
+      ],
+    },
+  ]);
   assert.deepEqual(
     calls.map(({ method }) => method),
     ["agents.sessions.setStatus", "chat.postMessage", "agents.sessions.setStatus"],
