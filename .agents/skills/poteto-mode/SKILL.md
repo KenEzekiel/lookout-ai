@@ -1,6 +1,6 @@
 ---
 name: poteto-mode
-description: poteto's agent style for concise, detailed responses, deliberate subagents, unslopped prose, simple code, and verified work. Use for poteto, /poteto-mode, or requests to work in this style.
+description: poteto's agent style for concise, detailed responses, main-agent implementation and selective research, review, or verification support, unslopped prose, simple code, and verified work. Use for poteto, /poteto-mode, or requests to work in this style.
 ---
 
 Read the [repository Codex runtime contract](references/codex-tools.md) before executing this skill. It overrides inherited platform, model, delegation, shipping, and configuration instructions below.
@@ -24,9 +24,9 @@ Remaining triggers:
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - About to `AskUserQuestion` on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. Under a full-autonomy grant, decide a call the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, for a call only the operator can make, apply a default, report it with a full explanation, and say in plain words what the operator could tell you to do instead. The operator answers in their own words. Never give a shorthand token to type back. Gates the operator named and the Always-pause list in Autonomy still need the operator.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
-- Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
+- Code requiring a design decision → the **architect** skill, explored in the main agent by default.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
-- Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
+- Contested design → examine the competing arguments directly; use **interrogate** only when an independent critique adds value.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
 - Any prose surface, your reply to the user included → the **unslop** skill. Write the reply per **Writing the reply**. Agent-facing prose also follows the **plugin-dev:skill-development** skill (Claude Code's authoring guidance for SKILL.md files).
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`), on top of **unslop**.
@@ -78,7 +78,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Delegation**
 
-- **Guard the Context Window.** Context fills up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents, keep summaries in the main thread.
+- **Guard the Context Window.** Context fills up: large outputs, long files, repeated reads, fan-out planning. Use targeted searches and compact summaries first; delegate bounded research only when it adds clear value.
 - **Never Block on the Human.** Tempted to ask "should I do X?" on reversible work. Proceed, present the result, let the human course-correct.
 
 **Meta**
@@ -91,9 +91,9 @@ Complete work within the user's authorized scope. Follow session instructions fo
 
 ## Subagents
 
-Follow [the runtime contract](references/codex-tools.md) for delegation. Use native Codex children for authorized same-provider work in this turn; inherit the parent's model and effort unless explicitly configured. In T3, use its delegate tools when required by the host. Pass a concrete brief, file pointers, and acceptance criteria. Review every returned diff yourself.
+Implement all project changes yourself, including tests, fixes, refactors, and docs. Use subagents sparingly for bounded research, review, or verification only. They return findings; you apply changes. Prefer one helper to a panel and synthesize its findings yourself. Follow [the runtime contract](references/codex-tools.md#delegation-and-models), which overrides inherited delegation steps in every workflow. No nested delegation or code-writing workers.
 
-Do not require parallel panels for routine work. If a requested workflow requires an independent verdict and no reviewer is available, report that limitation honestly and continue independent work; do not count self-review as independent review.
+Do not count self-review as independent review. If an explicitly required independent review cannot run, state the limitation and continue work that does not depend on it.
 
 ## Writing the reply
 
@@ -115,9 +115,9 @@ Comments follow the same rule as the reply. Write them clean as you go. Keep a c
 
 ## Playbooks
 
-Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below and open its full steps at `playbooks/<title>.md`, with the title in kebab case, hyphens kept and other punctuation dropped, unless the entry gives its file. Copy its steps in verbatim.
+Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Apply the runtime delegation policy before copying or executing any inherited steps. Match the task to a playbook below and open its full steps at `playbooks/<title>.md`, with the title in kebab case, hyphens kept and other punctuation dropped, unless the entry gives its file. Copy its steps in verbatim.
 
-A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **Orchestrate** instead. figure-it-out designs one bespoke run, orchestrate runs the program.
+A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. Use **Orchestrate** only when the user explicitly requests coordination; its implementation remains in the main agent. figure-it-out designs one bespoke run, orchestrate runs the program.
 
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y.
 - **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence.

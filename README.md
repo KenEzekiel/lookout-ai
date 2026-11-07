@@ -15,6 +15,10 @@ Open this repository in a fresh Codex session to load `AGENTS.md` and discover i
 
 This is an ordinary copy, with no submodule, plugin registration, session hooks, global configuration changes, or automatic updates. Upstream multi-runtime references remain for provenance and customization. The local runtime contract takes precedence over them. Update by comparing against the recorded revision and merging selected changes; blindly recopying upstream would overwrite local edits.
 
+## Execution policy
+
+The main agent implements all project changes, including tests, configuration, documentation, and fixes. Subagents are optional for bounded research, review, or verification when useful. Prefer direct work and one focused helper over automatic panels. Helpers return findings; the main agent applies changes. This policy overrides the inherited delegated-build instructions in every skill and playbook, including arena and autopilot.
+
 ## Validation and dependencies
 
 Run `python3 scripts/check-harness.py`. Reading skills requires no package installation. Individual helpers may require Node.js, Bun, GitHub CLI, or formal-verification tools; inspect the relevant skill before using them. The bundled watcher dependencies have not been installed. T3 PR monitoring uses host watch tools instead.

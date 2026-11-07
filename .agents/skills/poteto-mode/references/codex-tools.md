@@ -16,13 +16,21 @@ Read referenced skill files on demand. Use the host's skill-authoring guidance f
 
 ## Delegation and models
 
+The main agent owns all implementation: source code, tests, configuration, documentation, generated project changes, refactors, and fixes. Never delegate implementation, including through nested agents, arena candidates, or PR owners. Subagents may research, review, or verify existing work and return findings; the main agent applies every change.
+
+Default to doing work directly. Use a subagent only when a bounded research question, independent review, or verification task adds clear value. Start with one; add another only for a distinct need or an explicit request. Do not spawn an explainer, synthesizer, or coordinator for work the main agent can finish. Do not delegate merely because a task spans files, crosses a function boundary, is lengthy, or uses a skill whose upstream version fans out.
+
+Keep delegated tasks read-only with respect to project files. Verification may run commands and produce disposable reports or build artifacts, preferably in an isolated scratch location, but must not edit source, tests, configuration, or docs to make checks pass. Return failures and proposed fixes to the main agent. Prohibit nested delegation in each brief.
+
+These rules override all inherited spawn, mandatory panel, code-writing worker, and delegated-build instructions, including arena, swarm, orchestrate, autopilot, and review skills that tell reviewers to fix findings. Run implementation steps serially in the main agent. Research alternatives and critique may still be delegated under the limits above. Ordinary skill invocation is not permission to delegate implementation. Only a direct user change to this policy can allow it.
+
 Read `.agents/pstack-models.md`. All roles inherit the session's model and effort unless the user explicitly chooses otherwise. Ignore upstream Claude aliases (`opus`, `fable`, `sonnet`, `haiku`), automatic effort changes, mandatory diverse panels for routine edits, and transcript-based effort probing. Never silently substitute an unavailable requested model.
 
-Delegate only when the user or applicable instructions authorize it. For ordinary same-provider work that completes in this turn, use native `spawn_agent` and wait for the result with `wait_agent`; omit model and effort overrides to inherit. Tools and supported parameters depend on the host. Reusable briefs live in `.agents/roles/`; load the relevant brief into a concrete task rather than supplying a nonexistent `subagent_type`. A brief is not permission to expand scope.
+For permitted research, review, or verification that completes in this turn on the same provider, use native `spawn_agent` and wait for the result with `wait_agent`; omit model and effort overrides to inherit. Tools and supported parameters depend on the host. Reusable briefs live in `.agents/roles/`; load the relevant brief into a concrete task rather than supplying a nonexistent `subagent_type`. A brief is not permission to expand scope.
 
 In T3, follow the host's orchestration rules. Use `delegate_task` for another provider, user-requested settings, isolated worktrees, background work, or an explicit delegate_task request. Check `orchestrator_capabilities` first. Never create a delegate checkout in the shell. Follow a running delegate's `next` rather than polling. Do not replace unavailable delegation with another provider or a CLI unasked.
 
-Keep writers isolated or give them disjoint ownership. Review their results. If independence or diversity was requested but unavailable, state the limitation; a sequential self-review does not meet that requirement. Continue work that does not depend on it.
+Review returned findings and apply accepted fixes yourself. If independence or diversity was requested but unavailable, state the limitation; a sequential self-review does not meet that requirement. Continue work that does not depend on it.
 
 ## Scope and shipping
 
