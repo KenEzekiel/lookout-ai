@@ -139,7 +139,7 @@ async function renderDevice() {
     scrollRestoration: false,
   });
   await router.load();
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { container: document });
   await screen.findByRole("heading", { name: "Capture station" });
 }
 
@@ -159,7 +159,8 @@ test("a camera starts, retains samples, and releases its tracks on Stop", async 
 
 test("a local video starts and seeking or restarting creates a new capture epoch", async () => {
   await renderDevice();
-  await userEvent.selectOptions(screen.getByLabelText("Source type"), "file");
+  await userEvent.click(screen.getByLabelText("Source type"));
+  await userEvent.click(await screen.findByRole("option", { name: "Local video" }));
   const file = new File(["video data"], "crash.mp4", { type: "video/mp4" });
   await userEvent.upload(screen.getByLabelText("Video file"), file);
   await userEvent.click(screen.getByRole("button", { name: "Start" }));
@@ -215,7 +216,7 @@ test("an unpaired visitor cannot open the capture station", async () => {
     scrollRestoration: false,
   });
   await router.load();
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { container: document });
   expect(await screen.findByLabelText("Email")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
 });

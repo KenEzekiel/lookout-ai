@@ -1,3 +1,10 @@
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -120,16 +127,25 @@ export function RuleWorkspace() {
               }}
             >
               <Field label="Source name" name="name" maxLength={80} />
-              <label className="grid gap-2 text-sm font-medium">
-                Source type
-                <select
+              <div className="grid gap-2 text-sm font-medium">
+                <label htmlFor="rule-source-type">Source type</label>
+                <Select
+                  items={{ camera: "Live camera", replay: "Replayed footage" }}
                   name="kind"
-                  className="h-11 rounded-md border border-input bg-background px-3"
+                  defaultValue="camera"
                 >
-                  <option value="camera">Live camera</option>
-                  <option value="replay">Replayed footage</option>
-                </select>
-              </label>
+                  <SelectTrigger
+                    id="rule-source-type"
+                    className="h-11 w-full rounded-md border border-input bg-background px-3"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="camera">Live camera</SelectItem>
+                    <SelectItem value="replay">Replayed footage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </ActionForm>
           </details>
           {configuration.rules.length === 0 && editor.kind === "closed" && (
