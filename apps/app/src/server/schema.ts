@@ -118,3 +118,41 @@ export const attemptLimit = sqliteTable("attempt_limit", {
   count: integer("count").notNull(),
   expiresAt: integer("expires_at").notNull(),
 });
+
+export const source = sqliteTable(
+  "source",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: text("kind", { enum: ["camera", "replay"] }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("source_workspace_name").on(table.workspaceId, table.name),
+    check("source_kind", sql`${table.kind} IN ('camera','replay')`),
+  ],
+);
+export const monitoringRule = sqliteTable(
+  "monitoring_rule",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => source.id),
+    definition: text("definition").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull(),
+    version: integer("version").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("workspace_rules").on(table.workspaceId),
+    check("rule_version", sql`${table.version} > 0`),
+    check("rule_enabled", sql`${table.enabled} IN (0,1)`),
+    check("rule_definition", sql`json_valid(${table.definition})`),
+  ],
+);

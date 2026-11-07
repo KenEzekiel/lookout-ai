@@ -13,8 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DeviceRouteImport } from './routes/device'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as MonitorRouteImport } from './routes/monitor'
+import { Route as TriggersRouteImport } from './routes/triggers'
 import { Route as ApiAccessSplatRouteImport } from './routes/api/access/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiConfigSplatRouteImport } from './routes/api/config/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -36,6 +38,11 @@ const MonitorRoute = MonitorRouteImport.update({
   path: '/monitor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TriggersRoute = TriggersRouteImport.update({
+  id: '/triggers',
+  path: '/triggers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAccessSplatRoute = ApiAccessSplatRouteImport.update({
   id: '/api/access/$',
   path: '/api/access/$',
@@ -46,22 +53,31 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiConfigSplatRoute = ApiConfigSplatRouteImport.update({
+  id: '/api/config/$',
+  path: '/api/config/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
+  '/triggers': typeof TriggersRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/config/$': typeof ApiConfigSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
+  '/triggers': typeof TriggersRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/config/$': typeof ApiConfigSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,23 +85,42 @@ export interface FileRoutesById {
   '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
+  '/triggers': typeof TriggersRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/config/$': typeof ApiConfigSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/device' | '/join' | '/monitor' | '/api/access/$' | '/api/auth/$'
+    | '/'
+    | '/device'
+    | '/join'
+    | '/monitor'
+    | '/triggers'
+    | '/api/access/$'
+    | '/api/auth/$'
+    | '/api/config/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/device' | '/join' | '/monitor' | '/api/access/$' | '/api/auth/$'
+  to:
+    | '/'
+    | '/device'
+    | '/join'
+    | '/monitor'
+    | '/triggers'
+    | '/api/access/$'
+    | '/api/auth/$'
+    | '/api/config/$'
   id:
     | '__root__'
     | '/'
     | '/device'
     | '/join'
     | '/monitor'
+    | '/triggers'
     | '/api/access/$'
     | '/api/auth/$'
+    | '/api/config/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,8 +128,10 @@ export interface RootRouteChildren {
   DeviceRoute: typeof DeviceRoute
   JoinRoute: typeof JoinRoute
   MonitorRoute: typeof MonitorRoute
+  TriggersRoute: typeof TriggersRoute
   ApiAccessSplatRoute: typeof ApiAccessSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiConfigSplatRoute: typeof ApiConfigSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -127,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonitorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/triggers': {
+      id: '/triggers'
+      path: '/triggers'
+      fullPath: '/triggers'
+      preLoaderRoute: typeof TriggersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/access/$': {
       id: '/api/access/$'
       path: '/api/access/$'
@@ -141,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/config/$': {
+      id: '/api/config/$'
+      path: '/api/config/$'
+      fullPath: '/api/config/$'
+      preLoaderRoute: typeof ApiConfigSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -149,8 +200,10 @@ const rootRouteChildren: RootRouteChildren = {
   DeviceRoute: DeviceRoute,
   JoinRoute: JoinRoute,
   MonitorRoute: MonitorRoute,
+  TriggersRoute: TriggersRoute,
   ApiAccessSplatRoute: ApiAccessSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiConfigSplatRoute: ApiConfigSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

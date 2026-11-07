@@ -14,6 +14,8 @@ Open `/device` from the paired-device home screen. The operator client can close
 
 ## Wiring and compatibility
 
+F-RULE-CONFIG creates named source metadata with stable `id`, `name`, and `kind` (`camera` or `replay`) in its [shared contract](../../../apps/app/src/lib/rules.ts). `/monitor` reads the catalog from `GET /api/config/device`. The existing `/device` capture screen still selects a camera or file independently; connecting its capture identity to this source ID remains unimplemented. Creating a source does not start capture.
+
 Use the paired device identity from F-AUTH-ACCESS. Pairing grants workspace-wide source access but does not start capture. The route gates capture on the device principal, and samples and recent-video handles carry its workspace and device IDs. A revoked principal unmounts the screen and stops capture on the next access check. No capture data is sent to the server in this slice.
 
 Expose source timestamps, capture run identity, lifecycle changes, and buffer access for later assessment and clip preservation. Seeking or restarting starts a new run and clears old frame samples. Camera segments rotate in browser memory; Stop releases the camera, sampler, and buffer. Event-interval extraction, rule assignment, assessment, and clip upload remain unconnected. Never persist untriggered video on the Lookout server.

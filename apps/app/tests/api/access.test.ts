@@ -9,6 +9,13 @@ import {
 import { randomBytes } from "node:crypto";
 import { beforeEach, afterAll, expect, test } from "vitest";
 import { createTestHarness } from "wrangler";
+import {
+  type RuleInput,
+  ruleSchema,
+  sourceSchema,
+  operatorConfigurationSchema,
+  deviceConfigurationSchema,
+} from "../../src/lib/rules";
 
 const origin = "http://localhost:3000";
 const harness = createTestHarness({
@@ -284,4 +291,288 @@ test("pairing codes expire and incorrect invitation attempts are bounded", async
   for (let attempt = 0; attempt < 10; attempt++)
     expect((await newcomer.request("/api/access/join", { code: "000000" })).status).toBe(400);
   expect((await newcomer.request("/api/access/join", { code: "000000" })).status).toBe(429);
+});
+
+async function configuredWorkspace() {
+  const admin = await owner();
+  const actor = memberSchema.parse(await (await admin.request("/api/access/principal")).json());
+  const source = sourceSchema.parse(
+    await (
+      await admin.request("/api/config/sources", { name: "Living room", kind: "camera" })
+    ).json(),
+  );
+  const input: RuleInput = {
+    sourceId: source.id,
+    enabled: true,
+    definition: {
+      name: "Possible fall",
+      condition: { kind: "template", template: "fall" },
+      durationSeconds: null,
+      severity: "critical",
+      recipientIds: [actor.userId],
+      escalationDelaySeconds: 60,
+    },
+  };
+  return { admin, actor, source, input };
+}
+async function paired(admin: Browser, name = "Monitoring browser") {
+  const device = new Browser();
+  const pairing = pairingSchema.parse(
+    await (await device.request("/api/access/pairing/start", {})).json(),
+  );
+  expect(
+    (await admin.request("/api/access/pairing/approve", { name, code: pairing.code })).status,
+  ).toBe(200);
+  expect((await device.request("/api/access/pairing/claim", {})).status).toBe(200);
+  return device;
+}
+
+test("template and custom triggers persist, and a device receives edits and disabled versions", async () => {
+  const { admin, input } = await configuredWorkspace();
+  const device = await paired(admin);
+  const response = await admin.request("/api/config/rules/create", input);
+  expect(response.status).toBe(201);
+  const fall = ruleSchema.parse(await response.json());
+  expect(fall).toMatchObject({ ...input, version: 1 });
+  const replay = sourceSchema.parse(
+    await (
+      await admin.request("/api/config/sources", { name: "Crash replay", kind: "replay" })
+    ).json(),
+  );
+  const customInput: RuleInput = {
+    ...input,
+    sourceId: replay.id,
+    definition: {
+      ...input.definition,
+      name: "Blocked exit",
+      condition: { kind: "custom", text: "A vehicle blocks the marked emergency exit." },
+      durationSeconds: 15,
+      severity: "warning",
+      escalationDelaySeconds: 90,
+    },
+  };
+  const customResponse = await admin.request("/api/config/rules/create", customInput);
+  expect(customResponse.status).toBe(201);
+  const custom = ruleSchema.parse(await customResponse.json());
+  const reloaded = new Browser();
+  reloaded.cookies = new Map(admin.cookies);
+  const configuration = operatorConfigurationSchema.parse(
+    await (await reloaded.request("/api/config/operator")).json(),
+  );
+  expect(configuration.rules).toEqual([fall, custom]);
+  expect(configuration.sources).toHaveLength(2);
+  const edit = { ...fall, definition: { ...fall.definition, escalationDelaySeconds: 120 } };
+  const edited = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/update", edit)).json(),
+  );
+  expect(edited).toMatchObject({ version: 2, definition: { escalationDelaySeconds: 120 } });
+  let delivered = deviceConfigurationSchema.parse(
+    await (await device.request("/api/config/device")).json(),
+  );
+  expect(delivered.rules).toEqual([edited, custom]);
+  const disabled = ruleSchema.parse(
+    await (
+      await admin.request("/api/config/rules/disable", { id: edited.id, version: edited.version })
+    ).json(),
+  );
+  expect(disabled).toMatchObject({ version: 3, enabled: false });
+  delivered = deviceConfigurationSchema.parse(
+    await (await device.request("/api/config/device")).json(),
+  );
+  expect(delivered.rules).toEqual([disabled, custom]);
+  const resumedDevice = new Browser();
+  resumedDevice.cookies = new Map(device.cookies);
+  expect(await (await resumedDevice.request("/api/config/device")).json()).toEqual(delivered);
+  const reenabled = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/update", { ...disabled, enabled: true })).json(),
+  );
+  expect(reenabled).toMatchObject({ enabled: true, version: 4 });
+});
+
+test("invalid conditions, settings, sources and recipients reject the entire save", async () => {
+  const { admin, input } = await configuredWorkspace();
+  const outsider = await owner("Other workspace");
+  const outsiderActor = memberSchema.parse(
+    await (await outsider.request("/api/access/principal")).json(),
+  );
+  const outsiderSource = sourceSchema.parse(
+    await (
+      await outsider.request("/api/config/sources", { name: "Other camera", kind: "camera" })
+    ).json(),
+  );
+  const invalid = [
+    { ...input, definition: { ...input.definition, condition: { kind: "custom", text: "short" } } },
+    {
+      ...input,
+      definition: { ...input.definition, condition: { kind: "template", template: "unknown" } },
+    },
+    { ...input, definition: { ...input.definition, recipientIds: [] } },
+    {
+      ...input,
+      definition: {
+        ...input.definition,
+        recipientIds: [...input.definition.recipientIds, outsiderActor.userId],
+      },
+    },
+    { ...input, definition: { ...input.definition, recipientIds: ["nonexistent"] } },
+    {
+      ...input,
+      definition: {
+        ...input.definition,
+        recipientIds: [...input.definition.recipientIds, ...input.definition.recipientIds],
+      },
+    },
+    { ...input, definition: { ...input.definition, escalationDelaySeconds: 0 } },
+    { ...input, definition: { ...input.definition, durationSeconds: -1 } },
+    { ...input, definition: { ...input.definition, severity: "unknown" } },
+    { ...input, sourceId: outsiderSource.id },
+    { ...input, sourceId: "nonexistent" },
+  ];
+  for (const body of invalid)
+    expect((await admin.request("/api/config/rules/create", body)).status).toBe(400);
+  const empty = operatorConfigurationSchema.parse(
+    await (await admin.request("/api/config/operator")).json(),
+  );
+  expect(empty.rules).toEqual([]);
+  const rule = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/create", input)).json(),
+  );
+  expect(
+    (
+      await admin.request("/api/config/rules/update", {
+        ...rule,
+        definition: {
+          ...rule.definition,
+          name: "Must not persist",
+          recipientIds: [outsiderActor.userId],
+        },
+      })
+    ).status,
+  ).toBe(409);
+  expect(
+    operatorConfigurationSchema.parse(await (await admin.request("/api/config/operator")).json())
+      .rules,
+  ).toEqual([rule]);
+  expect(
+    (await admin.request("/api/config/sources", { name: "Living room", kind: "camera" })).status,
+  ).toBe(409);
+  expect((await admin.request("/api/config/sources", { name: "  ", kind: "camera" })).status).toBe(
+    400,
+  );
+});
+
+test("configuration enforces operator and device boundaries, workspace scope and revocation", async () => {
+  const { admin, input } = await configuredWorkspace();
+  const rule = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/create", input)).json(),
+  );
+  const device = await paired(admin);
+  const otherOwner = await owner("Other workspace");
+  const otherDevice = await paired(otherOwner);
+  const visitor = new Browser();
+  expect((await visitor.request("/api/config/operator")).status).toBe(401);
+  expect((await visitor.request("/api/config/device")).status).toBe(401);
+  expect(
+    (await visitor.request("/api/config/sources", { name: "Bad", kind: "camera" })).status,
+  ).toBe(401);
+  expect((await visitor.request("/api/config/rules/create", input)).status).toBe(401);
+  expect((await admin.request("/api/config/device")).status).toBe(403);
+  expect((await device.request("/api/config/operator")).status).toBe(403);
+  expect(
+    (await device.request("/api/config/sources", { name: "Bad", kind: "camera" })).status,
+  ).toBe(403);
+  expect((await device.request("/api/config/rules/create", input)).status).toBe(403);
+  expect((await device.request("/api/config/rules/update", rule)).status).toBe(403);
+  expect(
+    (await device.request("/api/config/rules/disable", { id: rule.id, version: rule.version }))
+      .status,
+  ).toBe(403);
+  expect((await otherOwner.request("/api/config/rules/update", rule)).status).toBe(409);
+  expect(
+    (await otherOwner.request("/api/config/rules/disable", { id: rule.id, version: rule.version }))
+      .status,
+  ).toBe(409);
+  expect(
+    deviceConfigurationSchema.parse(
+      await (await otherDevice.request("/api/config/device?workspaceId=" + input.sourceId)).json(),
+    ),
+  ).toEqual({ sources: [], rules: [] });
+  expect(
+    operatorConfigurationSchema.parse(
+      await (await otherOwner.request("/api/config/operator")).json(),
+    ).rules,
+  ).toEqual([]);
+  const deviceActor = devicePrincipalSchema.parse(
+    await (await device.request("/api/access/devices/status")).json(),
+  );
+  expect(
+    (await admin.request("/api/access/devices/revoke", { id: deviceActor.deviceId })).status,
+  ).toBe(200);
+  expect((await device.request("/api/config/device")).status).toBe(401);
+  const crossOrigin = await harness.fetch(origin + "/api/config/rules/create", {
+    method: "POST",
+    headers: { Origin: "https://elsewhere.example", "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  expect(crossOrigin.status).toBe(403);
+});
+
+test("concurrent edits cannot overwrite a rule saved from the same version", async () => {
+  const { admin, input } = await configuredWorkspace();
+  const rule = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/create", input)).json(),
+  );
+  const responses = await Promise.all([
+    admin.request("/api/config/rules/update", {
+      ...rule,
+      definition: { ...rule.definition, name: "First edit" },
+    }),
+    admin.request("/api/config/rules/update", {
+      ...rule,
+      definition: { ...rule.definition, name: "Second edit" },
+    }),
+  ]);
+  expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+  expect(
+    (await admin.request("/api/config/rules/disable", { id: rule.id, version: rule.version }))
+      .status,
+  ).toBe(409);
+  const configuration = operatorConfigurationSchema.parse(
+    await (await admin.request("/api/config/operator")).json(),
+  );
+  expect(configuration.rules).toHaveLength(1);
+  expect(configuration.rules[0]?.version).toBe(2);
+});
+
+test("operators configure rules and removing a recipient disables and versions affected rules", async () => {
+  const { admin, input } = await configuredWorkspace();
+  const invitation = inviteSchema.parse(
+    await (await admin.request("/api/access/invitations", {})).json(),
+  );
+  const operator = new Browser();
+  await operator.register("Responder");
+  expect((await operator.request("/api/access/join", { code: invitation.code })).status).toBe(200);
+  const actor = memberSchema.parse(await (await operator.request("/api/access/principal")).json());
+  const shared = ruleSchema.parse(
+    await (
+      await operator.request("/api/config/rules/create", {
+        ...input,
+        definition: { ...input.definition, recipientIds: [actor.userId] },
+      })
+    ).json(),
+  );
+  const unaffected = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/create", input)).json(),
+  );
+  const device = await paired(admin);
+  expect((await admin.request("/api/access/remove-member", { id: actor.userId })).status).toBe(200);
+  expect((await operator.request("/api/config/operator")).status).toBe(403);
+  expect((await operator.request("/api/config/rules/update", shared)).status).toBe(403);
+  const delivered = deviceConfigurationSchema.parse(
+    await (await device.request("/api/config/device")).json(),
+  );
+  expect(delivered.rules).toEqual([{ ...shared, enabled: false, version: 2 }, unaffected]);
+  expect((await admin.request("/api/config/rules/update", { ...shared, version: 2 })).status).toBe(
+    409,
+  );
 });
