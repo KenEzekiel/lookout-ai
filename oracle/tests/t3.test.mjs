@@ -43,7 +43,10 @@ test("creates an idle visible thread before any coding message", async () => {
   assert.deepEqual(calls[0].input.modelSelection, {
     instanceId: "codex",
     model: "model",
-    options: [{ id: "reasoningEffort", value: "high" }],
+    options: [
+      { id: "reasoningEffort", value: "high" },
+      { id: "serviceTier", value: "priority" },
+    ],
   });
   assert.deepEqual(calls[0].input.workspaceStrategy, {
     type: "existing_worktree",
@@ -60,7 +63,10 @@ test("sends into the saved thread with stable request id", async () => {
           modelSelection: {
             instanceId: "codex",
             model: "model",
-            options: [{ id: "reasoningEffort", value: "high" }],
+            options: [
+              { id: "reasoningEffort", value: "high" },
+              { id: "serviceTier", value: "priority" },
+            ],
           },
         });
         return { sequence: 1 };
@@ -84,7 +90,7 @@ test("sends into the saved thread with stable request id", async () => {
 });
 
 for (const failure of ["unavailable", "unacknowledged"]) {
-  test(`does not send a coding message when high effort is ${failure}`, async () => {
+  test(`does not send a coding message when high effort and fast mode are ${failure}`, async () => {
     let sends = 0;
     const client = new T3Client({
       async call(name) {
@@ -338,9 +344,10 @@ test("refuses repeated continuation offsets and safely drains the completed run"
   assert.equal(stops, 1);
 });
 
-test("HTTP client pins high effort on launch and every turn through MCP and SSE", async () => {
+test("HTTP client pins high effort and fast mode on launch and every turn through MCP and SSE", async () => {
   const names = [];
   let effort = "low";
+  let tier = "default";
   const server = createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
@@ -374,15 +381,20 @@ test("HTTP client pins high effort on launch and every turn through MCP and SSE"
     const args = body.params.arguments;
     let result = snapshot();
     if (body.params.name === "t3_thread_launch") {
-      assert.deepEqual(args.modelSelection.options, [{ id: "reasoningEffort", value: "high" }]);
+      assert.deepEqual(args.modelSelection.options, [
+        { id: "reasoningEffort", value: "high" },
+        { id: "serviceTier", value: "priority" },
+      ]);
       result = { threadId, projectId: "project", runId: null };
     }
     if (body.params.name === "t3_thread_configure") {
       effort = args.modelSelection.options.find((option) => option.id === "reasoningEffort")?.value;
+      tier = args.modelSelection.options.find((option) => option.id === "serviceTier")?.value;
       result = { sequence: names.length };
     }
     if (body.params.name === "t3_thread_send") {
       assert.equal(effort, "high");
+      assert.equal(tier, "priority");
       result = { threadId, runId, delivery: "started" };
     }
     response.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -408,6 +420,7 @@ test("HTTP client pins high effort on launch and every turn through MCP and SSE"
     });
     for (const requestId of ["first-turn", "follow-up"]) {
       effort = "low";
+      tier = "default";
       await client.send({ threadId, message: "Please edit the file", requestId, modelSelection });
     }
     assert.deepEqual(names, [
