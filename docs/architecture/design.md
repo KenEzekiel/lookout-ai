@@ -1,120 +1,100 @@
 # Lookout experience and architecture
 
-Updated direction from Ken's feedback. This design describes proposed behavior, not a shipped implementation. The [component spec](tech-spec.md) gives the main responsibilities; the [visual map](map.html) shows their interaction. The [PRD](../../PRD.md) owns product direction.
+Proposed product design based on the [PRD](../../PRD.md). The [component spec](tech-spec.md) defines responsibilities; the [visual map](map.html) gives the overview. This revision separates two clients and selects device-owned decisions as the default. It does not implement them.
 
-## The experience
+## Two clients
 
-Choose a local video or live camera on a capture device. Lookout keeps recent video locally while sending sampled observations for AI assessment. When an incident is confirmed, notify the responder and ask the capture device to save the relevant event clip to the server. The responder can replay that saved clip on desktop or mobile.
+**Operator client.** The desktop/mobile workspace for defining incidents, assigning sources and rules, configuring roles and alert recipients, receiving incidents, replaying evidence, and acknowledging, dismissing or resolving incidents. It does not need to stay open for monitoring to continue.
 
-Full video is not continuously uploaded. Sampled images still leave the device for server-side AI assessment. This design does not move OpenAI inference into the browser.
+**Operational-device client.** A dedicated monitoring interface for connecting CCTV, camera, local video or playback, starting the source, and showing device health. It runs continuously while active, keeps recent footage locally, executes the assessment loop and uploads triggered incident clips. It does not contain operator administration or incident-response controls.
 
-The capture device and responder device can be different devices. A desktop can monitor the prerecorded crash or staged live fall while an Android phone or iPhone receives the alert. One device can perform both roles while the app is active.
+These are separate client experiences and permission scopes. They may share code or deployment infrastructure; separate native applications are not required by this decision. A provisioned device can read its assigned rules and report events, but cannot change roles, choose arbitrary alert recipients or acknowledge incidents as an operator.
+
+The main incident path is **operational device → server → operator**. Configuration travels back from the operator through the server to the assigned device.
+
+## Decision location
+
+**A is selected.** The operational device initiates Decisions API assessments, receives their results, manages candidate review, and decides when to report a triggered incident. It preserves the event clip locally, reports the event to the server, and uploads that clip. The server owns shared incident state, routing, replay and escalation.
+
+The existing two-stage verification direction remains. The device initiates the first assessment and second-stage review before reporting a confirmed event; exact models remain open. The model inference runs at OpenAI, not locally on the device.
+
+This is intended to reduce the upload-before-decision path and avoid storing non-triggered video in Lookout. Latency improvement is a hypothesis to measure, not an observed result. Sampled images still go to the model, and provider data handling is separate from Lookout's storage policy.
+
+**B is deferred.** In the alternative considered, the operational device uploads video snippets and the server owns assessment. This is not the default and must not become an automatic fallback. Server-side assessment and permanent storage are separate choices; B would not inherently require retaining all footage forever.
+
+### Credential boundary
+
+A browser must not contain a long-lived OpenAI API key. For a web operational client, the recommended transport is an authenticated, stateless server relay: device requests assessment → relay calls OpenAI → result returns to device. The relay enforces device scope and usage limits but does not own the monitoring loop or persist non-triggered images, snippets or decision payloads in application storage or logs. This is a proposed credential-handling detail, not a switch to B.
+
+A literal direct device-to-OpenAI connection requires a separately verified secure credential mechanism or managed device runtime. Do not assume browser-safe Decisions credentials exist. See [OpenAI authentication guidance](https://developers.openai.com/api/reference/overview#authentication).
 
 ## User flow
 
 ```mermaid
 flowchart TD
-    Setup[Choose video or camera and configure rule] --> Start[Start monitoring and enable alerts]
-    Start --> Buffer[Keep recent video locally]
-    Buffer --> Sample[Send sampled frames for assessment]
-    Sample --> Confirm{Incident confirmed?}
-    Confirm -->|No or uncertain| Buffer
-    Confirm -->|Yes| Incident[Create incident with event time]
-    Incident --> Alert[Notify responder immediately]
-    Incident --> Clip[Request event clip from capture device]
-    Clip --> Upload[Upload clip to private server storage]
-    Upload --> Replay[Replay becomes available on incident]
-    Alert --> Open[Open incident]
-    Open --> Ack[Acknowledge ownership]
-    Ack --> Review[Review evidence and respond]
-    Replay --> Review
-    Review --> Finish[Resolve or dismiss]
+    Operator[Operator defines incidents, roles and recipients] --> Server[Server stores configuration]
+    Server --> Device[Assigned operational device loads rules]
+    Device --> Capture[Start source and retain local video buffer]
+    Capture --> Assess[Device requests AI assessment and review]
+    Assess --> Trigger{Triggered incident?}
+    Trigger -->|No| Capture
+    Trigger -->|Yes| Preserve[Device preserves event clip]
+    Preserve --> Report[Device reports event to server]
+    Report --> Notify[Server notifies assigned operators]
+    Preserve --> Upload[Device uploads event clip]
+    Upload --> Replay[Server makes replay available]
+    Notify --> Respond[Operator opens and acknowledges incident]
+    Replay --> Respond
+    Respond --> Close[Resolve or dismiss]
 ```
 
-## Swimlane: detection, notification and replay
+## Swimlane
 
 ```mermaid
 sequenceDiagram
-    actor Operator
-    participant Capture as Capture device
-    participant Monitor as Monitoring service and AI
-    participant Store as Private evidence storage
-    participant Responder as Responder desktop or phone
-    Operator->>Capture: Choose source and start monitoring
-    loop Monitoring
-        Capture->>Capture: Maintain recent video buffer
-        Capture->>Monitor: Sampled frames and source times
+    participant O as Operator client
+    participant S as Server
+    participant D as Operational device
+    participant AI as OpenAI via secure transport
+    O->>S: Define incident rules, roles and recipients
+    D->>S: Register device and load assigned rules
+    S-->>D: Authorized configuration
+    loop Device monitoring
+        D->>D: Capture source and retain recent video
+        D->>AI: Request sampled-frame decisions and candidate review
+        AI-->>D: Assessment results
     end
-    Monitor->>Monitor: Confirm event and create incident
-    par Notify without waiting for video
-        Monitor->>Responder: In-app alert or web push
-        Responder->>Monitor: Acknowledge incident
-    and Preserve event evidence
-        Monitor->>Capture: Save clip around event time
-        Capture->>Capture: Preserve pre-event footage and finish post-event footage
-        Capture->>Store: Upload requested clip through authorized path
-        Store-->>Monitor: Clip available
+    D->>D: Confirm trigger and preserve event interval
+    D->>S: Report event with source, rule and event time
+    S-->>D: Incident reference
+    par Alert operator immediately
+        S->>O: In-app alert or web push
+        O->>S: Acknowledge incident
+    and Save event evidence
+        D->>S: Upload clip linked to incident
+        S-->>O: Replay ready
     end
-    Responder->>Monitor: Open incident and request replay
-    Monitor-->>Responder: Authorized saved clip and timeline
-    Responder->>Monitor: Resolve or dismiss
+    O->>S: Request saved replay; resolve or dismiss
 ```
 
-## Alert-triggered video saving
+## Video and always-on behavior
 
-The alert identifies the event time in the capture session, rather than simply asking for footage from the moment the alert arrives. The local buffer must cover the event lead-in and assessment delay. The client preserves that segment while collecting a short amount of footage after the event.
+A local video selection loads the file into the operational client; it does not upload the whole file. Live capture uses a rolling buffer. On trigger, preserve footage around the event time, including the lead-in and aftermath where available. Buffer duration must cover assessment delay. Untriggered video rolls out locally and is not stored by Lookout's server.
 
-For a local uploaded file, selection means loading it into the client for monitoring, not uploading the whole file to the server. The client extracts the requested interval from that file. Live sources depend on the rolling buffer. Clip length and local retention remain tuning choices.
+The device reports the incident before the clip is fully uploaded. Notification and saving proceed independently. Evidence states remain preparing, uploading, ready or unavailable. Retried reports and uploads attach to the same event. If a device disconnects before upload completes, show missing evidence rather than claiming replay exists.
 
-Repeated observations update the same incident. Clip retries attach to that incident instead of creating new alerts. The incident displays `preparing`, `uploading`, `ready`, or `unavailable` evidence. If the source closes or the event has fallen out of the buffer, keep the alert and explain the missing replay. Do not claim the clip is saved until the server confirms it.
+Always-on is the operational device's intended job, not a guarantee that a mobile browser keeps running when locked or suspended. Show source and device health to operators. Paused, disconnected or stale devices must not appear healthy. CCTV connectivity and supported source protocols remain implementation choices; a browser cannot be assumed to open every camera stream.
 
-## Alert experience across devices
+The server distributes rule changes and revocations to devices. Reports identify the source session and rule version so the server can reject stale or unauthorized events. No model result may override configured recipients or roles.
 
-Recommend one responsive web app with PWA support.
+## Operator notifications
 
-| Situation                                                   | Experience                                                                                                              |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| App open on desktop, Android or iOS                         | Prominent incoming-alert screen with incident summary, optional enabled sound, Open incident and Acknowledge actions.   |
-| App in background on a supported desktop or Android browser | Web push notification; tapping it opens the incident. Availability depends on permission, browser and OS settings.      |
-| iPhone or iPad in background                                | Web push through a Home Screen web app on supported iOS/iPadOS versions, with permission requested after a user action. |
-| Push unavailable or denied                                  | Show the limitation during setup. Keep in-app alerts and the incident inbox available while connected.                  |
+Use a responsive web app/PWA. When open, show an incoming-alert screen with user-enabled sound. In the background, use supported web push to open the incident. iOS background web push requires a Home Screen web app and permission. Opening or silencing an alert does not acknowledge it; acknowledgment is an explicit shared-state action.
 
-The simulated call is Lookout's in-app alert presentation, not a telephone or VoIP call. Do not promise a full-screen system call UI, continuous ringtone, silent-mode bypass, or guaranteed lock-screen delivery from a website. A push opens the incident; it does not automatically acknowledge it. Closing the alert UI only silences that device, while Acknowledge changes incident ownership and stops subsequent escalation.
+A simulated call is an in-app presentation. It does not promise a native phone-call screen, continuous background ringtone or silent-mode bypass. Real telephone calls remain optional. Acknowledgment stops new escalation; already delivered notifications may remain.
 
-Offer an explicit Enable alerts step and a test sound. Sound remains subject to browser and OS behavior. Avoid labeling a hidden or suspended capture tab as active monitoring. Receiving push in the background does not keep camera recording or the video buffer running.
+## Verification and ownership
 
-Native Android CallStyle and Apple's CallKit/PushKit are separate native calling capabilities. They are not required for this simulated-alert experience. Real phone integration is optional future work.
+Demonstrate both prerecorded crash and safely staged live fall using the operational client, then receive and replay the resulting incident in the operator client. Confirm the operator can close its UI without stopping the separate operational device. Exercise device disconnect, rule updates, denied permissions, duplicate reports, failed clip uploads and cross-device acknowledgment.
 
-## Components and interaction
-
-```mermaid
-flowchart LR
-    Capture[Capture client and local video buffer] -->|sampled frames| Monitor[Monitoring service and AI]
-    Monitor -->|confirmed alert and clip request| Capture
-    Capture -->|event clip only after alert| Evidence[Private server evidence storage]
-    Monitor -->|incident and notification| UI[Desktop or mobile responder]
-    UI -->|authorized replay| Evidence
-    UI -->|acknowledge, dismiss, resolve| Monitor
-    MCP[MCP client: P2] -.->|same incident actions| Monitor
-```
-
-Keep the existing TanStack Start application. Cloudflare Workers host server behavior; a Durable Object can own incident state and escalation timing, and R2 can hold saved clips. These are recommended component choices, not a commitment to separate deployments or exact schemas.
-
-## Demo outcomes
-
-1. Replay a local crash video, detect the event, receive an alert, and replay the server-saved incident clip.
-2. Stage a safe live fall, preserve footage around the event, and open the alert on another device.
-3. Acknowledge on one device and observe the shared incident state change. No new escalation should be initiated afterward; already delivered OS notifications may remain.
-4. Show that clip upload can finish after the initial alert, and that a failed upload is visible rather than silently reported as saved.
-
-## Sources and evidence boundary
-
-The scaffold was inspected at merged PR #4. This revision changes the previous real-phone and continuous-clip-upload assumptions. No device, push delivery, recording or replay test has run yet.
-
-- [WebKit: iOS/iPadOS Home Screen web push](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/).
-- [MDN: Push API](https://developer.mozilla.org/en-US/docs/Web/API/Push_API).
-- [Chrome autoplay policy](https://developer.chrome.com/blog/autoplay/).
-- [Apple VoIP notifications](https://developer.apple.com/documentation/pushkit/responding-to-voip-notifications-from-pushkit).
-- [Android call-style notifications](https://developer.android.com/develop/ui/compose/notifications/call-style).
-
-The Lookout team owns this design. Update it when the capture lifecycle, evidence-saving flow or alert experience changes.
+The Lookout team owns this design. Runtime behavior, latency, camera compatibility and device background limits remain unverified. Platform references: [WebKit push](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/), [Push API](https://developer.mozilla.org/en-US/docs/Web/API/Push_API), [Chrome sound policy](https://developer.chrome.com/blog/autoplay/), and [Decisions](https://developers.openai.com/api/docs/guides/decisions).

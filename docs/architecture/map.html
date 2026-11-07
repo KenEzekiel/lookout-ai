@@ -6,27 +6,19 @@
     <style>
       body {
         margin: 0;
-        font-family: var(--font-sans, system-ui);
         color: var(--foreground);
+        font-family: var(--font-sans, system-ui);
         line-height: 1.5;
-        font-size: 14px;
       }
-      * {
-        box-sizing: border-box;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-      }
-      .card {
+      .box {
         padding: 16px;
+        margin: 12px 0;
         border: 1px solid var(--border);
         border-radius: var(--radius, 12px);
         background: var(--card);
       }
       h2 {
-        font-size: 17px;
+        font-size: 18px;
         margin: 0 0 8px;
       }
       p {
@@ -35,107 +27,66 @@
       .arrow {
         text-align: center;
         color: var(--muted-foreground);
-        padding: 10px;
       }
-      .label {
-        font-size: 12px;
-        color: var(--muted-foreground);
-      }
-      .accent {
+      .selected {
         border: 2px solid var(--primary);
       }
-      .lane {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 8px;
-        margin-top: 18px;
-      }
-      .lane div {
-        padding: 12px;
-        background: var(--card);
-        border-radius: var(--radius, 12px);
-      }
-      .lane h3 {
-        font-size: 14px;
-        margin: 0 0 8px;
-      }
-      .lane p {
-        padding: 8px 0;
-        border-bottom: 1px solid var(--border);
-      }
-      @media (max-width: 520px) {
-        .grid,
-        .lane {
-          grid-template-columns: 1fr;
-        }
+      small {
+        color: var(--muted-foreground);
       }
     </style>
   </head>
   <body>
-    <p class="label">Revised proposal · save video on alert · desktop and mobile responders</p>
-    <div class="grid">
-      <section class="card">
-        <h2>Capture device</h2>
-        <p>Local video or live camera.</p>
-        <p>Keep recent video in a local buffer. Send sampled images for assessment.</p>
-      </section>
-      <section class="card">
-        <h2>Monitoring service + AI</h2>
-        <p>Apply rules, review evidence and create one incident for the ongoing event.</p>
-        <p>Video stays local until an alert requests a clip.</p>
-      </section>
-    </div>
-    <div class="arrow">Confirmed incident starts two independent paths ↓</div>
-    <div class="grid">
-      <section class="card accent">
-        <h2>Notify now</h2>
-        <p>Open app: incoming-alert screen with enabled sound.</p>
-        <p>Background: supported web push opens the incident.</p>
-        <p>Acknowledge on desktop or phone.</p>
-      </section>
-      <section class="card accent">
-        <h2>Save the event clip</h2>
-        <p>Request footage around the event time. Preserve the lead-in and aftermath.</p>
-        <p>Upload to private server storage.</p>
-        <p>Preparing → uploading → ready, or unavailable.</p>
-      </section>
-    </div>
-    <div class="arrow">Both paths meet at the same incident ↓</div>
-    <section class="card">
-      <h2>Replay and respond</h2>
+    <small>Proposed design: two clients, option A selected</small>
+    <section class="box selected">
+      <h2>1. Operational-device client</h2>
       <p>
-        Replay the saved clip on any authorized device. Review evidence, acknowledge ownership,
-        dismiss an incorrect alert or resolve the event.
+        Connect CCTV, camera, local video or playback. Start monitoring and keep recent footage
+        locally.
       </p>
-      <p class="label">The initial notification does not wait for the video upload.</p>
+      <p>
+        Device owns the Decisions API assessment and review loop. Model inference runs at OpenAI.
+      </p>
+      <p>
+        Browser credential transport: authenticated stateless relay. Results return to the device;
+        no non-triggered media is retained by Lookout.
+      </p>
     </section>
-    <div class="lane">
-      <div>
-        <h3>Capture lane</h3>
-        <p>1. Select source and start</p>
-        <p>2. Buffer video; send samples</p>
-        <p>4b. Receive clip request</p>
-        <p>5b. Upload event footage</p>
-      </div>
-      <div>
-        <h3>Server lane</h3>
-        <p>3. Confirm and open incident</p>
-        <p>4. Notify + request clip</p>
-        <p>6. Mark replay ready</p>
-        <p>7. Share response state</p>
-      </div>
-      <div>
-        <h3>Responder lane</h3>
-        <p>4a. Receive alert</p>
-        <p>5a. Open and acknowledge</p>
-        <p>6. Replay when available</p>
-        <p>7. Resolve or dismiss</p>
-      </div>
-    </div>
-    <p class="label">
-      iOS background web push requires a Home Screen web app and permission. A simulated call is an
-      in-app experience, not a native system phone call. Capture must remain active even when the
-      responder receives background push.
-    </p>
+    <div class="arrow">Triggered incident report + event video snippet &darr;</div>
+    <section class="box">
+      <h2>2. Shared server</h2>
+      <p>
+        Validate device scope, create or update the incident, notify configured operators and save
+        the event clip for private replay.
+      </p>
+      <p>
+        Own definitions, roles, recipients, incident state and escalation. Send assigned
+        configuration back to operational devices.
+      </p>
+    </section>
+    <div class="arrow">Incident alert + replay + shared status &darr;</div>
+    <section class="box">
+      <h2>3. Operator client</h2>
+      <p>
+        Define incidents, assign rules, configure roles and recipients. Receive alerts, replay
+        clips, acknowledge, dismiss or resolve.
+      </p>
+      <p>
+        Desktop and mobile. Closing this client does not stop a separate active operational device.
+      </p>
+    </section>
+    <section class="box">
+      <h2>Decision location</h2>
+      <p>
+        <strong>A selected:</strong> device requests and receives decisions before reporting
+        triggers and uploading clips.
+      </p>
+      <p><strong>B deferred:</strong> device uploads snippets for the server to assess.</p>
+      <small
+        >Lower latency is the intent, not a measured result. Always-on monitoring depends on an
+        active capable device. The credential relay does not move decision ownership to the
+        server.</small
+      >
+    </section>
   </body>
 </html>

@@ -12,6 +12,16 @@ Latest agreed revision: save video on alert and replay it from the server; real 
 
 The visual system and monitor-screen interactions live in [DESIGN.md](DESIGN.md). This PRD remains the source for agreed product behavior.
 
+## Two client experiences
+
+The operator client owns incident definitions, rule configuration, roles and alert recipients, receiving incidents, replay and response. The operational-device client is dedicated to connecting CCTV/video/playback and keeping monitoring active. Its controls focus on source setup, start/stop and health.
+
+The incident path is operational device → server → operator. The server distributes operator-defined configuration to assigned devices and owns shared incident state and routing.
+
+Decision option A is selected: the operational device initiates Decisions API assessment and candidate review, receives the results, then reports triggered incidents and uploads their video snippets. Non-triggered video is not stored on Lookout's server. This aims to reduce latency, but the improvement has not been measured. Option B, uploading snippets for server-owned decisions, is deferred.
+
+Device-owned decisions do not mean local model inference. For a browser client, a stateless authenticated relay is the recommended way to protect OpenAI credentials while returning results to the device. It does not store non-triggered media or own the decision loop. See the [design](docs/architecture/design.md) for this transport boundary and always-on device limits.
+
 ## Why this product
 
 Cameras provide visibility, but someone still has to notice an event, decide whether it matters, collect evidence, reach the right person, and follow up. Fatigue and divided attention can delay that response.
@@ -69,7 +79,7 @@ Acknowledgment does not mean resolution. Control labels and implementation state
 
 ### Evidence supports the response
 
-An incident explains what was observed, which source it came from, when it happened, and why it matched the rule. Keep video locally during monitoring. On a confirmed alert, upload the event clip to private server storage for later replay, including footage around the event where available. Sampled frames still travel to server-side AI assessment. Notify immediately while the clip is being prepared or uploaded; show its availability explicitly. The dashboard presents evidence, owner, status, and an incident timeline.
+An incident explains what was observed, which source it came from, when it happened, and why it matched the rule. Keep video locally during monitoring. On a confirmed alert, upload the event clip to private server storage for later replay, including footage around the event where available. The operational device sends sampled frames for remote AI assessment through secure transport and owns the assessment loop. Notify immediately while the clip is being prepared or uploaded; show its availability explicitly. The dashboard presents evidence, owner, status, and an incident timeline.
 
 Retention duration is undecided. Use permitted footage and agreed recipients. Emergency-service dispatch and identifying people are outside the current scope.
 
@@ -90,7 +100,7 @@ The team's development harness is a separate part of the story. Agents in the re
 - Prefer Cloudflare where it serves the product. The current scaffold is described in the README.
 - Prefer OpenAI Decisions for initial structured visual assessment if it fits, with a vision-capable model fallback. The second-stage model is undecided.
 - Periodically sample visual observations. One frame per second was an initial idea, not a fixed sampling rate or inference frequency.
-- Decide where capture and sampling run, how frames upload, and how live sources remain available. Client-side uploading is a known design question.
+- Capture, sampling and the decision loop belong to the operational-device client. Secure request transport and supported CCTV protocols remain implementation choices.
 - Choose evidence retention, notification behavior, escalation destination, model access, storage, and deployment details as implementation becomes concrete.
 
 Real telephone calls are optional. The agreed direction is a responsive desktop/mobile client with an in-app simulated incoming-alert experience and supported web push. The required outcome is a notification followed by an accountable response. This document does not prescribe schemas, endpoint contracts, module boundaries, or a fixed task split.
