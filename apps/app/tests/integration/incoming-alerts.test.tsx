@@ -33,8 +33,10 @@ const reported = incidentSchema.parse({
       condition: { kind: "template", template: "fall" },
       durationSeconds: null,
       severity: "critical",
-      recipientIds: ["owner"],
-      escalationDelaySeconds: 60,
+      escalationLevels: [
+        { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: 60 },
+        { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: null },
+      ],
     },
   },
   status: "open",
@@ -226,5 +228,23 @@ test("one durable follow-up re-alerts a locally silenced incident and repeated d
   await waitFor(() =>
     expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument(),
   );
+  expect(commands).toEqual([]);
+});
+
+test("each later level interrupts once while earlier recipient delivery stays silenced", async () => {
+  deliveries = [incidentSchema.parse({ ...reported, deliveryLevel: 1 })];
+  const { user } = await open();
+  await user.click(await screen.findByRole("button", { name: "Silence here" }));
+  for (const deliveryLevel of [2, 3]) {
+    deliveries = [incidentSchema.parse({ ...reported, deliveryLevel })];
+    fireEvent(window, new Event("focus"));
+    const alert = await screen.findByRole("article", { name: "Incoming incident" });
+    expect(alert).toHaveTextContent("Incident follow-up");
+    await user.click(within(alert).getByRole("button", { name: "Silence here" }));
+    fireEvent(window, new Event("online"));
+    await waitFor(() =>
+      expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument(),
+    );
+  }
   expect(commands).toEqual([]);
 });

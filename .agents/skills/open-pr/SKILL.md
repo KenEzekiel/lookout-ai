@@ -1,11 +1,11 @@
 ---
 name: open-pr
-description: Open or update a pull request and follow its CI through diagnosis, fixes, and passing checks. Use for opening a PR, publishing completed work, or continuing CI follow-up for a PR opened by this skill. Does not authorize merging.
+description: Open or update a pull request, resolve merge conflicts, and follow its CI through diagnosis, fixes, and passing checks. Use for opening a PR, publishing completed work, or continuing CI follow-up for a PR opened by this skill. Does not authorize merging.
 ---
 
 # Open a PR and get CI green
 
-Read the [repository runtime contract](../poteto-mode/references/codex-tools.md) and root `AGENTS.md`. This skill owns PR creation and CI follow-up. Broader review requests use the [Babysit playbook](../poteto-mode/playbooks/babysit.md).
+Read the [repository runtime contract](../poteto-mode/references/codex-tools.md) and root `AGENTS.md`. This skill owns PR creation, conflict resolution, and CI follow-up. Broader review requests use the [Babysit playbook](../poteto-mode/playbooks/babysit.md).
 
 ## Prepare and publish
 
@@ -19,6 +19,12 @@ Read the [repository runtime contract](../poteto-mode/references/codex-tools.md)
    When the PR completes a tracked issue, include `Closes #N` in the PR description, where `N` is the issue number. Add a separate closing reference for each issue completed. For an issue in another repository, use `Closes owner/repo#N`. Verify that each referenced issue matches the work and that the saved PR description contains the closing references. For partial work, use `Related to #N` instead. Omit issue references when no issue is associated with the work.
 
 4. Link the PR with `link_pull_request` as the next tool call after creation or a push to an existing PR. Do not stop at publishing. Continue with CI follow-up, including for documentation-only PRs.
+
+## Check for conflicts
+
+1. Check every PR opened or updated by this skill against the latest `main`, even when CI is passing. Fetch `origin/main` and read the PR's current head, base, and mergeability with the available GitHub tools or `gh`. An unknown mergeability result does not establish that the PR is conflict-free. Recheck it before claiming readiness; report the gap if the result remains unavailable.
+2. If the PR has conflicts, use [fix-merge-conflicts](../fix-merge-conflicts/SKILL.md) in its owning task worktree. Preserve both sides' intended behavior. Merge the latest `origin/main` into the feature branch, or rebase when requested or required by the repository. Preserve unrelated changes and other active worktrees. If a rebase rewrites an already-pushed task branch, push with `--force-with-lease`, never an unconditional force push.
+3. After resolving conflicts, rerun the required checks and affected behavior verification, push the updated feature branch, and immediately link the PR again. Follow CI for the new head before handing it back. A passing run from before the branch update does not validate the resolution.
 
 ## Follow CI
 
@@ -35,7 +41,9 @@ Opening a PR authorizes this CI follow-up under the repository workflow. A watch
 
 ## Finish or report a blocker
 
-Finish only when the latest head's required checks and repository verification workflow pass, with no relevant failed, cancelled, or pending runs. An absent check list, skipped verification workflow, or checks waiting for approval is not a pass. Inspect workflow triggers or permissions and report the exact gap when CI cannot run.
+Before the final handoff, fetch `origin/main` again and recheck the PR's current head, latest base, and mergeability. Repeat the conflict-resolution steps for any new conflicts, then validate the resulting head. Report a blocker if mergeability cannot be confirmed.
+
+Finish only when the PR is confirmed conflict-free and the latest head's required checks and repository verification workflow pass, with no relevant failed, cancelled, or pending runs. An absent check list, skipped verification workflow, or checks waiting for approval is not a pass. Inspect workflow triggers or permissions and report the exact gap when CI cannot run.
 
 On successful completion, stop the watcher with `unwatch_pull_request` and report the PR link, checked head, validation outcome, and any remaining merge blockers. On an explicit stop, external blocker, closed PR, or externally merged PR, stop the watcher and report the observed state. If verification is blocked, leave or convert the PR to draft and identify what must change before work can resume.
 

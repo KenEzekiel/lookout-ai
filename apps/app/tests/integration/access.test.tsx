@@ -1,7 +1,7 @@
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, sse } from "msw";
 import { beforeEach, expect, test } from "vitest";
 import { server } from "../support/server";
 import { getRouter } from "../../src/router";
@@ -30,6 +30,114 @@ async function open(path = "/") {
   render(<RouterProvider router={router} />, { container: document });
   return userEvent.setup();
 }
+
+test("devices update from SSE when another browser pairs or revokes a device", async () => {
+  principal = owner;
+  let publish:
+    | ((devices: { id: string; name: string; revokedAt: number | null }[]) => void)
+    | undefined;
+  server.use(
+    http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })),
+    sse("/api/access/team/events", ({ client }) => {
+      publish = (devices) => client.send({ data: JSON.stringify({ members: [], devices }) });
+    }),
+  );
+  const user = await open("/devices");
+  expect(await screen.findByText("No devices connected")).toBeVisible();
+  await waitFor(() => expect(publish).toBeTypeOf("function"));
+  act(() => publish?.([{ id: "new", name: "New camera", revokedAt: null }]));
+  expect(await screen.findByRole("button", { name: "Live view of New camera" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Live view of New camera" }));
+  expect(await screen.findByRole("button", { name: "Close live view" })).toBeVisible();
+  act(() => publish?.([{ id: "new", name: "New camera", revokedAt: 1 }]));
+  expect(await screen.findByText("Access removed", { exact: true })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Live view of New camera" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Close live view" })).not.toBeInTheDocument();
+});
+
+test("operators can manually refresh, retain the list on failure, and retry", async () => {
+  principal = { ...owner, role: "operator" };
+  let reads = 0;
+  let fail = false;
+  let release: (() => void) | undefined;
+  server.use(
+    http.get("/api/access/team", async () => {
+      ++reads;
+      if (reads === 2)
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      if (fail) return HttpResponse.json({ message: "List unavailable." }, { status: 503 });
+      return HttpResponse.json({
+        members: [],
+        devices: reads > 1 ? [{ id: "new", name: "Remote camera", revokedAt: null }] : [],
+      });
+    }),
+  );
+  const user = await open("/devices");
+  expect(await screen.findByText("No devices connected")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Refresh" }));
+  expect(await screen.findByRole("button", { name: "Refreshing…" })).toBeDisabled();
+  await waitFor(() => expect(release).toBeTypeOf("function"));
+  act(() => release?.());
+  expect(await screen.findByText("Remote camera")).toBeVisible();
+  expect(await screen.findByText("Devices refreshed.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Add device" })).not.toBeInTheDocument();
+  fail = true;
+  await user.click(screen.getByRole("button", { name: "Refresh" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("List unavailable.");
+  expect(screen.getByText("Remote camera")).toBeVisible();
+  fail = false;
+  await user.click(screen.getByRole("button", { name: "Try again" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+});
+
+test("SSE reconnects with a fresh snapshot after a dropped connection", async () => {
+  principal = owner;
+  let connections = 0;
+  server.use(
+    http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })),
+    sse("/api/access/team/events", ({ client }) => {
+      if (++connections === 1) {
+        client.send({ retry: 1 });
+        client.close();
+        return;
+      }
+      client.send({
+        data: JSON.stringify({
+          members: [],
+          devices: [{ id: "reconnected", name: "Reconnected camera", revokedAt: null }],
+        }),
+      });
+    }),
+  );
+  await open("/devices");
+  expect(await screen.findByText("Reconnected camera")).toBeVisible();
+  expect(connections).toBe(2);
+});
+
+test("access loss clears streamed devices and offers manual recovery", async () => {
+  principal = owner;
+  let revoke: (() => void) | undefined;
+  server.use(
+    http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })),
+    sse<{ message: string; unavailable: string }>("/api/access/team/events", ({ client }) => {
+      client.send({
+        data: JSON.stringify({
+          members: [],
+          devices: [{ id: "private", name: "Private camera", revokedAt: null }],
+        }),
+      });
+      revoke = () => client.send({ event: "unavailable", data: "{}" });
+    }),
+  );
+  await open("/devices");
+  expect(await screen.findByText("Private camera")).toBeVisible();
+  act(() => revoke?.());
+  await waitFor(() => expect(screen.queryByText("Private camera")).not.toBeInTheDocument());
+  expect(screen.getByText(/Live updates interrupted/)).toBeVisible();
+  expect(screen.getByRole("button", { name: "Refresh" })).toBeEnabled();
+});
 
 test("registration from an invitation link preserves the invitation through onboarding", async () => {
   const token = "a".repeat(64);
@@ -152,7 +260,7 @@ test("owners can create invitations, approve devices and revoke them", async () 
   expect(await screen.findByRole("status")).toHaveTextContent("Invitation link copied.");
   await user.click(screen.getByRole("button", { name: "Done" }));
   await user.click(screen.getByRole("link", { name: "Devices" }));
-  const connected = screen.getByRole("region", { name: "Connected devices" });
+  const connected = screen.getByRole("region", { name: "Paired devices" });
   expect(within(connected).getByLabelText("0 devices")).toBeVisible();
   await user.click(within(connected).getByRole("button", { name: "Connect your first device" }));
   await user.type(screen.getByLabelText("Device name"), "Lobby");

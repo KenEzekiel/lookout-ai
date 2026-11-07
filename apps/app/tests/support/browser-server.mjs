@@ -32,7 +32,17 @@ const server = createServer(async (incoming, outgoing) => {
       ...Object.fromEntries([...response.headers].filter(([name]) => name !== "set-cookie")),
       "set-cookie": response.headers.getSetCookie(),
     });
-    outgoing.end(Buffer.from(await response.arrayBuffer()));
+    outgoing.flushHeaders();
+    const reader = response.body?.getReader();
+    outgoing.on("close", () => void reader?.cancel().catch(() => {}));
+    if (reader) {
+      while (!outgoing.destroyed) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        outgoing.write(value);
+      }
+    }
+    outgoing.end();
   } catch {
     outgoing.writeHead(500);
     outgoing.end("Browser test server failed.");

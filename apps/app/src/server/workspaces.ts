@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { env } from "cloudflare:workers";
-import { joinSchema, nameSchema } from "@/lib/access";
+import { joinSchema, nameSchema, teamSchema } from "@/lib/access";
 import { member, unassigned } from "./access";
 import { AccessError, codeDigest, digest, json, limit, secret, shortCode } from "./http";
 
@@ -32,6 +32,9 @@ export async function createWorkspace(request: Request) {
   return json({ id }, 201);
 }
 export async function team(request: Request) {
+  return json(await readTeam(request));
+}
+export async function readTeam(request: Request) {
   const actor = await member(request);
   const [members, devices] = await env.DB.batch([
     env.DB.prepare(
@@ -41,7 +44,7 @@ export async function team(request: Request) {
       "SELECT id,name,revoked_at AS revokedAt FROM device WHERE workspace_id=? ORDER BY created_at DESC",
     ).bind(actor.workspaceId),
   ]);
-  return json({ members: members?.results, devices: devices?.results });
+  return teamSchema.parse({ members: members?.results, devices: devices?.results });
 }
 export async function createInvitation(request: Request) {
   const actor = await member(request, true);
@@ -103,7 +106,7 @@ export async function removeMember(request: Request) {
       "DELETE FROM push_subscription WHERE user_id=? AND workspace_id=? AND EXISTS (SELECT 1 FROM membership WHERE user_id=? AND role='operator')",
     ).bind(id, actor.workspaceId, id),
     env.DB.prepare(
-      "UPDATE monitoring_rule SET enabled=0,version=version+1 WHERE workspace_id=?1 AND EXISTS (SELECT 1 FROM json_each(definition,'$.recipientIds') WHERE value=?2) AND EXISTS (SELECT 1 FROM membership WHERE user_id=?2 AND workspace_id=?1 AND role='operator')",
+      "UPDATE monitoring_rule SET enabled=0,version=version+1 WHERE workspace_id=?1 AND EXISTS (SELECT 1 FROM json_each(definition,'$.escalationLevels') level, json_each(level.value,'$.recipientIds') recipient WHERE recipient.value=?2) AND EXISTS (SELECT 1 FROM membership WHERE user_id=?2 AND workspace_id=?1 AND role='operator')",
     ).bind(actor.workspaceId, id),
     env.DB.prepare(
       "DELETE FROM membership WHERE user_id=? AND workspace_id=? AND role='operator' RETURNING user_id",

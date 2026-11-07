@@ -16,7 +16,7 @@ Visitors open Lookout to sign in or register. Access and capture headers share t
 
 Shared controls use the [interaction motion styles](../../../apps/app/src/styles.css): enabled buttons give subtle press feedback, overlays use reversible opacity/transform transitions, and new feedback appears briefly. Navigation and typing remain immediate. The active workspace underline slides between destinations in 220 ms through Motion shared layout, including browser history and incident detail navigation. Reduced motion moves it immediately. Dialogs enter in 180 ms and exit in 120 ms; menus use 120 ms. Reduced motion disables CSS animation and transitions, including existing control effects. No animation delays an action or changes focus management.
 
-Devices separates an owner-only **This browser** card from the **Connected devices** list. The card explains local capture and cross-tab sign-out. Device rows pair authorization status with a primary Live view action and secondary owner-only removal. Connected devices leads the reading order, with a count of all registered records, including removed access. The browser card sits beside the list on wide screens and follows it on narrow screens. Raised surfaces, larger device names, icon tiles, and a blue Paired badge distinguish device identity, authorization, and actions. The layout wraps at narrow widths and reuses the shared Button and Badge components.
+Devices separates an owner-only **This browser** card from the **Connected devices** list. The card explains local capture and cross-tab sign-out. Device rows pair authorization status with a primary Live view action and secondary owner-only removal. The paired-device list leads browser setup in the reading order, with a count of all registered records, including removed access. Monitoring health remains above the paired-device list. The browser card sits beside the list on wide screens and follows it on narrow screens. Raised surfaces, larger device names, icon tiles, and a blue Paired badge distinguish device identity, authorization, and actions. The layout wraps at narrow widths and reuses the shared Button and Badge components.
 
 ## Entry points
 
@@ -35,6 +35,10 @@ Member screens also mount [background-alert setup](../../../apps/app/src/compone
 The shell uses the completed account/session portion of F-AUTH-ACCESS through same-origin HTTP requests. A paired device can reach capture from its access screen; visitors and human members do not see capture controls. The capture screen still does not assess incidents.
 
 ## Implementation
+
+Button action text uses a unitless 1.4 line height with the 15 px action size so the shared 40 px and 36 px minimum heights remain consistent after the type-scale update. Longer labels can still grow and wrap. The current PR preserves the shared action icons and sizing from PR #76.
+
+The shared [typography scale](../../../apps/app/src/styles.css) gives Devices, Team, Triggers, Incidents, incident detail, and Capture a 30 px page title, 20 px panel/dialog headings, 15 px body/actions, and 13 px metadata. Account panels retain 24 px titles. Geist Variable, semantic colors, and existing navigation remain shared. Sizes use rem units with unitless line heights; editable controls use 16 px on narrow screens. [Production-browser typography journeys](../../../tests/e2e/typography.spec.ts) check desktop and narrow screens, computed typography, focus return, and overflow. This PR introduces the consistency fix requested in Slack; per-run browser evidence is recorded in its PR description.
 
 The shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel.tsx) uses the base-nova shadcn [collapsible](../../../apps/app/src/components/ui/collapsible.tsx). Its measured height transitions in both directions over 220 ms, including interrupted toggles. Children stay mounted to preserve form values. Reduced motion removes the transition. This implements Ken’s request to animate all disclosure state changes. Production Chromium verification passed all five panels at 320, 390, and 1280 px in normal and reduced-motion modes, including intermediate opening/closing heights, keyboard toggling, rapid reversal, hidden-panel visibility, and retained source drafts. No browser or network errors were recorded. `pnpm verify` passed 84 UI and 70 API tests.
 
@@ -86,7 +90,7 @@ The user approved the Horizon cobalt/graphite identity and focused access-screen
 
 [Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 
-Ken requested improved design and layout for `/devices` in the Slack conversation for the current PR. Synthesis decision: keep the existing schema-derived team snapshot, Workspace state, dialogs, and API calls. Make the device list primary and browser activation secondary, rather than adding a dashboard or remote-health state. The [workspace screen](../../../apps/app/src/components/access/workspace.tsx) owns the layout. No shared signature, session, capture, or peer contract changes.
+Ken requested improved design and layout for `/devices` in the Slack conversation for the current PR. Synthesis decision: keep the existing schema-derived team snapshot, Workspace state, dialogs, and API calls. Make the device list primary and browser activation secondary. The merge resolution preserves the Monitoring health panel above the list, the Paired devices heading, manual Refresh, server-sent list updates, and shared page-title typography from main. The [workspace screen](../../../apps/app/src/components/access/workspace.tsx) owns the layout. No shared signature, session, capture, or peer contract changes.
 
 ## Open questions
 

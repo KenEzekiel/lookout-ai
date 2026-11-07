@@ -31,8 +31,10 @@ const fall: Rule = {
     condition: { kind: "template", template: "fall" },
     durationSeconds: null,
     severity: "critical",
-    recipientIds: ["owner"],
-    escalationDelaySeconds: 60,
+    escalationLevels: [
+      { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: 60 },
+      { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: null },
+    ],
   },
 };
 let principal: Principal;
@@ -91,7 +93,12 @@ test("operators define incidents with exclusions, edit and disable them, then re
         id: "0",
         enabled: false,
         version: 3,
-        definition: { ...fall.definition, escalationDelaySeconds: 120 },
+        definition: {
+          ...fall.definition,
+          escalationLevels: fall.definition.escalationLevels.map((level, index) =>
+            index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 120 } : level,
+          ),
+        },
       };
       configuration.rules = configuration.rules.map((item) => (item.id === "0" ? rule : item));
       return HttpResponse.json(rule);
@@ -100,7 +107,7 @@ test("operators define incidents with exclusions, edit and disable them, then re
   const user = await open();
   expect(await screen.findByText(/No triggers yet/)).toBeVisible();
   await user.click(screen.getByRole("button", { name: "New trigger" }));
-  expect(screen.getByLabelText("Alex (owner)")).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Alex (owner)" })).toBeChecked();
   expect(screen.queryByLabelText("Start from")).not.toBeInTheDocument();
   await user.click(screen.getByLabelText("Incident name"));
   await user.paste("Possible fall");
@@ -133,15 +140,24 @@ test("operators define incidents with exclusions, edit and disable them, then re
   await user.type(screen.getByLabelText("Duration condition (seconds, optional)"), "15");
   await user.click(screen.getByLabelText("Severity", { exact: true }));
   await user.click(await screen.findByRole("option", { name: "Warning" }));
-  await user.click(screen.getByLabelText("Taylor (operator)"));
+  await user.click(screen.getByRole("checkbox", { name: "Taylor (operator)" }));
   await user.click(screen.getByRole("button", { name: "Save enabled" }));
   const custom = await screen.findByRole("article", { name: "Blocked exit" });
   expect(custom).toHaveTextContent("Exclude: Vehicles passing the exit without stopping.");
   expect(custom).toHaveTextContent("15 seconds");
   expect(custom).toHaveTextContent("Alex, Taylor");
   await user.click(screen.getByRole("button", { name: "Edit Possible fall" }));
-  await user.clear(screen.getByLabelText("Notify again if nobody acknowledges (seconds)"));
-  await user.type(screen.getByLabelText("Notify again if nobody acknowledges (seconds)"), "120");
+  await user.click(screen.getByRole("button", { name: "Add escalation level" }));
+  await user.click(
+    within(screen.getByRole("group", { name: "Level 2" })).getByRole("checkbox", {
+      name: "Taylor (operator)",
+    }),
+  );
+  await user.clear(screen.getByLabelText("Wait for acknowledgment before escalating (seconds)"));
+  await user.type(
+    screen.getByLabelText("Wait for acknowledgment before escalating (seconds)"),
+    "120",
+  );
   await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByText("Possible fall saved. Enabled at version 2.")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Disable Possible fall" }));
@@ -162,13 +178,13 @@ test("recipient validation and stale-save errors preserve the draft and allow re
   await user.click(newTrigger);
   await user.type(screen.getByLabelText("Incident name"), "Possible fall");
   await user.type(screen.getByLabelText("What should count?"), "A person falls to the floor.");
-  await user.click(screen.getByLabelText("Alex (owner)"));
+  await user.click(screen.getByRole("checkbox", { name: "Alex (owner)" }));
   await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Choose at least one alert recipient.",
   );
   expect(configuration.rules).toEqual([]);
-  await user.click(screen.getByLabelText("Taylor (operator)"));
+  await user.click(screen.getByRole("checkbox", { name: "Taylor (operator)" }));
   server.use(
     http.post("/api/config/rules/create", () =>
       HttpResponse.json(
@@ -180,7 +196,7 @@ test("recipient validation and stale-save errors preserve the draft and allow re
   await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Rule changed");
   expect(screen.getByLabelText("Incident name")).toHaveValue("Possible fall");
-  expect(screen.getByLabelText("Taylor (operator)")).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Taylor (operator)" })).toBeChecked();
   await user.click(screen.getByRole("button", { name: "Cancel editing" }));
   await user.click(screen.getByRole("button", { name: "Reload triggers" }));
   expect(await screen.findByText(/No triggers yet/)).toBeVisible();
@@ -436,4 +452,36 @@ test("reload keeps action labels and decorative icons through pending, failure a
   await user.click(await screen.findByText("Sources (3)"));
   expect(screen.getByText("Recovered source", { exact: false })).toBeVisible();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("operators build and remove sequential levels without losing the remaining recipients", async () => {
+  const user = await open();
+  await user.click(await screen.findByRole("button", { name: "New trigger" }));
+  await user.type(screen.getByLabelText("Incident name"), "Escalated fall");
+  await user.type(screen.getByLabelText("What should count?"), "A person falls onto the floor.");
+  await user.click(screen.getByRole("button", { name: "Add escalation level" }));
+  const second = within(screen.getByRole("group", { name: "Level 2" }));
+  await user.click(second.getByRole("checkbox", { name: "Taylor (operator)" }));
+  await user.click(screen.getByRole("button", { name: "Add escalation level" }));
+  await user.click(
+    within(screen.getByRole("group", { name: "Level 3" })).getByRole("checkbox", {
+      name: "Alex (owner)",
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Remove level 2" }));
+  expect(screen.getByRole("button", { name: "Add escalation level" })).toHaveFocus();
+  expect(
+    within(screen.getByRole("group", { name: "Level 2" })).getByRole("checkbox", {
+      name: "Alex (owner)",
+    }),
+  ).toBeChecked();
+  expect(
+    within(screen.getByRole("group", { name: "Level 2" })).queryByRole("spinbutton"),
+  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Save enabled" }));
+  expect(await screen.findByRole("article", { name: "Escalated fall" })).toBeVisible();
+  expect(configuration.rules[0]?.definition.escalationLevels).toEqual([
+    { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: 60 },
+    { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: null },
+  ]);
 });

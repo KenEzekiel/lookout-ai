@@ -3,6 +3,8 @@ import { request } from "@/lib/api";
 import { type CaptureSession, type CaptureSnapshot } from "@/lib/capture-session";
 import { DeviceMonitoring, type MonitoringStatus } from "@/lib/device-monitoring";
 import { deviceConfigurationSchema, type DeviceConfiguration } from "@/lib/rules";
+import { HealthReporting } from "@/components/device-health-reporting";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -24,8 +26,13 @@ export function MonitoringControls({
   const [configuration, setConfiguration] = useState<DeviceConfiguration | null>(null);
   const [configurationNotice, setConfigurationNotice] = useState("Loading assigned sources…");
   const [sourceId, setSourceId] = useState("");
-  const [status, setStatus] = useState<MonitoringStatus | null>(null);
+  const [monitoringStatus, setStatus] = useState<MonitoringStatus | null>(null);
+  const status =
+    monitoringStatus?.sourceId === sourceId && monitoringStatus.epoch === snapshot.epoch
+      ? monitoringStatus
+      : null;
   const configurationRef = useRef(configuration);
+  const [configurationAvailable, setConfigurationAvailable] = useState(false);
   const [reload, setReload] = useState(0);
   const active = snapshot.state === "running" || snapshot.state === "paused";
   const source = configuration?.sources.find((source) => source.id === sourceId);
@@ -45,12 +52,14 @@ export function MonitoringControls({
         );
         if (disposed) return;
         configurationRef.current = next;
+        setConfigurationAvailable(true);
         controller.current?.configure(next.rules);
         setConfiguration(next);
         setConfigurationNotice("Assigned configuration is current.");
       } catch {
         if (disposed) return;
         configurationRef.current = null;
+        setConfigurationAvailable(false);
         controller.current?.configure(null);
         setConfigurationNotice("Monitoring degraded: configuration unavailable. Retrying…");
       } finally {
@@ -108,13 +117,15 @@ export function MonitoringControls({
         </SelectContent>
       </Select>
       <p className="mt-2 text-xs text-muted-foreground">{configurationNotice}</p>
-      <button
+      <Button
         type="button"
-        className="mt-2 text-xs text-primary underline"
+        variant="ghost"
+        size="sm"
+        className="mt-2"
         onClick={() => setReload((value) => value + 1)}
       >
         Refresh assigned rules
-      </button>
+      </Button>
       {configuration?.sources.length === 0 && (
         <p className="mt-2 text-xs">
           An operator must create a source and assign an enabled trigger.
@@ -159,6 +170,17 @@ export function MonitoringControls({
         Monitoring sends sampled frames for remote AI assessment. Capture must remain open and
         visible.
       </p>
+      <HealthReporting
+        report={{
+          sourceId: sourceId || null,
+          capture: snapshot.state,
+          lastObservationAt: snapshot.lastSampleAt,
+          assessment: active && compatible ? (status?.assessment ?? "unavailable") : "unavailable",
+          lastAssessmentAt: status?.lastAssessmentAt ?? null,
+          configurationAvailable,
+          appliedRules: status?.appliedRules ?? [],
+        }}
+      />
     </section>
   );
 }

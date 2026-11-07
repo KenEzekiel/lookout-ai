@@ -32,6 +32,8 @@ Each iteration selects the latest eight chronological capture samples and starts
 
 Event time is the wall-clock capture time of the first candidate-window frame, labeled approximate. The device retains source `from`/`to` separately from inference and receipt time. The current report API persists event time only; interval enrichment remains incomplete. F-EVIDENCE-REPLAY now supplies [submitConfirmedEvent](../../../apps/app/src/lib/incident-evidence.ts) and clip extraction, but this controller does not call that handoff yet. Its existing combined report-and-upload promise does not expose the immediate receipt or cancellation needed by this loop. Connecting it requires a coordinated handoff change; this draft keeps that gap explicit rather than replacing the evidence owner. Restarts and seeks deliberately begin a new capture identity; cross-run duplicate recognition is not implemented.
 
+F-DEVICE-HEALTH now consumes typed per-rule assessment health, the oldest successful assessment time across enabled rules, and the controller-applied version set. Failures, delayed requests, configuration outages, and request errors cannot become healthy reports. The controller qualifies published state with capture epoch and source identity; health transport remains metadata-only and owns no assessment work.
+
 ## Implementation
 
 [Controller](../../../apps/app/src/lib/device-monitoring.ts), [monitoring controls](../../../apps/app/src/components/device-monitoring.tsx), [capture station](../../../apps/app/src/components/device-screen.tsx), and [capture samples](../../../apps/app/src/lib/capture-session.ts) connect the existing relay and incident APIs. No additional server loop, incident store, or provider adapter is introduced.
