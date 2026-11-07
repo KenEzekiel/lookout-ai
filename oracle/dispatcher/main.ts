@@ -1,6 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { BoundaryError, defaultLimits } from "../session/domain.js";
+import { BoundaryError, defaultLimits, type ShutdownMode } from "../session/domain.js";
 import { atomicJson, createSessionStore } from "../session/index.js";
 import { acquireInstanceLock } from "../session/lock.js";
 import { createT3Runner } from "../session/run.js";
@@ -23,12 +23,12 @@ let stopWatching: (() => void) | undefined;
 let syncTimer: ReturnType<typeof setInterval> | undefined;
 let syncing: Promise<void> | undefined;
 let reloading = false;
-const shutdown = (): Promise<void> => {
+const shutdown = (mode: ShutdownMode = "shutdown"): Promise<void> => {
   closing ??= (async () => {
     stopWatching?.();
     clearInterval(syncTimer);
     try {
-      await oracle?.close();
+      await oracle?.close(mode);
     } catch {
       log("session_shutdown_failed");
     }
@@ -123,11 +123,9 @@ async function main(): Promise<void> {
       reloading = true;
       log("oracle_reload_requested");
       void (async () => {
-        await oracle?.drain();
         if (closing) return;
         await slack?.close();
-        await oracle?.idle();
-        await shutdown();
+        await shutdown("reload");
         if (!unsafeToRelease && !process.exitCode) process.exitCode = 75;
       })().catch(() => {
         log("reload_failed");

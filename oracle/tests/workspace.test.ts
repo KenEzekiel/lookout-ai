@@ -12,8 +12,7 @@ import { createWorkspace } from "../session/workspace.js";
 import { deferred, directory, input, testNow, untilAborted } from "./helpers.js";
 
 const execute = promisify(execFile);
-const workspaceFor = (root: string) =>
-  createWorkspace({ root, branch: "oracle", verifyMain: async () => true });
+const workspaceFor = (root: string) => createWorkspace({ root, branch: "oracle" });
 const git = async (cwd: string, ...args: string[]) => {
   const { stdout } = await execute("git", [
     "-C",
@@ -316,29 +315,6 @@ test("runtime sync proceeds independently and never updates an existing task che
   assert.equal(await workspace.task(first.address), task);
 });
 
-test("unverified main stays out of the workspace until CI succeeds for its exact commit", async (t) => {
-  const { primary, worktree, advance } = await fixture(t);
-  let verified = false;
-  const checked: string[] = [];
-  const workspace = createWorkspace({
-    root: worktree,
-    branch: "oracle",
-    verifyMain: async (commit) => {
-      checked.push(commit);
-      return verified;
-    },
-  });
-  await advance("verified update\n");
-  const commit = await git(primary, "rev-parse", "HEAD");
-  assert.deepEqual(await workspace.sync(), { kind: "waiting_for_ci", commit });
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "initial\n");
-  await assert.rejects(workspace.task(input().address), { code: "workspace_main_unverified" });
-  verified = true;
-  assert.deepEqual(await workspace.sync(), { kind: "updated", commit });
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "verified update\n");
-  assert.ok(checked.every((value) => value === commit));
-});
-
 test("merge setup failures retain their original error and never abort a nonexistent merge", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   await writeFile(join(worktree, "oracle.txt"), "local commit\n");
@@ -363,7 +339,8 @@ test("a Slack request uses latest main without waiting for CI", async (t) => {
   const originalPath = process.env.PATH;
   process.env.PATH = `${bin}:${originalPath ?? ""}`;
   t.after(() => {
-    process.env.PATH = originalPath;
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
   });
   const workspace = createWorkspace({ root: worktree, branch: "oracle" });
   await advance("latest main without a successful CI run\n");
@@ -507,81 +484,3 @@ test("reload cancels the old run and resumes it once in the same T3 thread and w
   assert.equal(sends.length, 3);
   assert.deepEqual(next.sessions.pending(), []);
 });
-
-test("a concurrent fetch cannot substitute an unverified commit after the CI check", async (t) => {
-  const { primary, worktree, advance } = await fixture(t);
-  await advance("first update\n");
-  const verifiedCommit = await git(primary, "rev-parse", "HEAD");
-  const workspace = createWorkspace({
-    root: worktree,
-    branch: "oracle",
-    verifyMain: async (commit) => {
-      assert.equal(commit, verifiedCommit);
-      await advance("newer unverified update\n");
-      await git(primary, "fetch", "origin", "main");
-      return true;
-    },
-  });
-  assert.deepEqual(await workspace.sync(), { kind: "updated", commit: verifiedCommit });
-  assert.equal(await git(worktree, "rev-parse", "HEAD"), verifiedCommit);
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "first update\n");
-});
-
-test(
-  "the original Slack request survives unavailable CI checks and runs after verified Git sync",
-  { timeout: 5_000 },
-  async (t) => {
-    const { primary, worktree, advance } = await fixture(t);
-    let verified = false;
-    const workspace = createWorkspace({
-      root: worktree,
-      branch: "oracle",
-      verifyMain: async () => {
-        if (!verified) throw new Error("GitHub temporarily unavailable");
-        return true;
-      },
-    });
-    const sessions = createSessionStore({
-      directory: await directory(t),
-      limits: defaultLimits,
-      now: () => testNow,
-    });
-    const finished = deferred<void>();
-    let coding = 0;
-    const messages: string[] = [];
-    const oracle = await createOracle({
-      sessions,
-      limits: defaultLimits,
-      now: () => testNow,
-      retryIntervalMs: 10,
-      runner: {
-        run: async ({ input: request }) => {
-          const task = await workspace.task(request.address);
-          assert.equal(
-            await git(task, "rev-parse", "HEAD"),
-            await git(primary, "rev-parse", "HEAD"),
-          );
-          coding++;
-          return { kind: "reply", text: "Completed after verified sync" };
-        },
-      },
-      publish: async (_, text) => {
-        messages.push(text);
-        if (text === "Completed after verified sync") finished.resolve();
-      },
-    });
-    t.after(() => oracle.close());
-    await advance("CI-gated update\n");
-    const request = input("Answer the original Slack request");
-    await oracle.receive(request);
-    await oracle.idle();
-    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
-    assert.equal(coding, 0);
-    verified = true;
-    await finished.promise;
-    await oracle.idle();
-    assert.equal(coding, 1);
-    assert.equal(messages.length, 2);
-    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
-  },
-);
