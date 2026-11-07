@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 async function fingerprint(root: string): Promise<string> {
   const hash = createHash("sha256");
-  const files = ["package.json", ".env", ".local/disclosure.json", "../pnpm-lock.yaml"];
+  const files = ["package.json", ".env", "../pnpm-lock.yaml"];
   const collect = async (directory: string): Promise<void> => {
     for (const entry of await readdir(join(root, directory), { withFileTypes: true })) {
       const name = join(directory, entry.name);
@@ -12,7 +12,7 @@ async function fingerprint(root: string): Promise<string> {
       else if (entry.isFile() && /\.(?:ts|mjs)$/.test(name)) files.push(name);
     }
   };
-  for (const directory of ["dispatcher", "session", "tools"]) await collect(directory);
+  for (const directory of ["dispatcher", "session"]) await collect(directory);
   for (const file of files.sort()) {
     hash.update(file);
     try {

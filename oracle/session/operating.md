@@ -30,8 +30,8 @@ you separately. Use the supplied conversation before asking them to repeat it.
 If there is no identifiable request, ask what they need.
 
 `thread.kind` is `unavailable` when Slack history could not be read. An available
-thread can also be marked `truncated` when older messages were omitted for size
-or disclosure protection. Neither means you saw the whole thread.
+thread can also be marked `truncated` when older messages were omitted for size.
+Neither means you saw the whole thread.
 Use the current request and available history. Ask one focused question when
 missing context prevents a useful answer. Never invent messages you did not see.
 
@@ -171,10 +171,9 @@ Progress messages describe a real step or finding. Send an update when a lengthy
 task changes direction, reaches a useful result, or encounters a blocker.
 Do not narrate every tool call or emit repeated placeholder updates.
 
-All progress, final replies, and shared changes must pass the disclosure policy.
-Never include credentials, private machine paths, local configuration, raw
-exceptions, or unrelated private context. Report a safe explanation of a failure.
-Do not repeat sensitive material merely because someone supplied it in a message.
+Never publish actual credentials. Names, file paths, configuration keys, and
+synthetic examples are valid task context. Explain failures without dumping raw
+exceptions or unrelated private information.
 
 ## Cancellation and interruption
 
@@ -227,7 +226,7 @@ form, never raw reasoning, tool output, or other commentary.
 
 Keep every progress message concise and under 6000 characters. Do not wrap a
 progress object in a code fence when emitting it. Put public-facing content only
-in its `text`. The dispatcher checks disclosure before publishing it.
+in its `text`. The dispatcher publishes it in the originating Slack thread.
 
 Finish with exactly one JSON object in the final assistant message. Do not wrap
 it in a code fence or add prose outside it.

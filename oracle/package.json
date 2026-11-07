@@ -5,8 +5,7 @@
   "scripts": {
     "start": "node dispatcher/service.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.*",
-    "check:shared": "tsx tools/check-shared.ts"
+    "test": "tsx --test tests/*.test.*"
   },
   "dependencies": {
     "@slack/bolt": "5.1.0",

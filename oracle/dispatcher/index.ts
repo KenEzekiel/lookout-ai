@@ -13,7 +13,6 @@ import {
   outcomeSchema,
 } from "../session/domain.js";
 import type { SessionStore } from "../session/index.js";
-import type { Disclosure } from "../tools/disclosure.js";
 
 export interface TurnRunner {
   recover?(): Promise<void>;
@@ -34,20 +33,17 @@ export interface Oracle {
 
 type QueuedTurn = { input: Incoming; generation: number; ready: Promise<void> };
 const failureReply = "The turn could not finish. Send a fresh request to continue.";
-const disclosureReply =
-  "Oracle could not process this turn because its content did not pass the disclosure policy. Remove private names or sensitive details and try again, or ask a maintainer to review the policy.";
 
 export async function createOracle(deps: {
   sessions: SessionStore;
   runner: TurnRunner;
   publish: (address: Address, text: string) => Promise<void>;
   setStatus?: (address: Address, status: "processing" | "active") => Promise<void>;
-  disclosure: Disclosure;
   limits: Limits;
   onFault?: (code: string) => void;
   now?: () => number;
 }): Promise<Oracle> {
-  const { sessions, disclosure, limits } = deps;
+  const { sessions, limits } = deps;
   await sessions.recover();
   await deps.runner.recover?.();
   const queue: QueuedTurn[] = [];
@@ -76,7 +72,6 @@ export async function createOracle(deps: {
     kind: "progress" | "result" | "stop",
     text: string,
   ): Promise<void> => {
-    disclosure.assert(text);
     const id = await sessions.delivery(address, kind, text);
     try {
       await deps.publish(address, text);
@@ -101,7 +96,6 @@ export async function createOracle(deps: {
       assertActive(controller.signal);
       let outcome: Outcome;
       try {
-        disclosure.assert(input.text);
         outcome = outcomeSchema.parse(
           await deps.runner.run({
             input,
@@ -114,7 +108,6 @@ export async function createOracle(deps: {
           }),
         );
         assertActive(controller.signal);
-        if (outcome.kind === "reply") disclosure.assert(outcome.text);
       } catch (error) {
         if (
           error instanceof BoundaryError &&
@@ -125,9 +118,8 @@ export async function createOracle(deps: {
           await sessions.complete(input, { kind: "silent" }, "cancelled");
           return;
         }
-        const refused = error instanceof BoundaryError && error.code === "disclosure_refused";
-        outcome = { kind: "reply", text: refused ? disclosureReply : failureReply };
-        deps.onFault?.(refused ? "disclosure_refused" : "turn_failed");
+        outcome = { kind: "reply", text: failureReply };
+        deps.onFault?.("turn_failed");
       }
       await sessions.complete(input, outcome);
       assertActive(controller.signal);

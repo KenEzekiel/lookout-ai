@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createOracle } from "../dispatcher/index.js";
 import { routeSlack } from "../dispatcher/slack.js";
-import { defaultLimits, type Incoming, type Outcome } from "../session/domain.js";
-import { atomicJson, createSessionStore } from "../session/index.js";
-import { createDisclosure } from "../tools/disclosure.js";
+import { defaultLimits } from "../session/domain.js";
+import { createSessionStore } from "../session/index.js";
 import { deferred, directory, input, testNow, untilAborted } from "./helpers.js";
 
 test("deduplication across Slack listeners admits and executes one turn", async (t) => {
@@ -19,7 +18,6 @@ test("deduplication across Slack listeners admits and executes one turn", async 
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     runner: {
       async run() {
         runs++;
@@ -70,7 +68,6 @@ test("global FIFO holds the checkout for complete model turns", async (t) => {
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     publish: async () => {},
     runner: {
       async run({ input: request }) {
@@ -110,7 +107,6 @@ test("stop aborts immediately, cancels queued thread work, and direct work resum
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     publish: async () => {},
     runner: {
       async run({ input: request, signal }) {
@@ -165,7 +161,6 @@ test("an old stop delivery cannot interrupt current work", async (t) => {
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     publish: async () => {},
     runner: {
       async run(args) {
@@ -198,7 +193,6 @@ test("persistence precedes processing status and completed reply delivery", asyn
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     setStatus: async (address, status) => {
       if (status === "processing")
         assert.equal(sessions.snapshot(address)?.events[0]?.status, "queued");
@@ -227,7 +221,6 @@ test("ambiguous Slack sends are never automatically retried", async (t) => {
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     runner: {
       async run() {
         return { kind: "reply", text: "Checked." };
@@ -247,7 +240,6 @@ test("ambiguous Slack sends are never automatically retried", async (t) => {
     sessions: createSessionStore(options),
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     runner: {
       async run() {
         throw new Error("must_not_replay");
@@ -275,7 +267,6 @@ test("failed admission persists no acknowledgement and stops later work", async 
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     runner: {
       async run() {
         calls++;
@@ -291,45 +282,34 @@ test("failed admission persists no acknowledgement and stops later work", async 
   assert.equal(calls, 0);
 });
 
-test("unsafe runner replies and raw failures become generic messages", async (t) => {
+test("raw runner failures become generic messages", async (t) => {
   const sessions = createSessionStore({
     directory: await directory(t),
     limits: defaultLimits,
     now: () => testNow,
-    persist: atomicJson,
   });
   const outputs: string[] = [];
+  const faults: string[] = [];
   const oracle = await createOracle({
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(["plum-private-marker"]),
     runner: {
-      async run({ input: request }): Promise<Outcome> {
-        if (request.text === "Throw") throw new Error("plum-private-marker");
-        return { kind: "reply", text: "plum-private-marker" };
+      async run() {
+        throw new Error("internal failure at /home/example/lookout");
       },
     },
     publish: async (_, text) => {
       outputs.push(text);
     },
+    onFault: (code) => {
+      faults.push(code);
+    },
   });
-  const first: Incoming = input();
-  await oracle.receive(first);
+  await oracle.receive(input());
   await oracle.idle();
-  await oracle.receive(input("Throw"));
-  await oracle.idle();
-  await oracle.receive(input("plum-private-marker"));
-  await oracle.idle();
-  assert.equal(
-    outputs.some((text) => text.includes("plum-private-marker")),
-    false,
-  );
-  assert.equal(outputs.filter((text) => text.includes("could not finish")).length, 1);
-  assert.equal(
-    outputs.filter((text) => text.includes("did not pass the disclosure policy")).length,
-    2,
-  );
+  assert.deepEqual(outputs, ["The turn could not finish. Send a fresh request to continue."]);
+  assert.deepEqual(faults, ["turn_failed"]);
 });
 
 test("shutdown clears processing for both active and queued conversations", async (t) => {
@@ -344,7 +324,6 @@ test("shutdown clears processing for both active and queued conversations", asyn
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     runner: {
       run: async ({ signal }) => {
         entered.resolve();

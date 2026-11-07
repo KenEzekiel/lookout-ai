@@ -3,7 +3,7 @@
 Run `pnpm install --frozen-lockfile`.
 Run `pnpm verify` before opening a PR. CI runs the same command on every PR to `main`.
 
-- `pnpm check` runs Oxfmt, Oxlint, the comment ban, strict TypeScript, dependency-cruiser, workspace tests, and Oracle disclosure checks.
+- `pnpm check` runs Oxfmt, Oxlint, the comment ban, strict TypeScript, dependency-cruiser, and workspace tests.
 - `pnpm test` runs Vitest UI integration tests with React Testing Library and jsdom, plus Oracle tests.
 - `pnpm build` checks the production client and Worker bundles.
 - `pnpm qa:browser` runs optional browser smoke tests for manual QA of the production build. Install Chromium first with `pnpm exec playwright install chromium`.
