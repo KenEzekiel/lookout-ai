@@ -34,7 +34,7 @@ test("presents the built HTML deck with bounded navigation and a slide picker", 
   unmount = mountDeck(document);
   const user = userEvent.setup();
   expect(screen.getAllByRole("group")).toHaveLength(1);
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("responded");
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Cameras record");
   expect(screen.getByRole("button", { name: "Previous slide" }).disabled).toBe(true);
   await user.click(screen.getByRole("button", { name: "Next slide" }));
   expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Meet Lookout");
@@ -66,7 +66,7 @@ test("notes are opt-in and follow the current slide", async () => {
   const user = userEvent.setup();
   expect(screen.queryByRole("complementary", { name: "Speaker notes" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Notes" }));
-  expect(screen.getByRole("complementary").textContent).toContain("Introduce the team");
+  expect(screen.getByRole("complementary").textContent).toContain("introduce the team");
   await user.click(screen.getByRole("button", { name: "Next slide" }));
   expect(screen.getByRole("complementary").textContent).toContain("one concrete example");
   await user.click(screen.getByRole("button", { name: "Notes" }));
