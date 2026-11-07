@@ -50,6 +50,18 @@ async function fixture(t: TestContext) {
   return { primary, worktree, advance };
 }
 
+test("task preparation uses the pinned runtime without fetching newer main", async (t) => {
+  const { primary, worktree, advance } = await fixture(t);
+  const pinned = await git(worktree, "rev-parse", "HEAD");
+  await advance("new main waiting for manual sync\n");
+  await git(primary, "fetch", "origin", "main");
+  await git(primary, "remote", "set-url", "origin", join(worktree, "unavailable-origin.git"));
+  const task = await workspaceFor(worktree).task(input().address);
+  assert.equal(await git(worktree, "rev-parse", "HEAD"), pinned);
+  assert.equal(await git(task, "rev-parse", "HEAD"), pinned);
+  assert.equal(await readFile(join(task, "file.txt"), "utf8"), "initial\n");
+});
+
 test("sync includes latest main and preserves Oracle commits and the primary checkout", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   await writeFile(join(worktree, "oracle.txt"), "Oracle work\n");
