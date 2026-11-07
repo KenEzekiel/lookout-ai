@@ -20,6 +20,8 @@ Open `/`, `/join`, `/monitor`, `/device`, `/triggers`, `/incidents`, an incident
 
 Member screens now mount [incoming alerts](../../../apps/app/src/components/incidents/incoming-alerts.tsx) for F-ALERT-INAPP. Visitors, unassigned users, paired devices, and pairing screens do not subscribe. The alert view and sound controls appear before each screen's content; opening or silencing never changes ownership. [Complete-screen alert tests](../../../apps/app/tests/integration/incoming-alerts.test.tsx) cover the shared shell integration. Device status copy distinguishes missing automatic reports from working operator alert delivery.
 
+Member screens also mount [background-alert setup](../../../apps/app/src/components/incidents/push-setup.tsx) for F-ALERT-PUSH. The public manifest and root links provide Home Screen metadata. The service worker caches no authenticated pages. [Setup integration tests](../../../apps/app/tests/integration/push.test.tsx) cover consent, platform guidance, and recovery. Notification clicks use the existing protected incident URL.
+
 The shell uses the completed account/session portion of F-AUTH-ACCESS through same-origin HTTP requests. A paired device can reach capture from its access screen; visitors and human members do not see capture controls. The capture screen still does not assess incidents.
 
 ## Implementation

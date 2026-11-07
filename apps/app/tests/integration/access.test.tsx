@@ -260,7 +260,7 @@ test("team removal asks for confirmation before removing access", async () => {
   expect(screen.getByText("Taylor")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Remove Taylor" }));
   await user.click(screen.getByRole("button", { name: "Remove member" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Taylor was removed");
+  expect(await screen.findByText("Taylor was removed from the team.")).toHaveRole("status");
   expect(screen.queryByRole("button", { name: "Remove Taylor" })).not.toBeInTheDocument();
 });
 
