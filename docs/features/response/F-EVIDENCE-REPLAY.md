@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS, F-SOURCE-CAPTURE, F-INCIDENT-RESPONSE
 
 ## Behavior
 
+Saved replay reserves a video-shaped area with specific loading and buffering feedback. Media errors offer Retry replay without hiding incident response controls. Preparation and upload show an indeterminate indicator and never claim measured progress.
+
 Confirmed incidents upload an event clip to private storage for authorized later replay. Target ten seconds of available lead-in and ten seconds of aftermath. Server-saved clips expire after seven days. Show preparing, uploading, ready, or unavailable states. Incident response remains available while evidence is missing.
 
 ## Entry points
@@ -22,13 +24,19 @@ F-INCIDENT-RESPONSE publishes the incident ID and report receipt in [the shared 
 
 ## Implementation
 
+[Saved replay](../../../apps/app/src/components/incidents/saved-replay.tsx) owns browser media loading, buffering, and retry feedback.
+
 [Capture session](../../../apps/app/src/lib/capture-session.ts) pins the available event interval. [Event clip builder](../../../apps/app/src/lib/event-clip.ts) creates a seekable video-only MP4 from a local file or camera segments. [Synthetic confirmation handoff](../../../apps/app/src/lib/incident-evidence.ts) uses #19's receipt and supports a same-incident retry. [Evidence service](../../../apps/app/src/server/evidence.ts), [D1 schema](../../../apps/app/src/server/schema.ts), [migration](../../../apps/app/migrations/0006_evidence_replay.sql), [private R2 binding](../../../apps/app/wrangler.jsonc), and [incident route](../../../apps/app/src/routes/api/incidents/$.ts) implement storage and replay. [Operator incident UI](../../../apps/app/src/components/incidents/workspace.tsx) shows each state and the ready-only player.
 
 ## Verification
 
+[Loading journey integration tests](../../../apps/app/tests/integration/loading.test.tsx) cover delayed access, lists, configuration, navigation away, submission failure, and refresh retention. [Incident integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover pending responses and replay loading, buffering, failure, and retry. Existing feature tests remain the regression checks for this consumer. Browser observations and evidence for the current change belong in its PR.
+
 [Real-browser clip checks](../../../tests/clip/clip.spec.ts) cover local-file trimming, a late camera event across segments, and a synthetic receipt-to-upload handoff in Chromium. [Worker/D1/local-R2 tests](../../../apps/app/tests/api/access.test.ts) cover retry after a lost response, state timeout, cross-workspace and removed-member denial, missing objects, expiry, and byte ranges. [UI integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover all four states and the ready-only player. Manual Chromium QA on the production Worker with isolated D1/R2 exercised separate operator and device sessions, preparing, uploading, acknowledgment before readiness, unavailable, playback and seeking on desktop and a 390-pixel viewport. Keyboard focus and Space playback worked. Pixel 7 Chrome emulation loaded clip metadata without overflow. Capture controls, live detection, physical Android/iOS playback, iOS WebKit emulation, and the cloud R2 lifecycle rule remain unverified.
 
 ## Decisions and sources
+
+The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.
 
 [Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#22](https://github.com/KenEzekiel/lookout-ai/issues/22). Issue status is not implementation evidence.
 

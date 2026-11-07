@@ -1,5 +1,6 @@
+import { responseGate } from "../support/response-gate";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, expect, test } from "vitest";
@@ -324,5 +325,43 @@ test("an attempted follow-up is visibly distinct from operator acknowledgment", 
   expect(screen.getByText("In-app follow-up attempted by Lookout")).toBeVisible();
   expect(screen.getByText("No owner yet")).toBeVisible();
   expect(screen.queryByText("Acknowledged by Lookout")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();
+});
+
+test("response feedback identifies the action and keeps evidence visible", async () => {
+  const response = responseGate();
+  server.use(
+    http.post("/api/incidents/commands/fall", async () => {
+      await response.promise;
+      return HttpResponse.json({ message: "Response failed. Try again." }, { status: 503 });
+    }),
+  );
+  await open("/incidents/fall");
+  await userEvent.setup().click(await screen.findByRole("button", { name: "Acknowledge" }));
+  expect(screen.getByRole("button", { name: "Acknowledging…" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Dismiss as incorrect" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Reload incident" })).toBeDisabled();
+  expect(screen.getByRole("heading", { name: "Preparing evidence" })).toBeVisible();
+  response.resolve();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Response failed. Try again.");
+  expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();
+});
+
+test("replay loading and buffering preserve incident response and recover from media failure", async () => {
+  incident = incidentSchema.parse({ ...incident, evidenceStatus: "ready" });
+  await open("/incidents/fall");
+  expect(await screen.findByRole("status", { name: "Loading replay…" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();
+  const video = screen.getByLabelText("Event clip replay");
+  fireEvent.loadedMetadata(video);
+  expect(screen.queryByRole("status", { name: "Loading replay…" })).not.toBeInTheDocument();
+  fireEvent.waiting(video);
+  expect(screen.getByRole("status", { name: "Buffering replay…" })).toBeVisible();
+  fireEvent.playing(video);
+  expect(screen.queryByRole("status", { name: "Buffering replay…" })).not.toBeInTheDocument();
+  fireEvent.error(video);
+  expect(screen.getByRole("alert")).toHaveTextContent("The replay could not load");
+  await userEvent.setup().click(screen.getByRole("button", { name: "Retry replay" }));
+  expect(screen.getByRole("status", { name: "Loading replay…" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();
 });

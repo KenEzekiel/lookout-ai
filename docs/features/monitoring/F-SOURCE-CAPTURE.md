@@ -8,6 +8,8 @@ Depends on: F-AUTH-ACCESS
 
 Start and Stop use shared default Button sizing, typography, and decorative play/stop icons. Open capture station uses the same button styling while retaining navigation-link semantics.
 
+Source startup shows a labeled indicator over the reserved video area and explains the camera permission prompt or local-file wait. The status says Connecting source while startup is pending, and Stop remains available.
+
 A paired operational device selects a browser camera or local video, starts and stops capture, and retains timestamped frame samples and a rolling camera buffer in browser memory. Replayed footage is visibly labeled. Selecting a file does not upload it.
 
 The camera/local-video selector uses the existing [shadcn Select](../../../apps/app/src/components/ui/select.tsx) built on Base UI, with visible labels and keyboard interaction. Changing its value retains the existing capture-stop behavior. File selection and camera permission remain browser-managed.
@@ -36,6 +38,8 @@ The incident service now has server-owned per-source session leases. The local c
 
 ## Verification
 
+[Loading journey integration tests](../../../apps/app/tests/integration/loading.test.tsx) cover delayed access, lists, configuration, navigation away, submission failure, and refresh retention. [Incident integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover pending responses and replay loading, buffering, failure, and retry. Existing feature tests remain the regression checks for this consumer. Browser observations and evidence for the current change belong in its PR.
+
 [UI integration tests](../../../apps/app/tests/integration/device.test.tsx) cover paired access, local-video playback states, stop/restart, permission refusal, camera absence, and disconnection. Production-build Chromium QA used an isolated workspace and paired device. It exercised a generated local video, a simulated camera, track release on Stop, seek, revocation during capture, and a narrow layout with no browser errors or failed requests. A separate 37-second camera run loaded each retained segment after rollover. [Real-browser clip checks](../../../tests/clip/clip.spec.ts) verify seekable MP4 extraction and a synthetic receipt-to-upload handoff in Chromium. A physical camera indicator check, operator replay, and live assessment-driven upload remain unverified. The local device screen never uploads untriggered footage.
 
 The dropdown migration retains the existing capture integration coverage. Production-build browser QA verifies Camera/Local video selection, recovery to a generated local video when camera access is unsupported, and stopping capture when the source changes. Physical camera behavior remains unverified. Per-run evidence belongs in the PR.
@@ -45,6 +49,8 @@ Dropdown panels open outside the trigger with a six-pixel gap and matching width
 ## Decisions and sources
 
 Kenneth requested a button consistency audit and clearer icons. [Capture controls](../../../apps/app/src/components/device-screen.tsx) and the [capture entry link](../../../apps/app/src/components/access/monitor.tsx) reuse F-APP-SHELL sizing. The existing capture lifecycle, identity, and media behavior remain unchanged.
+
+The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.
 
 [Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#17](https://github.com/KenEzekiel/lookout-ai/issues/17). Issue status is not implementation evidence.
 

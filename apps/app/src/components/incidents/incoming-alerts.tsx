@@ -1,4 +1,6 @@
 import { BellOff, BellRing, ExternalLink, Hand, RotateCw, Volume2, VolumeX } from "lucide-react";
+import { LoadingIndicator } from "@/components/ui/loading";
+import { ActionForm } from "@/components/access/forms";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { z } from "zod";
@@ -42,6 +44,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
+  const [soundLoading, setSoundLoading] = useState(false);
   const [sound, setSound] = useState<"off" | "on" | "blocked">("off");
   const [context, setContext] = useState<AudioContext | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
@@ -120,6 +123,8 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
     setActionError("");
   }
   async function testSound() {
+    if (soundLoading) return;
+    setSoundLoading(true);
     try {
       const audio = context ?? new AudioContext();
       setContext(audio);
@@ -143,6 +148,8 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       setSound("on");
     } catch {
       if (active.current) setSound("blocked");
+    } finally {
+      if (active.current) setSoundLoading(false);
     }
   }
   async function acknowledge() {
@@ -176,6 +183,9 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
     <section aria-label="Incoming alerts" className="mt-6 grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <p className="text-muted-foreground">
+          {delivery === "connecting" && (
+            <LoadingIndicator className="mr-2 inline-block align-middle" />
+          )}
           {delivery === "connecting"
             ? "Connecting incoming alerts…"
             : delivery === "connected"
@@ -185,12 +195,27 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
         </p>
         <div className="flex flex-wrap gap-2">
           {delivery === "unavailable" && (
-            <Button icon={RotateCw} size="sm" variant="outline" onClick={() => void refresh()}>
-              Retry alerts
-            </Button>
+            <ActionForm
+              icon={RotateCw}
+              submit="Retry alerts"
+              pendingLabel="Reconnecting…"
+              variant="outline"
+              size="sm"
+              action={refresh}
+            />
           )}
-          <Button icon={Volume2} size="sm" variant="outline" onClick={() => void testSound()}>
-            {sound === "on" ? "Test sound" : "Enable sound and test"}
+          <Button
+            icon={Volume2}
+            size="sm"
+            variant="outline"
+            loading={soundLoading}
+            onClick={() => void testSound()}
+          >
+            {soundLoading
+              ? "Loading sound…"
+              : sound === "on"
+                ? "Test sound"
+                : "Enable sound and test"}
           </Button>
           {sound === "on" && (
             <Button icon={VolumeX} size="sm" variant="ghost" onClick={() => setSound("off")}>
@@ -246,7 +271,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
             No owner yet. Acknowledge to let your team know you are handling it.
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <Button icon={Hand} disabled={pending} onClick={() => void acknowledge()}>
+            <Button icon={Hand} loading={pending} onClick={() => void acknowledge()}>
               {pending ? "Acknowledging…" : "Acknowledge alert"}
             </Button>
             <Link

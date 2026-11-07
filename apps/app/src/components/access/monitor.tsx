@@ -1,3 +1,4 @@
+import { LoadingState } from "@/components/ui/loading";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Camera, KeyRound, LogIn, Monitor as MonitorIcon, RotateCw } from "lucide-react";
@@ -149,7 +150,7 @@ export function Monitor({ actor }: { actor: DevicePrincipal }) {
         <section aria-label="Device configuration" className="mb-6 grid gap-4">
           <h3 className="font-semibold">Sources and trigger versions</h3>
           {!configuration ? (
-            <output>Loading configuration…</output>
+            <LoadingState label="Loading configuration…" layout="cards" />
           ) : configuration.sources.length === 0 ? (
             <p className="text-sm">No sources configured yet.</p>
           ) : (
