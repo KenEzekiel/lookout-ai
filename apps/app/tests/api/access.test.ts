@@ -1123,8 +1123,8 @@ test("live signaling exchanges one offer and answer and closing preserves the de
     409,
   );
   expect(
-    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).session,
-  ).toMatchObject({ id: session.id, offer: "offer-sdp" });
+    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).sessions,
+  ).toEqual([expect.objectContaining({ id: session.id, offer: "offer-sdp" })]);
   expect(
     (await device.request("/api/peer/answer", { id: session.id, sdp: "answer-sdp" })).status,
   ).toBe(200);
@@ -1136,8 +1136,8 @@ test("live signaling exchanges one offer and answer and closing preserves the de
   expect((await admin.request("/api/peer/close", { id: session.id })).status).toBe(200);
   expect((await admin.request("/api/peer/close", { id: session.id })).status).toBe(200);
   expect(
-    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).session,
-  ).toBeNull();
+    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).sessions,
+  ).toEqual([]);
   expect((await admin.request("/api/peer/open", { deviceId: actor.deviceId })).status).toBe(201);
   const env = await harness.getWorker<Cloudflare.Env>().getEnv();
   expect(
@@ -1179,14 +1179,63 @@ test("live viewing denies visitors, other workspaces, other operators and other 
   expect(crossOrigin.status).toBe(403);
 });
 
-test("concurrent live viewers admit one operator and source stop, restart and expiry end sessions", async () => {
+test("multiple viewers exchange independent descriptions and closing or expiring one preserves others", async () => {
+  const { admin, device, actor, source } = await liveSetup();
+  const operator = await teammate(admin);
+  async function open(client: Browser) {
+    const response = await client.request("/api/peer/open", { deviceId: actor.deviceId });
+    expect(response.status).toBe(201);
+    return { client, session: peerSessionSchema.parse(await response.json()) };
+  }
+  const [first, second, third] = await Promise.all([open(admin), open(admin), open(operator)]);
+  const viewers = [first, second, third];
+  expect(new Set(viewers.map(({ session }) => session.id)).size).toBe(3);
+  for (const [index, { client, session }] of viewers.entries()) {
+    expect(
+      (await client.request("/api/peer/offer", { id: session.id, sdp: `offer-${index}` })).status,
+    ).toBe(200);
+  }
+  const sync = peerSyncSchema.parse(
+    await (await device.request("/api/peer/device", source)).json(),
+  );
+  expect(sync.sessions).toHaveLength(3);
+  for (const [index, { client, session }] of viewers.entries()) {
+    expect(sync.sessions).toContainEqual(
+      expect.objectContaining({ id: session.id, offer: `offer-${index}` }),
+    );
+    expect(
+      (await device.request("/api/peer/answer", { id: session.id, sdp: `answer-${index}` })).status,
+    ).toBe(200);
+    expect(
+      peerSessionSchema.parse(
+        await (await client.request("/api/peer/poll", { id: session.id })).json(),
+      ).answer,
+    ).toBe(`answer-${index}`);
+  }
+  expect((await admin.request("/api/peer/close", { id: first.session.id })).status).toBe(200);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE peer_session SET expires_at=0 WHERE id=?")
+    .bind(second.session.id)
+    .run();
+  expect((await admin.request("/api/peer/poll", { id: second.session.id })).status).toBe(410);
+  expect(
+    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).sessions,
+  ).toEqual([
+    expect.objectContaining({ id: third.session.id, offer: "offer-2", answer: "answer-2" }),
+  ]);
+  expect((await operator.request("/api/peer/poll", { id: third.session.id })).status).toBe(200);
+  await device.request("/api/peer/stop", source);
+  expect((await operator.request("/api/peer/poll", { id: third.session.id })).status).toBe(410);
+});
+
+test("concurrent live viewers are admitted and source stop, restart and expiry end sessions", async () => {
   const { admin, device, actor, source } = await liveSetup();
   const operator = await teammate(admin);
   const results = await Promise.all([
     admin.request("/api/peer/open", { deviceId: actor.deviceId }),
     operator.request("/api/peer/open", { deviceId: actor.deviceId }),
   ]);
-  expect(results.map((response) => response.status).sort()).toEqual([201, 409]);
+  expect(results.map((response) => response.status).sort()).toEqual([201, 201]);
   await device.request("/api/peer/stop", source);
   expect((await admin.request("/api/peer/open", { deviceId: actor.deviceId })).status).toBe(409);
   await device.request("/api/peer/device", source);
@@ -1222,11 +1271,15 @@ test("device revocation and member removal terminate both sides of live signalin
   const session = peerSessionSchema.parse(
     await (await operator.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
   );
+  const retained = peerSessionSchema.parse(
+    await (await admin.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
+  );
   await admin.request("/api/access/remove-member", { id: operatorActor.userId });
   expect((await operator.request("/api/peer/poll", { id: session.id })).status).toBe(403);
   expect(
-    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).session,
-  ).toBeNull();
+    peerSyncSchema.parse(await (await device.request("/api/peer/device", source)).json()).sessions,
+  ).toEqual([expect.objectContaining({ id: retained.id })]);
+  expect((await admin.request("/api/peer/poll", { id: retained.id })).status).toBe(200);
   const current = peerSessionSchema.parse(
     await (await admin.request("/api/peer/open", { deviceId: actor.deviceId })).json(),
   );

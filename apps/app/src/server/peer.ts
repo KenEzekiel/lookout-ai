@@ -36,10 +36,10 @@ export async function syncDevice(request: Request) {
       "INSERT INTO peer_source(device_id,run_id,kind,expires_at) VALUES (?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET run_id=excluded.run_id,kind=excluded.kind,expires_at=excluded.expires_at",
     ).bind(actor.deviceId, source.runId, source.kind, Date.now() + peerLeaseMs),
   ]);
-  const row = await env.DB.prepare(`${selectSession} WHERE s.device_id=?`)
+  const rows = await env.DB.prepare(`${selectSession} WHERE s.device_id=?`)
     .bind(actor.deviceId)
-    .first();
-  return json(peerSyncSchema.parse({ session: row }));
+    .all();
+  return json(peerSyncSchema.parse({ sessions: rows.results }));
 }
 export async function stopSource(request: Request) {
   const actor = await monitoringDevice(request);
@@ -63,7 +63,7 @@ export async function openView(request: Request) {
   await prune();
   const id = crypto.randomUUID();
   const row = await env.DB.prepare(
-    "INSERT INTO peer_session(id,device_id,user_id,workspace_id,run_id,expires_at) SELECT ?,d.id,?,?,p.run_id,? FROM device d JOIN peer_source p ON p.device_id=d.id WHERE d.id=? AND d.workspace_id=? AND d.revoked_at IS NULL AND p.expires_at>? ON CONFLICT(device_id) DO NOTHING RETURNING id",
+    "INSERT INTO peer_session(id,device_id,user_id,workspace_id,run_id,expires_at) SELECT ?,d.id,?,?,p.run_id,? FROM device d JOIN peer_source p ON p.device_id=d.id WHERE d.id=? AND d.workspace_id=? AND d.revoked_at IS NULL AND p.expires_at>? RETURNING id",
   )
     .bind(
       id,
@@ -78,7 +78,7 @@ export async function openView(request: Request) {
   if (!row)
     throw new AccessError(
       409,
-      "Device is offline, capture is stopped, or another operator is viewing. Start capture on the device, then retry.",
+      "Device is offline or capture is stopped. Start capture on the device, then retry.",
     );
   const session = await env.DB.prepare(`${selectSession} WHERE s.id=?`).bind(id).first();
   return json(peerSessionSchema.parse(session), 201);
