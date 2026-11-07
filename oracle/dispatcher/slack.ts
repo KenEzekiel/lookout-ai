@@ -29,6 +29,25 @@ const eventSchema = z.object({
   bot_profile: z.unknown().optional(),
   subtype: z.unknown().optional(),
 });
+const stopActionId = "oracle_stop";
+const stopActionSchema = z.object({
+  type: z.literal("block_actions"),
+  team: z.object({ id: identitySchema.shape.team_id }),
+  user: z.object({ id: userIdSchema }),
+  channel: z.object({ id: addressSchema.shape.channel }),
+  message: z.object({
+    user: userIdSchema,
+    thread_ts: addressSchema.shape.rootTs,
+  }),
+  actions: z.tuple([
+    z.object({
+      type: z.literal("button"),
+      action_id: z.literal(stopActionId),
+      value: addressSchema.shape.rootTs,
+      action_ts: incomingSchema.shape.ts,
+    }),
+  ]),
+});
 
 export function routeSlack(args: {
   event: unknown;
@@ -103,6 +122,28 @@ export function createSlackTransport(options: {
       const input = routeSlack({ ...args, identity, owns: args.oracle.owns });
       if (input && (await directory.isMember(input.actor))) await args.oracle.receive(input);
     },
+    async receiveAction(args: { body: unknown; oracle: Oracle }): Promise<void> {
+      const parsed = stopActionSchema.safeParse(args.body);
+      if (!parsed.success) return;
+      const body = parsed.data;
+      const action = body.actions[0];
+      const address = { channel: body.channel.id, rootTs: action.value };
+      if (
+        body.team.id !== identity.team_id ||
+        body.message.user !== identity.user_id ||
+        body.message.thread_ts !== address.rootTs ||
+        !args.oracle.owns(address) ||
+        !(await directory.isMember(body.user.id))
+      )
+        return;
+      await args.oracle.receive({
+        address,
+        ts: action.action_ts,
+        actor: body.user.id,
+        text: "stop",
+        route: "thread",
+      });
+    },
     async publish(address: Incoming["address"], text: string): Promise<void> {
       await call("chat.postMessage", {
         channel: address.channel,
@@ -113,11 +154,42 @@ export function createSlackTransport(options: {
       });
     },
     async setStatus(address: Incoming["address"], status: "processing" | "active"): Promise<void> {
-      await call("agents.sessions.setStatus", {
-        channel_id: address.channel,
-        thread_ts: address.rootTs,
-        status,
-      });
+      const updates = [
+        call("agents.sessions.setStatus", {
+          channel_id: address.channel,
+          thread_ts: address.rootTs,
+          status,
+        }),
+      ];
+      if (status === "processing")
+        updates.push(
+          call("chat.postMessage", {
+            channel: address.channel,
+            thread_ts: address.rootTs,
+            text: "Oracle received your request. Stop Oracle to cancel work in this thread.",
+            blocks: [
+              {
+                type: "section",
+                text: { type: "mrkdwn", text: "Oracle received your request." },
+              },
+              {
+                type: "actions",
+                elements: [
+                  {
+                    type: "button",
+                    action_id: stopActionId,
+                    text: { type: "plain_text", text: "Stop Oracle" },
+                    style: "danger",
+                    value: address.rootTs,
+                  },
+                ],
+              },
+            ],
+            unfurl_links: false,
+            unfurl_media: false,
+          }),
+        );
+      await Promise.all(updates);
     },
     async context(input: Incoming): Promise<ThreadContext> {
       try {
@@ -219,14 +291,14 @@ export async function connectSlack(options: {
   });
   const receiving = new Set<Promise<void>>();
   let closing: Promise<void> | undefined;
-  const receive = async (args: Parameters<typeof transport.receive>[0]): Promise<void> => {
+  const receive = async (operation: () => Promise<void>): Promise<void> => {
     if (closing) return;
-    const operation = transport.receive(args);
-    receiving.add(operation);
+    const pending = operation();
+    receiving.add(pending);
     try {
-      await operation;
+      await pending;
     } finally {
-      receiving.delete(operation);
+      receiving.delete(pending);
     }
   };
   return {
@@ -237,10 +309,18 @@ export async function connectSlack(options: {
     profiles: transport.profiles,
     async listen(oracle) {
       app.event("app_mention", async ({ event, body }) => {
-        await receive({ event, teamId: body.team_id, listener: "mention", oracle });
+        await receive(() =>
+          transport.receive({ event, teamId: body.team_id, listener: "mention", oracle }),
+        );
       });
       app.event("message", async ({ event, body }) => {
-        await receive({ event, teamId: body.team_id, listener: "message", oracle });
+        await receive(() =>
+          transport.receive({ event, teamId: body.team_id, listener: "message", oracle }),
+        );
+      });
+      app.action(stopActionId, async ({ ack, body }) => {
+        await ack();
+        await receive(() => transport.receiveAction({ body, oracle }));
       });
       await app.start();
     },
