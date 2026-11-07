@@ -81,9 +81,9 @@ export function IncidentInbox() {
     <section aria-labelledby="inbox-title" className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 id="inbox-title" className="text-3xl font-semibold tracking-tight">
+          <h1 id="inbox-title" className="text-page-title">
             Incident inbox
-          </h2>
+          </h1>
           <p className="mt-2 text-muted-foreground">
             Review what happened and take ownership of the response.
           </p>
@@ -92,7 +92,7 @@ export function IncidentInbox() {
           icon={RotateCw}
           submit="Reload inbox"
           pendingLabel="Reloading inbox…"
-          variant="outline"
+          variant="secondary"
           action={refresh}
         />
       </div>
@@ -104,7 +104,7 @@ export function IncidentInbox() {
         <LoadingState label="Loading incidents…" />
       ) : incidents.length === 0 ? (
         <div className="rounded-2xl bg-card p-8">
-          <h3 className="text-xl font-medium">No incidents yet</h3>
+          <h3 className="text-panel-title">No incidents yet</h3>
           <p className="mt-2 text-muted-foreground">
             Reported events will appear here. Configure a trigger and keep its monitoring device
             active.
@@ -126,9 +126,7 @@ export function IncidentInbox() {
                 className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-card p-6 outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-accent"
               >
                 <div className="min-w-0">
-                  <p className="text-lg font-semibold break-words">
-                    {incident.rule.definition.name}
-                  </p>
+                  <p className="text-panel-title break-words">{incident.rule.definition.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground break-words">
                     {incident.source.name} ·{" "}
                     {incident.source.kind === "replay" ? "Replayed footage" : "Camera"}
@@ -246,7 +244,7 @@ export function IncidentDetail({ id }: { id: string }) {
           disabled={pending !== null}
           submit="Reload incident"
           pendingLabel="Reloading incident…"
-          variant="outline"
+          variant="secondary"
           action={async () => {
             setActionError("");
             await refresh();
@@ -270,9 +268,7 @@ export function IncidentDetail({ id }: { id: string }) {
                 {incident.rule.definition.severity === "critical" ? "Critical" : "Warning"}
               </span>
             </div>
-            <h2 className="text-3xl font-semibold tracking-tight break-words">
-              {incident.rule.definition.name}
-            </h2>
+            <h1 className="text-page-title break-words">{incident.rule.definition.name}</h1>
             <p className="mt-2 text-muted-foreground break-words">
               {incident.source.name} ·{" "}
               {incident.source.kind === "replay" ? "Replayed footage" : "Camera"}
@@ -289,7 +285,7 @@ export function IncidentDetail({ id }: { id: string }) {
               >
                 {incident.evidenceStatus === "ready" ? (
                   <>
-                    <h3 className="text-xl font-medium">Saved event replay</h3>
+                    <h3 className="text-panel-title">Saved event replay</h3>
                     <SavedReplay id={incident.id} />
                     {incident.evidenceExpiresAt && (
                       <p className="text-sm text-muted-foreground">
@@ -304,9 +300,7 @@ export function IncidentDetail({ id }: { id: string }) {
                     ) : (
                       <LoadingIndicator className="size-8 text-muted-foreground" />
                     )}
-                    <h3 className="text-xl font-medium">
-                      {evidenceLabels[incident.evidenceStatus]}
-                    </h3>
+                    <h3 className="text-panel-title">{evidenceLabels[incident.evidenceStatus]}</h3>
                     <p className="max-w-sm text-muted-foreground">
                       {incident.evidenceStatus === "unavailable"
                         ? incident.evidenceReason || "No playable clip is available for this event."
@@ -318,7 +312,7 @@ export function IncidentDetail({ id }: { id: string }) {
                 )}
               </section>
               <section aria-labelledby="rule-title" className="rounded-2xl bg-card p-6">
-                <h3 id="rule-title" className="text-lg font-semibold">
+                <h3 id="rule-title" className="text-panel-title">
                   Matched trigger
                 </h3>
                 <p className="mt-3">{conditionText(incident.rule.definition.condition)}</p>
@@ -331,7 +325,7 @@ export function IncidentDetail({ id }: { id: string }) {
             </div>
             <div className="grid gap-6 rounded-2xl bg-card p-6">
               <section aria-labelledby="response-title">
-                <h3 id="response-title" className="text-xl font-semibold">
+                <h3 id="response-title" className="text-panel-title">
                   Response
                 </h3>
                 <p className="mt-3">
@@ -387,7 +381,7 @@ export function IncidentDetail({ id }: { id: string }) {
                 </div>
               </section>
               <section aria-labelledby="alert-title">
-                <h3 id="alert-title" className="font-medium">
+                <h3 id="alert-title" className="text-panel-title">
                   Alert delivery
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -402,26 +396,52 @@ export function IncidentDetail({ id }: { id: string }) {
                     }[incident.notificationStatus]
                   }
                 </p>
-                {incident.followUp.kind === "scheduled" ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    One in-app follow-up due <EventTime at={incident.followUp.dueAt} />. Acknowledge
-                    to cancel it.
-                  </p>
-                ) : incident.followUp.kind === "attempted" ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    In-app follow-up attempted <EventTime at={incident.followUp.attemptedAt} />.
-                    This does not confirm anyone saw it.
-                  </p>
-                ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {incident.followUp.kind === "cancelled"
-                      ? "Pending follow-up cancelled by the incident response."
-                      : "No follow-up was scheduled for this incident."}
-                  </p>
-                )}
+                <ol className="mt-3 grid gap-3 text-sm" aria-label="Escalation levels">
+                  {incident.rule.definition.escalationLevels.map((level, index) => {
+                    const activatedAt = incident.escalationActivations[index];
+                    const active = index === incident.escalationActivations.length - 1;
+                    return (
+                      <li key={index}>
+                        <p>
+                          Level {index + 1}:{" "}
+                          {activatedAt !== undefined
+                            ? active && incident.status === "open"
+                              ? "Active"
+                              : "Published"
+                            : incident.status === "open"
+                              ? "Waiting"
+                              : "Cancelled"}
+                        </p>
+                        <p className="break-all text-muted-foreground">
+                          Recipients: {level.recipientIds.join(", ")}
+                        </p>
+                        {activatedAt !== undefined && (
+                          <p>
+                            Published <EventTime at={activatedAt} />. Display is not confirmed.
+                          </p>
+                        )}
+                        {active &&
+                          incident.status === "open" &&
+                          incident.escalationDueAt !== null && (
+                            <p>
+                              Next level due <EventTime at={incident.escalationDueAt} />.
+                              Acknowledge to stop escalation.
+                            </p>
+                          )}
+                      </li>
+                    );
+                  })}
+                </ol>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {incident.status !== "open"
+                    ? "Pending escalation cancelled by the incident response."
+                    : incident.escalationDueAt === null
+                      ? "No further escalation is scheduled. The incident remains open."
+                      : "Escalation continues only while nobody acknowledges."}
+                </p>
               </section>
               <section aria-labelledby="timeline-title">
-                <h3 id="timeline-title" className="flex items-center gap-2 font-medium">
+                <h3 id="timeline-title" className="flex items-center gap-2 text-panel-title">
                   <Clock aria-hidden="true" className="size-4" />
                   Timeline
                 </h3>
@@ -436,7 +456,7 @@ export function IncidentDetail({ id }: { id: string }) {
                             : entry.kind === "dismissed"
                               ? "Dismissed by"
                               : entry.kind === "follow-up-attempted"
-                                ? "In-app follow-up attempted by"
+                                ? `Level ${entry.level ?? 2} escalation published by`
                                 : "Resolved by"}{" "}
                         {entry.actorName}
                       </p>

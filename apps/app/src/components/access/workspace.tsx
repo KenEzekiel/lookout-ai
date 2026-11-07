@@ -1,5 +1,5 @@
 import { LoadingState } from "@/components/ui/loading";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppWindow, Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
 import { type z } from "zod";
 import { type Member, teamSchema } from "@/lib/access";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ActionForm } from "./forms";
 import { Badge } from "@/components/ui/badge";
 import { LiveView } from "@/components/live-view";
+import { DeviceHealthPanel } from "@/components/device-health";
 import { WorkspaceActions, type WorkspaceAction } from "./workspace-actions";
 
 export function Workspace({
@@ -22,25 +23,66 @@ export function Workspace({
   const [team, setTeam] = useState<z.infer<typeof teamSchema>>();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [liveError, setLiveError] = useState(false);
+  const revision = useRef(0);
   const [action, setAction] = useState<WorkspaceAction | null>(null);
   const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null);
   const owner = actor.role === "owner";
   async function refresh(notice: string) {
-    setTeam(await request("/api/access/team", teamSchema));
-    setError("");
-    setNotice(notice);
+    const version = ++revision.current;
+    setRefreshing(true);
+    setNotice("");
+    try {
+      const next = await request("/api/access/team", teamSchema);
+      if (version === revision.current) {
+        setTeam(next);
+        setError("");
+      }
+      setNotice(notice);
+    } finally {
+      setRefreshing(false);
+    }
   }
   useEffect(() => {
     let active = true;
+    const version = ++revision.current;
     void request("/api/access/team", teamSchema)
       .then((next) => {
-        if (active) setTeam(next);
+        if (active && version === revision.current) setTeam(next);
       })
       .catch((error) => {
-        if (active) setError(message(error));
+        if (active && version === revision.current) setError(message(error));
       });
+    const events = new EventSource(new URL("/api/access/team/events", window.location.origin));
+    events.onmessage = (event) => {
+      try {
+        const next = teamSchema.parse(JSON.parse(event.data));
+        ++revision.current;
+        setTeam(next);
+        setError("");
+        setLiveError(false);
+        setViewing((current) =>
+          current &&
+          next.devices.some((device) => device.id === current.id && device.revokedAt === null)
+            ? current
+            : null,
+        );
+      } catch {
+        setLiveError(true);
+      }
+    };
+    events.onopen = () => setLiveError(false);
+    events.onerror = () => setLiveError(true);
+    events.addEventListener("unavailable", () => {
+      setLiveError(true);
+      setTeam(undefined);
+      setError("Could not update workspace access. Refresh to try again.");
+      events.close();
+    });
     return () => {
       active = false;
+      events.close();
     };
   }, [actor.workspaceId]);
   const devices = view === "devices";
@@ -48,18 +90,33 @@ export function Workspace({
     <section className="py-8 sm:py-12">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-5">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{devices ? "Devices" : "Team"}</h1>
+          <h1 className="text-page-title">{devices ? "Devices" : "Team"}</h1>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
             {devices
               ? "Manage the devices connected to your workspace."
               : "The people who have access to your workspace."}
           </p>
         </div>
-        {owner && (
-          <Button icon={Plus} onClick={() => setAction({ kind: devices ? "pair" : "invite" })}>
-            {devices ? "Add device" : "Invite member"}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            icon={RotateCw}
+            loading={refreshing}
+            disabled={refreshing}
+            onClick={() => {
+              void refresh(devices ? "Devices refreshed." : "Team refreshed.").catch((error) =>
+                setError(message(error)),
+              );
+            }}
+          >
+            {refreshing ? "Refreshing…" : "Refresh"}
           </Button>
-        )}
+          {owner && (
+            <Button icon={Plus} onClick={() => setAction({ kind: devices ? "pair" : "invite" })}>
+              {devices ? "Add device" : "Invite member"}
+            </Button>
+          )}
+        </div>
       </div>
       {devices && owner && (
         <section
@@ -94,12 +151,13 @@ export function Workspace({
           </div>
         </section>
       )}
-      {devices && <h2 className="mb-3 font-medium">Connected devices</h2>}
+      {devices && <DeviceHealthPanel />}
+      {devices && <h2 className="mb-3 font-medium">Paired devices</h2>}
       {viewing && devices && <LiveView device={viewing} onClose={() => setViewing(null)} />}
       {devices && (
         <p className="mb-6 rounded-lg bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-          Paired devices can capture a camera or local video. Automatic AI detection and device
-          reports are not available yet.
+          Paired devices can monitor assigned sources while capture remains open and visible.
+          Pairing authorizes a device; monitoring health above shows its reported activity.
         </p>
       )}
       {!owner && (
@@ -109,6 +167,11 @@ export function Workspace({
         </p>
       )}
       {notice && <output className="block mb-5 text-sm text-resolved">{notice}</output>}
+      {liveError && (
+        <output className="mb-5 block text-sm text-muted-foreground">
+          Live updates interrupted. Use Refresh to load the latest list.
+        </output>
+      )}
       {error && (
         <div className="mb-5 flex flex-wrap items-center gap-3">
           <p role="alert" className="text-sm text-destructive">

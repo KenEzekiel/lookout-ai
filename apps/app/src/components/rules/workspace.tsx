@@ -72,7 +72,7 @@ export function RuleWorkspace() {
     <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold">Triggers</h2>
+          <h1 className="text-page-title">Triggers</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Define what matters for each source in your workspace.
           </p>
@@ -183,7 +183,7 @@ export function RuleWorkspace() {
                 finalFocus={editorTrigger}
                 className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:max-w-xl"
               >
-                <DialogTitle className="pr-6 text-xl font-semibold">
+                <DialogTitle className="pr-6 text-panel-title">
                   {editor.kind === "edit" ? "Edit trigger" : "New trigger"}
                 </DialogTitle>
                 <DialogDescription>

@@ -17,13 +17,17 @@ import { deliverIncidentPush } from "./push";
 
 const columns = `id,device_id AS deviceId,session_id AS sessionId,event_id AS eventId,
   event_time AS eventTime,received_at AS receivedAt,context,status,version,owner,timeline,
-  follow_up_due_at AS followUpDueAt,follow_up_attempted_at AS followUpAttemptedAt,
+  escalation_activations AS escalationActivations,follow_up_due_at AS followUpDueAt,follow_up_attempted_at AS followUpAttemptedAt,
   CASE WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id AND p.status='accepted') THEN 'accepted'
     WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id AND p.status='attempting') THEN 'attempting'
     WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id) THEN 'failed'
     ELSE 'not-sent' END AS notificationStatus`;
 const recordSchema = z
   .object({
+    escalationActivations: z
+      .string()
+      .transform((value): unknown => JSON.parse(value))
+      .pipe(z.array(z.number())),
     followUpDueAt: z.number().nullable(),
     followUpAttemptedAt: z.number().nullable(),
     context: z.string().transform((value): unknown => JSON.parse(value)),
@@ -42,11 +46,21 @@ const recordSchema = z
       evidenceStatus: "preparing",
       evidenceReason: null,
       evidenceExpiresAt: null,
+      escalationDueAt: followUpDueAt,
       followUp:
-        followUpDueAt === null
+        followUpDueAt === null && followUpAttemptedAt === null
           ? { kind: "none" }
           : followUpAttemptedAt !== null
-            ? { kind: "attempted", dueAt: followUpDueAt, attemptedAt: followUpAttemptedAt }
+            ? {
+                kind: "attempted",
+                dueAt:
+                  followUpDueAt ??
+                  Number(row.receivedAt) +
+                    (snapshot.rule.definition.escalationLevels[0]?.acknowledgmentTimeoutSeconds ??
+                      0) *
+                      1000,
+                attemptedAt: followUpAttemptedAt,
+              }
             : { kind: row.status === "open" ? "scheduled" : "cancelled", dueAt: followUpDueAt },
     });
   });
@@ -137,14 +151,29 @@ export async function incomingIncidents(request: Request) {
   const actor = await member(request);
   const rows = await env.DB.prepare(
     `SELECT ${columns} FROM incident WHERE workspace_id=?1 AND status='open'
-      AND EXISTS (SELECT 1 FROM json_each(context,'$.rule.definition.recipientIds') WHERE value=?2)
+      AND EXISTS (SELECT 1 FROM json_each(context,'$.rule.definition.escalationLevels') level,
+        json_each(level.value,'$.recipientIds') recipient
+        WHERE recipient.value=?2 AND level.key<json_array_length(escalation_activations))
       ORDER BY received_at,id LIMIT 100`,
   )
     .bind(actor.workspaceId, actor.userId)
     .all();
   return json(
     incidentInboxSchema.parse({
-      incidents: await Promise.all(rows.results.map((row) => incidentWithEvidence(row))),
+      incidents: await Promise.all(
+        rows.results.map(async (row) => {
+          const incident = await incidentWithEvidence(row);
+          const deliveryLevel = incident.rule.definition.escalationLevels.reduce(
+            (latest, level, index) =>
+              index < incident.escalationActivations.length &&
+              level.recipientIds.includes(actor.userId)
+                ? index + 1
+                : latest,
+            1,
+          );
+          return { ...incident, deliveryLevel };
+        }),
+      ),
     }),
   );
 }

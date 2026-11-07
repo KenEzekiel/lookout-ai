@@ -240,7 +240,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       )}
       <div aria-live="assertive" aria-atomic="true" className="sr-only">
         {incident
-          ? `${incident.followUp.kind === "attempted" ? "Incident follow-up" : "Incoming incident"}. ${incident.rule.definition.name}. ${incident.source.name}.`
+          ? `${(incident.deliveryLevel ?? (incident.followUp.kind === "attempted" ? 2 : 1)) > 1 ? "Incident follow-up" : "Incoming incident"}. ${incident.rule.definition.name}. ${incident.source.name}.`
           : ""}
       </div>
       {incident && (
@@ -250,7 +250,9 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
         >
           <p className="flex items-center gap-2 text-sm font-semibold text-incident">
             <BellRing aria-hidden="true" className="size-5" />
-            {incident.followUp.kind === "attempted" ? "Incident follow-up" : "Incoming incident"}
+            {(incident.deliveryLevel ?? (incident.followUp.kind === "attempted" ? 2 : 1)) > 1
+              ? "Incident follow-up"
+              : "Incoming incident"}
             {incoming.length > 1 ? ` · ${incoming.length} waiting` : ""}
           </p>
           <h2 className="mt-3 text-2xl font-semibold break-words sm:text-3xl">

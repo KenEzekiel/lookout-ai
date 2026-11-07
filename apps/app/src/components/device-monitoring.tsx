@@ -5,6 +5,7 @@ import { request } from "@/lib/api";
 import { type CaptureSession, type CaptureSnapshot } from "@/lib/capture-session";
 import { DeviceMonitoring, type MonitoringStatus } from "@/lib/device-monitoring";
 import { conditionText, deviceConfigurationSchema, type DeviceConfiguration } from "@/lib/rules";
+import { HealthReporting } from "@/components/device-health-reporting";
 import {
   Select,
   SelectContent,
@@ -26,8 +27,13 @@ export function MonitoringControls({
   const [configuration, setConfiguration] = useState<DeviceConfiguration | null>(null);
   const [configurationNotice, setConfigurationNotice] = useState("Loading assigned sources…");
   const [sourceId, setSourceId] = useState("");
-  const [status, setStatus] = useState<MonitoringStatus | null>(null);
+  const [monitoringStatus, setStatus] = useState<MonitoringStatus | null>(null);
+  const status =
+    monitoringStatus?.sourceId === sourceId && monitoringStatus.epoch === snapshot.epoch
+      ? monitoringStatus
+      : null;
   const configurationRef = useRef(configuration);
+  const [configurationAvailable, setConfigurationAvailable] = useState(false);
   const [reload, setReload] = useState(0);
   const active = snapshot.state === "running" || snapshot.state === "paused";
   const source = configuration?.sources.find((source) => source.id === sourceId);
@@ -47,12 +53,14 @@ export function MonitoringControls({
         );
         if (disposed) return;
         configurationRef.current = next;
+        setConfigurationAvailable(true);
         controller.current?.configure(next.rules);
         setConfiguration(next);
         setConfigurationNotice("Assigned configuration is current.");
       } catch {
         if (disposed) return;
         configurationRef.current = null;
+        setConfigurationAvailable(false);
         controller.current?.configure(null);
         setConfigurationNotice("Monitoring degraded: configuration unavailable. Retrying…");
       } finally {
@@ -78,7 +86,6 @@ export function MonitoringControls({
     monitoring.configure(configurationRef.current?.rules ?? null);
     return () => {
       monitoring.dispose();
-      setStatus(null);
       controller.current = null;
       onController(null);
     };
@@ -164,19 +171,19 @@ export function MonitoringControls({
                 {conditionText(rule.definition.condition)}
               </p>
               <p className="mt-3 font-medium">{rule.notice}</p>
-              {rule.assessment ? (
+              {rule.latestAssessment ? (
                 <>
                   <dl className="mt-4 grid grid-cols-2 gap-2">
                     <div className="rounded-lg bg-primary/10 p-2">
                       <dt className="text-muted-foreground">Match probability</dt>
                       <dd className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl text-primary">
-                        {(rule.assessment.matchProbability * 100).toFixed(1)}%
+                        {(rule.latestAssessment.matchProbability * 100).toFixed(1)}%
                       </dd>
                     </div>
                     <div className="rounded-lg bg-muted p-2">
                       <dt className="text-muted-foreground">Uncertainty</dt>
                       <dd className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
-                        {(rule.assessment.unclearProbability * 100).toFixed(1)}%
+                        {(rule.latestAssessment.unclearProbability * 100).toFixed(1)}%
                       </dd>
                     </div>
                   </dl>
@@ -186,21 +193,21 @@ export function MonitoringControls({
                   <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 tabular-nums">
                     <div>
                       <dt className="text-muted-foreground">Result received</dt>
-                      <dd>{new Date(rule.assessment.receivedAt).toLocaleTimeString()}</dd>
+                      <dd>{new Date(rule.latestAssessment.receivedAt).toLocaleTimeString()}</dd>
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Assessment time</dt>
-                      <dd>{(rule.assessment.latencyMs / 1000).toFixed(1)}s</dd>
+                      <dd>{(rule.latestAssessment.latencyMs / 1000).toFixed(1)}s</dd>
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Frames assessed</dt>
-                      <dd>{rule.assessment.frameCount}</dd>
+                      <dd>{rule.latestAssessment.frameCount}</dd>
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Source interval</dt>
                       <dd>
-                        {(rule.assessment.from / 1000).toFixed(1)}–
-                        {(rule.assessment.to / 1000).toFixed(1)}s
+                        {(rule.latestAssessment.from / 1000).toFixed(1)}–
+                        {(rule.latestAssessment.to / 1000).toFixed(1)}s
                       </dd>
                     </div>
                   </dl>
@@ -249,6 +256,17 @@ export function MonitoringControls({
         Monitoring sends sampled frames for remote AI assessment. Capture must remain open and
         visible.
       </p>
+      <HealthReporting
+        report={{
+          sourceId: sourceId || null,
+          capture: snapshot.state,
+          lastObservationAt: snapshot.lastSampleAt,
+          assessment: active && compatible ? (status?.assessment ?? "unavailable") : "unavailable",
+          lastAssessmentAt: status?.lastAssessmentAt ?? null,
+          configurationAvailable,
+          appliedRules: status?.appliedRules ?? [],
+        }}
+      />
     </section>
   );
 }

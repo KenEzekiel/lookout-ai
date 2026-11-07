@@ -24,12 +24,27 @@ export const ruleDefinitionSchema = z.object({
   ]),
   durationSeconds: z.number().int().min(1).max(3600).nullable(),
   severity: z.enum(["warning", "critical"]),
-  recipientIds: z
-    .array(z.string().min(1))
+  escalationLevels: z
+    .array(
+      z.object({
+        recipientIds: z
+          .array(z.string().min(1))
+          .min(1)
+          .max(20)
+          .refine((ids) => new Set(ids).size === ids.length),
+        acknowledgmentTimeoutSeconds: z.number().int().min(1).max(3600).nullable(),
+      }),
+    )
     .min(1)
-    .max(20)
-    .refine((ids) => new Set(ids).size === ids.length),
-  escalationDelaySeconds: z.number().int().min(1).max(3600),
+    .max(6)
+    .refine(
+      (levels) =>
+        levels.every(
+          (level, index) =>
+            (level.acknowledgmentTimeoutSeconds === null) === (index === levels.length - 1),
+        ),
+      "Only the final level has no acknowledgment timeout.",
+    ),
 });
 export const ruleInputSchema = z.object({
   sourceId: z.string().min(1),

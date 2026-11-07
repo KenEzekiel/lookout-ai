@@ -113,6 +113,17 @@ export const pairingRequest = sqliteTable("pairing_request", {
   expiresAt: integer("expires_at").notNull(),
   deviceId: text("device_id").references(() => device.id),
 });
+export const deviceHealth = sqliteTable(
+  "device_health",
+  {
+    deviceId: text("device_id")
+      .primaryKey()
+      .references(() => device.id, { onDelete: "cascade" }),
+    lastContactAt: integer("last_contact_at").notNull(),
+    report: text("report").notNull(),
+  },
+  (table) => [check("device_health_report", sql`json_valid(${table.report})`)],
+);
 export const attemptLimit = sqliteTable("attempt_limit", {
   key: text("key").primaryKey(),
   count: integer("count").notNull(),
@@ -160,6 +171,7 @@ export const incident = sqliteTable(
     version: integer("version").notNull(),
     owner: text("owner"),
     timeline: text("timeline").notNull(),
+    escalationActivations: text("escalation_activations").notNull().default("[]"),
     followUpDueAt: integer("follow_up_due_at"),
     followUpAttemptedAt: integer("follow_up_attempted_at"),
   },
