@@ -8,6 +8,21 @@ FIFO keeps Oracle's project turns serial. Exact `stop`, `cancel`, or `abort` req
 abort active work and cancel queued work for that conversation. A fresh direct
 request resumes a stopped conversation.
 
+Each accepted request posts an acknowledgment with a **Stop Oracle** button in
+its Slack thread before coding starts. Verified workspace teammates can click it
+to use the same thread-scoped cancellation as a typed `stop` request. Duplicate
+click deliveries do not cancel a later resumed turn. Other threads keep their
+work. Existing threads receive a button on their next accepted request; older
+messages are not rewritten.
+
+The Slack transport parses button payloads into the existing `Incoming` request
+with `text: "stop"`. The dispatcher and session store remain the owners of
+cancellation, deduplication, and persistence. Keeping the button in a separate
+acknowledgment preserves the formatting and length limits of model replies and
+makes it available while a request is queued, before the model reports progress.
+`tests/slack.test.ts` covers the posted control and the complete transport-to-session
+cancellation path with offline Slack and runner fakes.
+
 `dispatcher/` owns Slack routing, identity checks, and composition. `session/` owns
 atomic snapshots, the T3 lifecycle, and `operating.md`. Credentials and connection
 settings are read from the ignored `.env`.
@@ -143,6 +158,10 @@ The Slack app needs `users:read`, `chat:write`, `assistant:write`, `app_mentions
 and history scopes for the conversations it serves. Enable Socket Mode and subscribe
 to `app_mention`, `message.channels`, `message.groups`, and `message.im` to receive
 mentions and plain thread follow-ups. Invite Oracle to channels it should serve.
+The **Stop Oracle** button uses
+[Socket Mode's basic interactivity](https://docs.slack.dev/tools/bolt-js/creating-an-app/#sending-and-responding-to-actions).
+It delivers `block_actions` payloads without a public Request URL. The action
+listener acknowledges clicks before membership lookup and cancellation.
 Enable the app's Agents feature for the native processing indicator. Oracle uses
 `agents.sessions.setStatus` as described in the
 [Slack agent guide](https://docs.slack.dev/ai/developing-agents/).
