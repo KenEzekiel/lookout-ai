@@ -1,150 +1,190 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Oracle icon</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      color: var(--foreground);
-      font-family: var(--font-sans);
-    }
-    .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
-    main {
-      display: grid;
-      grid-template-columns: minmax(280px, 1fr) minmax(330px, 1fr);
-      gap: 16px;
-      max-width: 880px;
-      margin: 0 auto;
-    }
-    .panel {
-      min-width: 0;
-      padding: 16px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--card);
-    }
-    .hero {
-      display: flex;
-      min-height: 232px;
-      align-items: center;
-      gap: 20px;
-    }
-    .hero-icon { flex: 0 0 auto; width: 144px; height: 144px; }
-    .eyebrow {
-      margin: 0 0 10px;
-      color: var(--muted-foreground);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-    }
-    h1 {
-      margin: 0;
-      color: var(--foreground);
-      font-size: 36px;
-      font-weight: 600;
-      letter-spacing: -.045em;
-      line-height: 1;
-    }
-    .description {
-      max-width: 245px;
-      margin: 12px 0 0;
-      color: var(--muted-foreground);
-      font-size: 14px;
-      line-height: 1.5;
-    }
-    .scale-heading {
-      margin: 2px 0 0;
-      color: var(--foreground);
-      font-size: 14px;
-      font-weight: 550;
-    }
-    .scale-caption {
-      margin: 5px 0 0;
-      color: var(--muted-foreground);
-      font-size: 12px;
-    }
-    .scale-row {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 18px;
-    }
-    .scale-item {
-      display: flex;
-      min-height: 124px;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 12px 4px;
-      border: 1px solid var(--border);
-      border-radius: calc(var(--radius) - 2px);
-      background: var(--background);
-    }
-    .scale-item span {
-      color: var(--muted-foreground);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      white-space: nowrap;
-    }
-    @media (max-width: 690px) {
-      main { grid-template-columns: 1fr; }
-      .hero { min-height: 190px; }
-    }
-    @media (max-width: 410px) {
-      .hero { gap: 14px; }
-      .hero-icon { width: 112px; height: 112px; }
-      .scale-row { gap: 6px; }
-      .scale-item { min-height: 108px; }
-    }
-  </style>
-</head>
-<body>
-  <svg class="defs" aria-hidden="true" focusable="false">
-    <symbol id="oracle-mark" viewBox="0 0 64 64">
-      <rect x="2" y="2" width="60" height="60" rx="16" fill="#17372F"/>
-      <path d="M51.7 24.8a21 21 0 1 0 0 14.4" fill="none" stroke="#F2E9D7" stroke-width="8" stroke-linecap="butt"/>
-      <path d="M47 28h14v8H47z" fill="#D8834B"/>
-    </symbol>
-  </svg>
-  <main>
-    <section class="panel hero" aria-label="Oracle icon concept">
-      <svg class="hero-icon" viewBox="0 0 64 64" role="img" aria-labelledby="hero-title">
-        <title id="hero-title">Oracle icon, open ring with an amber output bar</title>
-        <use href="#oracle-mark"/>
-      </svg>
-      <div>
-        <p class="eyebrow">Software factory</p>
-        <h1>oracle</h1>
-        <p class="description">An open aperture. One amber output. Flat and legible at small sizes.</p>
-      </div>
-    </section>
-    <section class="panel" aria-labelledby="scale-heading">
-      <h2 class="scale-heading" id="scale-heading">Small-size check</h2>
-      <p class="scale-caption">Rendered at native pixel dimensions</p>
-      <div class="scale-row">
-        <div class="scale-item">
-          <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><use href="#oracle-mark"/></svg>
-          <span>16 px</span>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Oracle icon</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--foreground);
+        font-family: var(--font-sans);
+      }
+      .defs {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(280px, 1fr) minmax(330px, 1fr);
+        gap: 16px;
+        max-width: 880px;
+        margin: 0 auto;
+      }
+      .panel {
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--card);
+      }
+      .hero {
+        display: flex;
+        min-height: 232px;
+        align-items: center;
+        gap: 20px;
+      }
+      .hero-icon {
+        flex: 0 0 auto;
+        width: 144px;
+        height: 144px;
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--muted-foreground);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0;
+        color: var(--foreground);
+        font-size: 36px;
+        font-weight: 600;
+        letter-spacing: -0.045em;
+        line-height: 1;
+      }
+      .description {
+        max-width: 245px;
+        margin: 12px 0 0;
+        color: var(--muted-foreground);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .scale-heading {
+        margin: 2px 0 0;
+        color: var(--foreground);
+        font-size: 14px;
+        font-weight: 550;
+      }
+      .scale-caption {
+        margin: 5px 0 0;
+        color: var(--muted-foreground);
+        font-size: 12px;
+      }
+      .scale-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .scale-item {
+        display: flex;
+        min-height: 124px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 12px 4px;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) - 2px);
+        background: var(--background);
+      }
+      .scale-item span {
+        color: var(--muted-foreground);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      @media (max-width: 690px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+        .hero {
+          min-height: 190px;
+        }
+      }
+      @media (max-width: 410px) {
+        .hero {
+          gap: 14px;
+        }
+        .hero-icon {
+          width: 112px;
+          height: 112px;
+        }
+        .scale-row {
+          gap: 6px;
+        }
+        .scale-item {
+          min-height: 108px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="defs" aria-hidden="true" focusable="false">
+      <symbol id="oracle-mark" viewBox="0 0 64 64">
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="#17372F" />
+        <path
+          d="M51.7 24.8a21 21 0 1 0 0 14.4"
+          fill="none"
+          stroke="#F2E9D7"
+          stroke-width="8"
+          stroke-linecap="butt"
+        />
+        <path d="M47 28h14v8H47z" fill="#D8834B" />
+      </symbol>
+    </svg>
+    <main>
+      <section class="panel hero" aria-label="Oracle icon concept">
+        <svg class="hero-icon" viewBox="0 0 64 64" role="img" aria-labelledby="hero-title">
+          <title id="hero-title">Oracle icon, open ring with an amber output bar</title>
+          <use href="#oracle-mark" />
+        </svg>
+        <div>
+          <p class="eyebrow">Software factory</p>
+          <h1>oracle</h1>
+          <p class="description">
+            An open aperture. One amber output. Flat and legible at small sizes.
+          </p>
         </div>
-        <div class="scale-item">
-          <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><use href="#oracle-mark"/></svg>
-          <span>24 px</span>
+      </section>
+      <section class="panel" aria-labelledby="scale-heading">
+        <h2 class="scale-heading" id="scale-heading">Small-size check</h2>
+        <p class="scale-caption">Rendered at native pixel dimensions</p>
+        <div class="scale-row">
+          <div class="scale-item">
+            <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true">
+              <use href="#oracle-mark" />
+            </svg>
+            <span>16 px</span>
+          </div>
+          <div class="scale-item">
+            <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true">
+              <use href="#oracle-mark" />
+            </svg>
+            <span>24 px</span>
+          </div>
+          <div class="scale-item">
+            <svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true">
+              <use href="#oracle-mark" />
+            </svg>
+            <span>32 px</span>
+          </div>
+          <div class="scale-item">
+            <svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true">
+              <use href="#oracle-mark" />
+            </svg>
+            <span>48 px</span>
+          </div>
         </div>
-        <div class="scale-item">
-          <svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><use href="#oracle-mark"/></svg>
-          <span>32 px</span>
-        </div>
-        <div class="scale-item">
-          <svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true"><use href="#oracle-mark"/></svg>
-          <span>48 px</span>
-        </div>
-      </div>
-    </section>
-  </main>
-</body>
+      </section>
+    </main>
+  </body>
 </html>
