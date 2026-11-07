@@ -51,6 +51,7 @@ export type Admission = "accepted" | "duplicate" | "ignored" | "busy" | "stopped
 
 export type Limits = typeof defaultLimits;
 export const defaultLimits = {
+  maxConcurrentSessions: 24,
   maxQueuedGlobal: 32,
   maxQueuedPerSession: 4,
   maxSessions: 128,

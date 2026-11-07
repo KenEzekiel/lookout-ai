@@ -29,10 +29,17 @@ export interface Oracle {
   owns(address: Address): boolean;
   idle(): Promise<void>;
   retryPending(): void;
+  drain(): Promise<void>;
   close(): Promise<void>;
 }
 
 type QueuedTurn = { input: Incoming; generation: number; ready: Promise<void> };
+type ActiveTurn = {
+  id: string;
+  address: Address;
+  controller: AbortController;
+  done: Promise<void>;
+};
 const failureReply = "The turn could not finish. Send a fresh request to continue.";
 const workspaceReplies = new Map([
   [
@@ -67,12 +74,11 @@ export async function createOracle(deps: {
   const queue: QueuedTurn[] = [];
   const admitting = new Set<string>();
   const generations = new Map<string, number>();
-  let active:
-    | { id: string; key: string; address: Address; controller: AbortController }
-    | undefined;
-  let pump: Promise<void> | undefined;
+  const active = new Map<string, ActiveTurn>();
+  const waiting = new Set<string>();
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let closed = false;
+  let draining = false;
   const setStatus = async (address: Address, status: "processing" | "active"): Promise<void> => {
     try {
       await deps.setStatus?.(address, status);
@@ -83,8 +89,10 @@ export async function createOracle(deps: {
   const fault = (error: unknown): void => {
     closed = true;
     clearTimeout(retryTimer);
-    active?.controller.abort();
-    if (active) void setStatus(active.address, "active");
+    for (const turn of active.values()) {
+      turn.controller.abort();
+      void setStatus(turn.address, "active");
+    }
     for (const turn of queue) void setStatus(turn.input.address, "active");
     queue.length = 0;
     deps.onFault?.(error instanceof BoundaryError ? error.code : "local_failure");
@@ -104,11 +112,9 @@ export async function createOracle(deps: {
     }
     await sessions.settle(address, id, "sent");
   };
-  const processTurn = async (turn: QueuedTurn): Promise<"waiting" | void> => {
+  const processTurn = async (turn: QueuedTurn, controller: AbortController): Promise<void> => {
     const { input, generation } = turn;
     const key = keyOf(input.address);
-    const controller = new AbortController();
-    active = { id: eventId(input), key, address: input.address, controller };
     const timeout = setTimeout(() => controller.abort(), limits.maxTurnMs);
     try {
       await turn.ready;
@@ -146,7 +152,10 @@ export async function createOracle(deps: {
           if (state === "notify") await deliver(input.address, "ack", updateReply);
           assertActive(controller.signal);
           queue.unshift(turn);
-          return "waiting";
+          waiting.add(key);
+          if (!closed && !draining)
+            retryTimer ??= setTimeout(retryPending, deps.retryIntervalMs ?? 30_000);
+          return;
         }
         const code = error instanceof BoundaryError ? error.code : "turn_failed";
         outcome = { kind: "reply", text: workspaceReplies.get(code) ?? failureReply };
@@ -164,41 +173,42 @@ export async function createOracle(deps: {
       if (!controller.signal.aborted) throw error;
     } finally {
       clearTimeout(timeout);
-      active = undefined;
-      if (!queue.some((queued) => keyOf(queued.input.address) === key))
-        await setStatus(input.address, "active");
     }
   };
   const schedule = (): void => {
-    if (pump || closed || retryTimer) return;
-    pump = (async () => {
-      while (!closed) {
-        const turn = queue.shift();
-        if (!turn) return;
-        if ((await processTurn(turn)) === "waiting") {
-          if (queue.length && !closed)
-            retryTimer = setTimeout(() => {
-              retryTimer = undefined;
-              retryPending();
-            }, deps.retryIntervalMs ?? 30_000);
-          return;
-        }
-      }
-    })()
-      .catch(fault)
-      .finally(() => {
-        pump = undefined;
-        if (queue.length && !closed && !retryTimer) schedule();
+    if (closed || draining) return;
+    while (active.size < limits.maxConcurrentSessions) {
+      const index = queue.findIndex(({ input }) => {
+        const key = keyOf(input.address);
+        return !active.has(key) && !waiting.has(key);
       });
+      if (index < 0) return;
+      const [turn] = queue.splice(index, 1);
+      if (!turn) return;
+      const key = keyOf(turn.input.address);
+      const controller = new AbortController();
+      const done = Promise.resolve()
+        .then(() => processTurn(turn, controller))
+        .catch(fault)
+        .finally(async () => {
+          if (!queue.some(({ input }) => keyOf(input.address) === key))
+            await setStatus(turn.input.address, "active");
+          active.delete(key);
+          schedule();
+        });
+      active.set(key, { id: eventId(turn.input), address: turn.input.address, controller, done });
+    }
   };
   const retryPending = (): void => {
     if (closed) return;
     clearTimeout(retryTimer);
     retryTimer = undefined;
+    waiting.clear();
     const queued = new Set(queue.map((turn) => eventId(turn.input)));
     for (const input of sessions.pending()) {
       const id = eventId(input);
-      if (queued.has(id) || admitting.has(id) || active?.id === id) continue;
+      if (queued.has(id) || admitting.has(id) || active.get(keyOf(input.address))?.id === id)
+        continue;
       queued.add(id);
       queue.push({
         input,
@@ -228,7 +238,8 @@ export async function createOracle(deps: {
       try {
         if (stopping) {
           generations.set(key, (generations.get(key) ?? 0) + 1);
-          if (active?.key === key) active.controller.abort();
+          active.get(key)?.controller.abort();
+          waiting.delete(key);
           for (let index = queue.length - 1; index >= 0; index--) {
             if (keyOf(queue[index]?.input.address ?? input.address) === key) queue.splice(index, 1);
           }
@@ -241,8 +252,10 @@ export async function createOracle(deps: {
             );
             await setStatus(input.address, "active");
           }
-          clearTimeout(retryTimer);
-          retryTimer = undefined;
+          if (waiting.size === 0) {
+            clearTimeout(retryTimer);
+            retryTimer = undefined;
+          }
           schedule();
           return result;
         }
@@ -263,15 +276,21 @@ export async function createOracle(deps: {
       }
     },
     async idle() {
-      while (pump) await pump;
+      while (active.size) await Promise.all([...active.values()].map(({ done }) => done));
+    },
+    async drain() {
+      draining = true;
+      clearTimeout(retryTimer);
+      retryTimer = undefined;
+      while (active.size) await Promise.all([...active.values()].map(({ done }) => done));
     },
     async close() {
       closed = true;
       clearTimeout(retryTimer);
-      active?.controller.abort();
+      for (const turn of active.values()) turn.controller.abort();
       const pending = queue.splice(0);
       await sessions.interrupt();
-      if (pump) await pump;
+      while (active.size) await Promise.all([...active.values()].map(({ done }) => done));
       for (const turn of pending) {
         await turn.ready;
         await setStatus(turn.input.address, "active");

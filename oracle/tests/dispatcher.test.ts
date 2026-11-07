@@ -54,7 +54,7 @@ test("deduplication across Slack listeners admits and executes one turn", async 
   assert.deepEqual(messages, ["Checked."]);
 });
 
-test("global FIFO holds the checkout for complete model turns", async (t) => {
+test("conversation FIFO preserves order while an unrelated conversation runs", async (t) => {
   const sessions = createSessionStore({
     directory: await directory(t),
     limits: defaultLimits,
@@ -64,6 +64,7 @@ test("global FIFO holds the checkout for complete model turns", async (t) => {
   const release = deferred<void>();
   const events: string[] = [];
   let concurrent = 0;
+  const otherFinished = deferred<void>();
   const oracle = await createOracle({
     sessions,
     limits: defaultLimits,
@@ -71,26 +72,30 @@ test("global FIFO holds the checkout for complete model turns", async (t) => {
     publish: async () => {},
     runner: {
       async run({ input: request }) {
-        concurrent++;
-        assert.equal(concurrent, 1);
+        if (request.text !== "Other") concurrent++;
+        if (request.text !== "Other") assert.equal(concurrent, 1);
         events.push(request.text);
         if (request.text === "First") {
           entered.resolve();
           await release.promise;
         }
-        concurrent--;
+        if (request.text !== "Other") concurrent--;
+        else otherFinished.resolve();
         return { kind: "silent" };
       },
     },
   });
-  await oracle.receive(input("First"));
+  const first = input("First");
+  await oracle.receive(first);
   await entered.promise;
-  await oracle.receive(input("Second"));
-  await oracle.receive(input("Third"));
-  assert.deepEqual(events, ["First"]);
+  await oracle.receive(input("Second", { address: first.address, route: "thread" }));
+  await oracle.receive(input("Third", { address: first.address, route: "thread" }));
+  await oracle.receive(input("Other"));
+  await otherFinished.promise;
+  assert.deepEqual(events, ["First", "Other"]);
   release.resolve();
   await oracle.idle();
-  assert.deepEqual(events, ["First", "Second", "Third"]);
+  assert.deepEqual(events, ["First", "Other", "Second", "Third"]);
 });
 
 test("stop aborts immediately, cancels queued thread work, and direct work resumes", async (t) => {
@@ -101,6 +106,7 @@ test("stop aborts immediately, cancels queued thread work, and direct work resum
   });
   const entered = deferred<void>();
   const cleaned = deferred<void>();
+  const otherStarted = deferred<void>();
   let activeSignal: AbortSignal | undefined;
   const runs: string[] = [];
   const oracle = await createOracle({
@@ -117,6 +123,7 @@ test("stop aborts immediately, cancels queued thread work, and direct work resum
           await untilAborted(signal);
           await cleaned.promise;
         }
+        if (request.text === "Other session") otherStarted.resolve();
         return { kind: "silent" };
       },
     },
@@ -129,7 +136,8 @@ test("stop aborts immediately, cancels queued thread work, and direct work resum
   assert.equal(activeSignal?.aborted, true);
   await stopping;
   await oracle.receive(input("Other session"));
-  assert.deepEqual(runs, ["First"]);
+  await otherStarted.promise;
+  assert.deepEqual(runs, ["First", "Other session"]);
   cleaned.resolve();
   await oracle.idle();
   assert.deepEqual(runs, ["First", "Other session"]);
@@ -423,7 +431,7 @@ test("waiting and queued requests survive restart and resume once in FIFO order"
   const firstStore = createSessionStore(options);
   const first = await createOracle({ ...settings, sessions: firstStore });
   const request = input("First");
-  const queued = input("Second");
+  const queued = input("Second", { address: request.address, route: "thread" });
   await first.receive(request);
   await first.idle();
   await first.receive(queued);
@@ -435,7 +443,7 @@ test("waiting and queued requests survive restart and resume once in FIFO order"
   recovered.retryPending();
   await recovered.idle();
   assert.equal(recoveredStore.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
-  assert.equal(recoveredStore.snapshot(queued.address)?.events[0]?.status, "queued");
+  assert.equal(recoveredStore.snapshot(queued.address)?.events[1]?.status, "queued");
   assert.equal(messages.length, 1);
   verified = true;
   recovered.retryPending();
