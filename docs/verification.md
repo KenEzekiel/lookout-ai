@@ -9,10 +9,25 @@ Run `pnpm verify` before opening a PR. CI runs the same command on every PR to `
 - `pnpm qa:browser` runs optional browser smoke tests for manual QA of the production build. Install Chromium first with `pnpm exec playwright install chromium`.
 - `python3 scripts/check-harness.py` validates the repository's agent tooling.
 
-Playwright is outside CI. Use it to check layout, browser behavior, and hydration after changing a user journey.
+Playwright is outside CI. Manual browser verification is required for frontend feature implementations and frontend bug fixes that affect a user journey.
 Its repeatable smoke tests supplement interactive manual QA. It owns its preview server on port 4173 and refuses to reuse an existing process.
 Focused tests fail even locally. Retries are disabled so intermittent failures stay visible.
 Local browser QA retains traces and screenshots after failures. Open traces with `pnpm exec playwright show-trace <path>`.
+
+## Verify frontend user journeys
+
+The implementation agent performs this check before marking the work complete or opening a ready PR. A separate QA agent is not required.
+Documentation-only changes and backend-only changes do not require browser QA. A frontend change affects a journey when it changes what a user sees, enters, navigates, or can complete, including layout or shared component changes in that flow.
+
+1. Identify the affected journey and its expected outcome. For a bug fix, reproduce the reported failure in the browser before editing when possible. If reproduction is unavailable, record why and use the reported steps for post-fix verification.
+2. Run the current production build locally and exercise it in a real browser with Playwright or a browser-control tool permitted by the host. If the production runtime is unavailable, identify the runtime used and the resulting verification gap.
+3. Complete the changed flow through its visible controls. Check the successful outcome and the relevant error or recovery path. Inspect loading, empty, validation, and permission states when the change affects them. For a bug fix, repeat the original failing steps and a nearby successful path.
+4. Inspect the rendered result, browser console errors, and failed requests. Check keyboard interaction and narrow-screen layout when the changed flow supports them. Fix failures caused by the change and rerun the affected steps.
+5. Add a manual verification section to the PR with the build or commit tested, runtime, journey steps, expected and observed results, and any mocked services or remaining gaps. Include screenshots or traces when they help demonstrate a visual change or failure.
+
+Use safe test data and identify any HTTP mocks in the evidence. Do not claim to have verified an integration that was mocked.
+Vitest results, a successful build, and `pnpm qa:browser` alone do not satisfy journey verification. The generic smoke suite does not exercise a newly implemented flow.
+If browser tools, credentials, or services prevent verification, report the exact blocker and keep the PR in draft. Do not claim completion or silently waive the requirement. The user may explicitly waive a documented verification gap.
 
 ## Place code at its boundary
 

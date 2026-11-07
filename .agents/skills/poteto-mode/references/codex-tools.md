@@ -14,6 +14,8 @@ Use the actual tools exposed by the current session: shell execution for command
 
 Read referenced skill files on demand. Use the host's skill-authoring guidance for `plugin-dev:skill-development`. Do not assume an app driver, `/loop`, or `/verify` is installed. Verify with the available supported tools and report any part you could not observe.
 
+For frontend features and bug fixes that affect a user journey, the Feature and Bug fix workflows must include manual verification in a real browser before completion or a ready PR. The implementation agent owns this step; no separate QA agent is required. Follow `docs/verification.md` at the repository root and the host's browser-tool restrictions. Record the exercised journey and observed results in the PR. Automated checks alone are insufficient. If verification is blocked, report the blocker and keep the PR in draft unless the user explicitly waives the documented gap.
+
 ## Delegation and models
 
 The main agent owns all implementation: source code, tests, configuration, documentation, generated project changes, refactors, and fixes. Never delegate implementation, including through nested agents, arena candidates, or PR owners. Subagents may research, review, or verify existing work and return findings; the main agent applies every change.
