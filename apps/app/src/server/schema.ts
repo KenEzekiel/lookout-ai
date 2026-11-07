@@ -119,6 +119,70 @@ export const attemptLimit = sqliteTable("attempt_limit", {
   expiresAt: integer("expires_at").notNull(),
 });
 
+export const incidentCaptureSession = sqliteTable(
+  "incident_capture_session",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    deviceId: text("device_id")
+      .notNull()
+      .references(() => device.id),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => source.id),
+    startedAt: integer("started_at").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [uniqueIndex("current_device_source_session").on(table.deviceId, table.sourceId)],
+);
+
+export const incident = sqliteTable(
+  "incident",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    deviceId: text("device_id")
+      .notNull()
+      .references(() => device.id),
+    sessionId: text("session_id").notNull(),
+    eventId: text("event_id").notNull(),
+    ruleId: text("rule_id")
+      .notNull()
+      .references(() => monitoringRule.id),
+    eventTime: integer("event_time").notNull(),
+    receivedAt: integer("received_at").notNull(),
+    context: text("context").notNull(),
+    status: text("status", { enum: ["open", "acknowledged", "dismissed", "resolved"] }).notNull(),
+    version: integer("version").notNull(),
+    owner: text("owner"),
+    timeline: text("timeline").notNull(),
+  },
+  (table) => [
+    uniqueIndex("device_event_incident").on(
+      table.deviceId,
+      table.sessionId,
+      table.eventId,
+      table.ruleId,
+    ),
+    index("workspace_incidents").on(table.workspaceId, table.receivedAt),
+    check(
+      "incident_status",
+      sql`${table.status} IN ('open','acknowledged','dismissed','resolved')`,
+    ),
+    check("incident_version", sql`${table.version} > 0`),
+    check("incident_context", sql`json_valid(${table.context})`),
+    check("incident_timeline", sql`json_valid(${table.timeline})`),
+    check(
+      "incident_owner",
+      sql`(${table.status} = 'open' AND ${table.owner} IS NULL) OR (${table.status} = 'dismissed') OR (${table.status} IN ('acknowledged','resolved') AND ${table.owner} IS NOT NULL AND json_valid(${table.owner}))`,
+    ),
+  ],
+);
+
 export const source = sqliteTable(
   "source",
   {

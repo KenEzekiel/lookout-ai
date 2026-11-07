@@ -10,7 +10,9 @@ Visitors open Lookout to sign in or register. Access and capture headers share t
 
 ## Entry points
 
-Open `/`, `/join`, `/monitor`, `/device`, `/triggers`, or an unknown URL. The paired-device capture route has its own video-led header; access routes retain the shared access header and unknown-route fallback.
+The shared member navigation also opens `/incidents` and `/incidents/$incidentId` through the existing access gate. Devices do not receive incident response controls. [Incident routes and screens](../../../apps/app/src/components/incidents/workspace.tsx) use the existing theme, buttons, and responsive layout.
+
+Open `/`, `/join`, `/monitor`, `/device`, `/triggers`, `/incidents`, an incident detail URL, or an unknown URL. The paired-device capture route has its own video-led header; access routes retain the shared access header and unknown-route fallback.
 
 ## Wiring and compatibility
 
