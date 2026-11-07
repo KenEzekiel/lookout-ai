@@ -1,3 +1,4 @@
+import { LogIn, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export function Account({
       </p>
       <ActionForm
         key={register ? "register" : "signin"}
+        icon={register ? UserPlus : LogIn}
         submit={register ? "Create account" : "Sign in"}
         pendingLabel={register ? "Creating account…" : "Signing in…"}
         action={async (data) => {
@@ -60,7 +62,9 @@ export function Account({
         {register ? "Already have an account?" : "New to Lookout?"}{" "}
         <Button
           variant="link"
-          className="h-auto p-0 text-signal"
+          size="inline"
+          icon={register ? LogIn : UserPlus}
+          className="text-signal"
           onClick={() => setRegister(!register)}
         >
           {register ? "Sign in" : "Create an account"}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AppWindow, Monitor, Plus, Users, Video } from "lucide-react";
+import { AppWindow, Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
 import { type z } from "zod";
 import { type Member, teamSchema } from "@/lib/access";
 import { request, message } from "@/lib/api";
@@ -54,11 +54,7 @@ export function Workspace({
           </p>
         </div>
         {owner && (
-          <Button
-            className="h-10 px-4"
-            onClick={() => setAction({ kind: devices ? "pair" : "invite" })}
-          >
-            <Plus />
+          <Button icon={Plus} onClick={() => setAction({ kind: devices ? "pair" : "invite" })}>
             {devices ? "Add device" : "Invite member"}
           </Button>
         )}
@@ -87,7 +83,7 @@ export function Workspace({
               </p>
               <Button
                 variant="secondary"
-                className="h-10 shrink-0 px-4"
+                icon={Monitor}
                 onClick={() => setAction({ kind: "activate" })}
               >
                 Use this device instead
@@ -118,6 +114,7 @@ export function Workspace({
           </p>
           <Button
             variant="secondary"
+            icon={RotateCw}
             onClick={() => {
               void refresh("").catch((error) => setError(message(error)));
             }}
@@ -145,7 +142,8 @@ export function Workspace({
               {owner && (
                 <Button
                   variant="secondary"
-                  className="mt-6 h-10 px-4"
+                  className="mt-6"
+                  icon={Plus}
                   onClick={() => setAction({ kind: "pair" })}
                 >
                   Connect your first device
@@ -179,18 +177,20 @@ export function Workspace({
                     <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                       {device.revokedAt === null && (
                         <Button
-                          className="h-10 px-4"
+                          size="sm"
+                          icon={Video}
                           aria-label={`Live view of ${device.name}`}
                           onClick={() => setViewing({ id: device.id, name: device.name })}
                         >
-                          <Video />
                           Live view
                         </Button>
                       )}
                       {owner && device.revokedAt === null ? (
                         <Button
                           variant="ghost"
-                          className="h-10 text-muted-foreground"
+                          size="sm"
+                          icon={Trash2}
+                          className="text-muted-foreground"
                           aria-label={`Remove access for ${device.name}`}
                           onClick={() =>
                             setAction({ kind: "revoke-device", id: device.id, name: device.name })
@@ -231,7 +231,9 @@ export function Workspace({
                 {owner && person.role === "operator" && (
                   <Button
                     variant="ghost"
-                    className="h-9 text-muted-foreground"
+                    size="sm"
+                    icon={Trash2}
+                    className="text-muted-foreground"
                     aria-label={`Remove ${person.name}`}
                     onClick={() =>
                       setAction({ kind: "remove-member", id: person.userId, name: person.name })

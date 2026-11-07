@@ -1,3 +1,4 @@
+import { CircleStop, Pencil, Plus, Save, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -71,6 +72,7 @@ export function RuleEditor({
   return (
     <section aria-label="Trigger editor">
       <ActionForm
+        icon={Save}
         submit={enabled ? "Save enabled" : "Save disabled"}
         pendingLabel="Saving trigger…"
         action={async (data) => {
@@ -207,6 +209,7 @@ export function RuleEditor({
             )}
             <Button
               type="button"
+              icon={Plus}
               variant="outline"
               disabled={addingSource}
               onClick={async () => {
@@ -362,7 +365,7 @@ export function RuleEditor({
           Enable this trigger
         </label>
       </ActionForm>
-      <Button variant="ghost" className="mt-3 w-full" onClick={onCancel}>
+      <Button icon={X} variant="ghost" className="mt-3 w-full" onClick={onCancel}>
         Cancel editing
       </Button>
     </section>
@@ -431,6 +434,7 @@ export function RuleSummary({
       <div className="flex flex-wrap gap-3">
         <Button
           variant="outline"
+          icon={Pencil}
           onClick={(event) => onEdit(event.currentTarget)}
           aria-label={`Edit ${rule.definition.name}`}
         >
@@ -438,6 +442,8 @@ export function RuleSummary({
         </Button>
         {rule.enabled && (
           <ActionForm
+            icon={CircleStop}
+            variant="outline"
             submit={`Disable ${rule.definition.name}`}
             pendingLabel="Disabling trigger…"
             action={async () => {

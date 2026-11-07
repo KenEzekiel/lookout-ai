@@ -99,6 +99,7 @@ async function main(): Promise<void> {
     runner,
     publish: slack.publish,
     setStatus: slack.setStatus,
+    setCompleted: slack.setCompleted,
     limits: { ...defaultLimits, maxConcurrentSessions: config.maxConcurrentSessions },
     onFault,
   });
