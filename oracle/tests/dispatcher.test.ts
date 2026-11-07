@@ -395,3 +395,119 @@ test(
     assert.equal(messages.length, 2);
   },
 );
+
+test("waiting and queued requests survive restart and resume once in FIFO order", async (t) => {
+  const options = { directory: await directory(t), limits: defaultLimits, now: () => testNow };
+  let verified = false;
+  const coding: string[] = [];
+  const messages: string[] = [];
+  const runner: Parameters<typeof createOracle>[0]["runner"] = {
+    run: async ({ input: request, history }) => {
+      if (!verified) throw new BoundaryError("workspace_main_unverified");
+      assert.equal(
+        history.some((item) => item.text.includes("keeping this request queued")),
+        false,
+      );
+      coding.push(request.text);
+      return { kind: "reply", text: `Finished ${request.text}` };
+    },
+  };
+  const settings = {
+    runner,
+    limits: defaultLimits,
+    now: () => testNow,
+    publish: async (_: unknown, text: string) => {
+      messages.push(text);
+    },
+  };
+  const firstStore = createSessionStore(options);
+  const first = await createOracle({ ...settings, sessions: firstStore });
+  const request = input("First");
+  const queued = input("Second");
+  await first.receive(request);
+  await first.idle();
+  await first.receive(queued);
+  await first.close();
+  const recoveredStore = createSessionStore(options);
+  const recovered = await createOracle({ ...settings, sessions: recoveredStore });
+  t.after(() => recovered.close());
+  recovered.retryPending();
+  recovered.retryPending();
+  await recovered.idle();
+  assert.equal(recoveredStore.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
+  assert.equal(recoveredStore.snapshot(queued.address)?.events[0]?.status, "queued");
+  assert.equal(messages.length, 1);
+  verified = true;
+  recovered.retryPending();
+  await recovered.idle();
+  assert.deepEqual(coding, ["First", "Second"]);
+  assert.deepEqual(recoveredStore.pending(), []);
+  assert.equal(messages.length, 3);
+  assert.equal(await recovered.receive(request), "duplicate");
+});
+
+test("stop cancels a CI waiter and lets the next conversation proceed", async (t) => {
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  let verified = false;
+  const coding: string[] = [];
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: {
+      run: async ({ input: request }) => {
+        if (!verified) throw new BoundaryError("workspace_main_unverified");
+        coding.push(request.text);
+        return { kind: "reply", text: "Done" };
+      },
+    },
+    publish: async () => {},
+  });
+  t.after(() => oracle.close());
+  const first = input("Cancel this");
+  await oracle.receive(first);
+  await oracle.idle();
+  await oracle.receive(input("Keep this"));
+  verified = true;
+  await oracle.receive(input("stop", { address: first.address, route: "thread" }));
+  await oracle.idle();
+  oracle.retryPending();
+  await oracle.idle();
+  assert.deepEqual(coding, ["Keep this"]);
+  assert.equal(sessions.snapshot(first.address)?.events[0]?.status, "cancelled");
+  assert.deepEqual(sessions.pending(), []);
+});
+
+test("waking pending work during admission does not enqueue the same request twice", async (t) => {
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  const coding: string[] = [];
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    setStatus: async (_, status) => {
+      if (status === "processing") oracle.retryPending();
+    },
+    runner: {
+      run: async ({ input: request }) => {
+        coding.push(request.text);
+        return { kind: "reply", text: "Done" };
+      },
+    },
+    publish: async () => {},
+  });
+  t.after(() => oracle.close());
+  await oracle.receive(input("First"));
+  await oracle.idle();
+  assert.equal(await oracle.receive(input("Second")), "accepted");
+  await oracle.idle();
+  assert.deepEqual(coding, ["First", "Second"]);
+});

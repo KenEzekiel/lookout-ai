@@ -22,7 +22,8 @@ const eventSchema = z.object({
   id: z.string(),
   at: z.number(),
   input: incomingSchema,
-  status: z.enum(["queued", "running", "completed", "interrupted", "cancelled"]),
+  status: z.enum(["queued", "waiting_for_ci", "running", "completed", "interrupted", "cancelled"]),
+  waitNotified: z.boolean().default(false),
 });
 const mutationSchema = z.object({
   id: z.string(),
@@ -49,17 +50,21 @@ const documentSchema = z.object({
 });
 type Document = z.infer<typeof documentSchema>;
 type EventState = z.infer<typeof eventSchema>["status"];
+type DeliveryKind = z.infer<typeof deliverySchema>["kind"];
+const pendingStates = new Set<EventState>(["queued", "waiting_for_ci"]);
 
 export interface SessionStore {
   recover(): Promise<void>;
   owns(address: Address): boolean;
   admit(input: Incoming): Promise<Admission>;
   claim(input: Incoming): Promise<readonly HistoryItem[]>;
+  defer(input: Incoming): Promise<"notify" | "waiting" | "cancelled">;
+  pending(): readonly Incoming[];
   stop(input: Incoming): Promise<Admission>;
   interrupt(): Promise<void>;
   complete(input: Incoming, outcome: Outcome, status?: EventState): Promise<void>;
   mutation(input: Incoming, path: string, operation: () => Promise<void>): Promise<void>;
-  delivery(address: Address, kind: "progress" | "result" | "stop", text: string): Promise<string>;
+  delivery(address: Address, kind: DeliveryKind, text: string): Promise<string>;
   settle(address: Address, id: string, state: "sent" | "uncertain"): Promise<void>;
   snapshot(address: Address): Readonly<Document> | undefined;
   linkThread(address: Address, threadId: string, previousThreadId?: string | null): Promise<void>;
@@ -140,7 +145,10 @@ export function createSessionStore(options: {
   };
   const pruneEvents = (document: Document): void => {
     document.events = document.events.filter(
-      (event) => event.at >= now() - limits.maxEventAgeMs - limits.maxClockSkewMs,
+      (event) =>
+        pendingStates.has(event.status) ||
+        event.status === "running" ||
+        event.at >= now() - limits.maxEventAgeMs - limits.maxClockSkewMs,
     );
   };
   const admission = async (input: Incoming, stopping: boolean): Promise<Admission> => {
@@ -155,7 +163,9 @@ export function createSessionStore(options: {
         const expired = [...documents.entries()].find(
           ([, item]) =>
             item.updatedAt < now() - limits.maxEventAgeMs - limits.maxClockSkewMs &&
-            !item.events.some((event) => ["running", "queued"].includes(event.status)),
+            !item.events.some(
+              (event) => event.status === "running" || pendingStates.has(event.status),
+            ),
         );
         if (!expired) return "busy";
         await unlink(filename(expired[0]));
@@ -178,7 +188,7 @@ export function createSessionStore(options: {
     if (!stopping) {
       if (document.stopped && input.route !== "direct") return "ignored";
       if (
-        document.events.filter((event) => event.status === "queued").length >=
+        document.events.filter((event) => pendingStates.has(event.status)).length >=
         limits.maxQueuedPerSession
       )
         return "busy";
@@ -189,11 +199,13 @@ export function createSessionStore(options: {
       at,
       input,
       status: stopping ? "completed" : "queued",
+      waitNotified: false,
     });
     if (stopping) {
       document.stopped = true;
       for (const event of document.events) {
-        if (event.status === "queued" || event.status === "running") event.status = "cancelled";
+        if (pendingStates.has(event.status) || event.status === "running")
+          event.status = "cancelled";
       }
     }
     await save(document);
@@ -211,7 +223,7 @@ export function createSessionStore(options: {
         if (name !== filename(keyOf(document.address)).split(/[\\/]/).pop())
           throw new BoundaryError("session_invalid");
         for (const event of document.events) {
-          if (event.status === "running" || event.status === "queued") event.status = "interrupted";
+          if (event.status === "running") event.status = "interrupted";
         }
         for (const mutation of document.mutations) {
           if (mutation.state === "intent") mutation.state = "uncertain";
@@ -229,9 +241,9 @@ export function createSessionStore(options: {
       transact(async () => {
         for (const address of [...documents.values()].map((document) => document.address)) {
           const document = copy(address);
+          if (!document.events.some((event) => event.status === "running")) continue;
           for (const event of document.events) {
-            if (event.status === "queued" || event.status === "running")
-              event.status = "interrupted";
+            if (event.status === "running") event.status = "interrupted";
           }
           await save(document);
         }
@@ -240,12 +252,32 @@ export function createSessionStore(options: {
       transact(async () => {
         const document = copy(input.address);
         const event = document.events.find((item) => item.id === eventId(input));
-        if (!event || event.status !== "queued" || document.stopped)
+        if (!event || !pendingStates.has(event.status) || document.stopped)
           throw new BoundaryError("turn_cancelled");
         event.status = "running";
         await save(document);
         return document.history;
       }),
+    defer: (input) =>
+      transact(async () => {
+        const document = copy(input.address);
+        const event = document.events.find((item) => item.id === eventId(input));
+        if (!event || event.status !== "running" || document.stopped) return "cancelled";
+        const notify = !event.waitNotified;
+        event.status = "waiting_for_ci";
+        event.waitNotified = true;
+        await save(document);
+        return notify ? "notify" : "waiting";
+      }),
+    pending: () =>
+      [...documents.values()]
+        .filter((document) => !document.stopped)
+        .flatMap((document) =>
+          document.events
+            .filter((event) => pendingStates.has(event.status))
+            .map((event) => structuredClone(event.input)),
+        )
+        .sort((a, b) => Number(a.ts) - Number(b.ts)),
     complete: (input, outcome, status = "completed") =>
       transact(async () => {
         const document = copy(input.address);

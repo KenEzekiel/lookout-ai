@@ -6,7 +6,7 @@ import { atomicJson, createSessionStore } from "../session/index.js";
 import { acquireInstanceLock } from "../session/lock.js";
 import { directory, input, testNow } from "./helpers.js";
 
-test("atomic snapshots survive restart with history but no queued work replay", async (t) => {
+test("atomic snapshots preserve queued work without replaying running turns", async (t) => {
   const path = await directory(t);
   const options = { directory: path, limits: defaultLimits, now: () => testNow };
   const store = createSessionStore(options);
@@ -25,11 +25,12 @@ test("atomic snapshots survive restart with history but no queued work replay", 
   await recovered.recover();
   assert.deepEqual(
     recovered.snapshot(first.address)?.events.map((event) => event.status),
-    ["completed", "interrupted", "interrupted"],
+    ["completed", "interrupted", "queued"],
   );
   assert.equal(recovered.snapshot(first.address)?.history.length, 2);
   assert.equal(recovered.snapshot(first.address)?.deliveries[0]?.state, "uncertain");
   await assert.rejects(recovered.claim(second), /turn_cancelled/);
+  assert.deepEqual(recovered.pending(), [third]);
   assert.equal(await recovered.admit(first), "duplicate");
   assert.ok((await readdir(path)).every((name) => /^[a-f0-9]{64}\.json$/.test(name)));
 });
@@ -106,4 +107,23 @@ test("a second instance refuses the exclusive lock without stealing it", async (
   await (
     await acquireInstanceLock(path)
   )();
+});
+
+test("CI waiting requests retain capacity and survive admission pruning after an hour", async (t) => {
+  let now = testNow;
+  const limits = { ...defaultLimits, maxQueuedPerSession: 1, maxSessions: 1 };
+  const store = createSessionStore({ directory: await directory(t), limits, now: () => now });
+  await store.recover();
+  const request = input();
+  await store.admit(request);
+  await store.claim(request);
+  assert.equal(await store.defer(request), "notify");
+  now += limits.maxEventAgeMs + limits.maxClockSkewMs + 1_000;
+  const currentTs = `${Math.floor(now / 1_000)}.000001`;
+  assert.equal(
+    await store.admit(input("Another", { address: request.address, ts: currentTs })),
+    "busy",
+  );
+  assert.equal(await store.admit(input("New session", { ts: currentTs })), "busy");
+  assert.deepEqual(store.pending(), [request]);
 });

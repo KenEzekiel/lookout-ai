@@ -39,7 +39,9 @@ export function createWorkspace(options: {
     const commit = await git("rev-parse", "origin/main");
     const missing = await git("rev-list", "--count", `HEAD..${commit}`);
     if (missing === "0") return { kind: "current", commit };
-    const verified = await (options.verifyMain?.(commit) ?? mainIsVerified({ root, commit }));
+    const verified = await (options.verifyMain?.(commit) ?? mainIsVerified({ root, commit })).catch(
+      () => false,
+    );
     if (!verified) return { kind: "waiting_for_ci", commit };
     if (await git("status", "--porcelain")) throw new BoundaryError("workspace_sync_dirty");
     try {
