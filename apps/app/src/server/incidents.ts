@@ -12,16 +12,20 @@ import {
 import { member, monitoringDevice } from "./access";
 import { ruleSchema, sourceSchema } from "@/lib/rules";
 import { AccessError, json } from "./http";
+import { evidenceForIncident } from "./evidence";
 import { deliverIncidentPush } from "./push";
 
 const columns = `id,device_id AS deviceId,session_id AS sessionId,event_id AS eventId,
   event_time AS eventTime,received_at AS receivedAt,context,status,version,owner,timeline,
+  follow_up_due_at AS followUpDueAt,follow_up_attempted_at AS followUpAttemptedAt,
   CASE WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id AND p.status='accepted') THEN 'accepted'
     WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id AND p.status='attempting') THEN 'attempting'
     WHEN EXISTS (SELECT 1 FROM push_delivery p WHERE p.incident_id=incident.id) THEN 'failed'
     ELSE 'not-sent' END AS notificationStatus`;
 const recordSchema = z
   .object({
+    followUpDueAt: z.number().nullable(),
+    followUpAttemptedAt: z.number().nullable(),
     context: z.string().transform((value): unknown => JSON.parse(value)),
     owner: z
       .string()
@@ -30,14 +34,30 @@ const recordSchema = z
     timeline: z.string().transform((value): unknown => JSON.parse(value)),
   })
   .passthrough()
-  .transform(({ context, ...row }) => {
+  .transform(({ context, followUpDueAt, followUpAttemptedAt, ...row }) => {
     const snapshot = z.object({ source: sourceSchema, rule: ruleSchema }).parse(context);
     return incidentSchema.parse({
       ...row,
       ...snapshot,
-      evidenceStatus: "pending",
+      evidenceStatus: "preparing",
+      evidenceReason: null,
+      evidenceExpiresAt: null,
+      followUp:
+        followUpDueAt === null
+          ? { kind: "none" }
+          : followUpAttemptedAt !== null
+            ? { kind: "attempted", dueAt: followUpDueAt, attemptedAt: followUpAttemptedAt }
+            : { kind: row.status === "open" ? "scheduled" : "cancelled", dueAt: followUpDueAt },
     });
   });
+
+async function incidentWithEvidence(row: Record<string, unknown>, checkObject = false) {
+  const incident = recordSchema.parse(row);
+  return incidentSchema.parse({
+    ...incident,
+    ...(await evidenceForIncident(incident.id, checkObject)),
+  });
+}
 
 export async function startIncidentSession(request: Request) {
   const actor = await monitoringDevice(request);
@@ -78,36 +98,8 @@ export async function reportIncident(request: Request) {
   const actor = await monitoringDevice(request);
   const input = incidentReportSchema.parse(await request.json());
   const now = Date.now();
-  const inserted =
-    await env.DB.prepare(`INSERT INTO incident(id,workspace_id,device_id,session_id,event_id,rule_id,event_time,received_at,context,status,version,owner,timeline)
-    SELECT ?1,?2,?3,?4,?5,r.id,?6,?7,
-      json_object('source',json_object('id',s.id,'name',s.name,'kind',s.kind),
-        'rule',json_object('id',r.id,'sourceId',r.source_id,'version',r.version,'enabled',json('true'),'definition',json(r.definition))),
-      'open',1,NULL,json_array(json(?8))
-    FROM monitoring_rule r JOIN source s ON s.id=r.source_id AND s.workspace_id=r.workspace_id
-      JOIN incident_capture_session c ON c.source_id=s.id AND c.workspace_id=r.workspace_id
-    WHERE r.id=?9 AND r.workspace_id=?2 AND r.version=?10 AND r.enabled=1
-      AND c.id=?4 AND c.device_id=?3 AND c.expires_at>?7 AND ?6>=c.started_at-30000 AND ?6<=?7+60000
-      AND EXISTS (SELECT 1 FROM device WHERE id=?3 AND workspace_id=?2 AND revoked_at IS NULL)
-    ON CONFLICT(device_id,session_id,event_id,rule_id) DO NOTHING RETURNING id`)
-      .bind(
-        crypto.randomUUID(),
-        actor.workspaceId,
-        actor.deviceId,
-        input.sessionId,
-        input.eventId,
-        input.eventTime,
-        now,
-        JSON.stringify({
-          kind: "reported",
-          at: now,
-          actorId: actor.deviceId,
-          actorName: actor.name,
-        }),
-        input.ruleId,
-        input.ruleVersion,
-      )
-      .first();
+  const id = crypto.randomUUID();
+  const inserted = await env.INCIDENT_FOLLOW_UP.getByName(id).create({ id, actor, input, now });
   const row = await env.DB.prepare(
     `SELECT ${columns} FROM incident WHERE workspace_id=? AND device_id=? AND session_id=? AND event_id=? AND rule_id=?`,
   )
@@ -118,14 +110,15 @@ export async function reportIncident(request: Request) {
       409,
       "The rule or capture session is stale or unavailable. Refresh device configuration and start a current session.",
     );
-  const incident = recordSchema.parse(row);
+  const incident = await incidentWithEvidence(row);
   if (incident.eventTime !== input.eventTime || incident.rule.version !== input.ruleVersion)
     throw new AccessError(409, "This event ID already belongs to a different report.");
   await deliverIncidentPush(incident.id);
   const delivered = await env.DB.prepare(`SELECT ${columns} FROM incident WHERE id=?`)
     .bind(incident.id)
     .first();
-  return json({ incident: recordSchema.parse(delivered) }, inserted ? 201 : 200);
+  if (!delivered) throw new AccessError(404, "Incident no longer exists.");
+  return json({ incident: await incidentWithEvidence(delivered) }, inserted ? 201 : 200);
 }
 export async function incidentInbox(request: Request) {
   const actor = await member(request);
@@ -135,7 +128,9 @@ export async function incidentInbox(request: Request) {
     .bind(actor.workspaceId)
     .all();
   return json(
-    incidentInboxSchema.parse({ incidents: rows.results.map((row) => recordSchema.parse(row)) }),
+    incidentInboxSchema.parse({
+      incidents: await Promise.all(rows.results.map((row) => incidentWithEvidence(row))),
+    }),
   );
 }
 export async function incomingIncidents(request: Request) {
@@ -148,7 +143,9 @@ export async function incomingIncidents(request: Request) {
     .bind(actor.workspaceId, actor.userId)
     .all();
   return json(
-    incidentInboxSchema.parse({ incidents: rows.results.map((row) => recordSchema.parse(row)) }),
+    incidentInboxSchema.parse({
+      incidents: await Promise.all(rows.results.map((row) => incidentWithEvidence(row))),
+    }),
   );
 }
 export async function incidentDetail(request: Request, id: string) {
@@ -157,7 +154,7 @@ export async function incidentDetail(request: Request, id: string) {
     .bind(id, actor.workspaceId)
     .first();
   if (!row) throw new AccessError(404, "Incident not found in this workspace.");
-  return json(recordSchema.parse(row));
+  return json(await incidentWithEvidence(row, true));
 }
 export async function commandIncident(request: Request, id: string) {
   const actor = await member(request);
@@ -192,5 +189,5 @@ export async function commandIncident(request: Request, id: string) {
       409,
       "Incident changed or this action is unavailable. Reload the incident before responding.",
     );
-  return json(recordSchema.parse(row));
+  return json(await incidentWithEvidence(row));
 }

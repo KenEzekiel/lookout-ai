@@ -160,6 +160,8 @@ export const incident = sqliteTable(
     version: integer("version").notNull(),
     owner: text("owner"),
     timeline: text("timeline").notNull(),
+    followUpDueAt: integer("follow_up_due_at"),
+    followUpAttemptedAt: integer("follow_up_attempted_at"),
   },
   (table) => [
     uniqueIndex("device_event_incident").on(
@@ -179,6 +181,27 @@ export const incident = sqliteTable(
     check(
       "incident_owner",
       sql`(${table.status} = 'open' AND ${table.owner} IS NULL) OR (${table.status} = 'dismissed') OR (${table.status} IN ('acknowledged','resolved') AND ${table.owner} IS NOT NULL AND json_valid(${table.owner}))`,
+    ),
+  ],
+);
+
+export const incidentEvidence = sqliteTable(
+  "incident_evidence",
+  {
+    incidentId: text("incident_id")
+      .primaryKey()
+      .references(() => incident.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["preparing", "uploading", "ready", "unavailable"] }).notNull(),
+    reason: text("reason"),
+    objectKey: text("object_key"),
+    bytes: integer("bytes"),
+    updatedAt: integer("updated_at").notNull(),
+    expiresAt: integer("expires_at"),
+  },
+  (table) => [
+    check(
+      "evidence_status",
+      sql`${table.status} IN ('preparing','uploading','ready','unavailable')`,
     ),
   ],
 );

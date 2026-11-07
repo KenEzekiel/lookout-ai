@@ -589,10 +589,15 @@ test("operators configure rules and removing a recipient disables and versions a
   );
 });
 
-async function incidentSetup() {
+async function incidentSetup(escalationDelaySeconds = 60) {
   const workspace = await configuredWorkspace();
   const rule = ruleSchema.parse(
-    await (await workspace.admin.request("/api/config/rules/create", workspace.input)).json(),
+    await (
+      await workspace.admin.request("/api/config/rules/create", {
+        ...workspace.input,
+        definition: { ...workspace.input.definition, escalationDelaySeconds },
+      })
+    ).json(),
   );
   const device = await paired(workspace.admin);
   const session = captureSessionSchema.parse(
@@ -636,7 +641,7 @@ test("device event retries create one persistent incident with authoritative sou
     status: "open",
     version: 1,
     owner: null,
-    evidenceStatus: "pending",
+    evidenceStatus: "preparing",
     notificationStatus: "not-sent",
   });
   expect(first.timeline).toHaveLength(1);
@@ -886,7 +891,7 @@ test("acknowledgment records one owner and stale concurrent responses never over
   expect(acknowledged).toMatchObject({
     status: "acknowledged",
     version: 2,
-    evidenceStatus: "pending",
+    evidenceStatus: "preparing",
   });
   expect(acknowledged.owner?.userId).toBe(acknowledged.timeline[1]?.actorId);
   expect(acknowledged.timeline).toHaveLength(2);
@@ -926,6 +931,172 @@ test("dismiss records incorrect-alert feedback independently of resolution", asy
     reportReceiptSchema.parse(await (await device.request("/api/incidents/reports", report)).json())
       .incident,
   ).toEqual(dismissed);
+});
+
+const mp4Clip = new Uint8Array([0, 0, 0, 12, 102, 116, 121, 112, 105, 115, 111, 109, 1, 2, 3, 4]);
+async function uploadClip(
+  device: Browser,
+  id: string,
+  sessionId: string,
+  eventId: string,
+  bytes = mp4Clip,
+) {
+  return harness.fetch(`${origin}/api/incidents/evidence/${id}`, {
+    method: "PUT",
+    headers: {
+      Origin: origin,
+      Cookie: [...device.cookies].map(([key, value]) => `${key}=${value}`).join("; "),
+      "Content-Type": "video/mp4",
+      "X-Lookout-Session": sessionId,
+      "X-Lookout-Event": eventId,
+      "X-Clip-Duration-Ms": "20000",
+      "X-Event-Offset-Ms": "10000",
+    },
+    body: bytes,
+  });
+}
+
+test("evidence upload survives a lost response, stays separate from response state, and supports byte ranges", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const incident = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  const detail = `/api/incidents/detail/${incident.id}`;
+  expect(incident.evidenceStatus).toBe("preparing");
+  expect(
+    (
+      await device.request(`/api/incidents/evidence-start/${incident.id}`, {
+        sessionId: report.sessionId,
+        eventId: report.eventId,
+      })
+    ).status,
+  ).toBe(200);
+  expect(incidentSchema.parse(await (await admin.request(detail)).json())).toMatchObject({
+    evidenceStatus: "uploading",
+    status: "open",
+    version: 1,
+  });
+  const firstUpload = await uploadClip(device, incident.id, report.sessionId, report.eventId);
+  expect(firstUpload.status).toBe(200);
+  const retry = await uploadClip(device, incident.id, report.sessionId, report.eventId);
+  expect(retry.status).toBe(200);
+  expect(await retry.json()).toMatchObject({ evidenceStatus: "ready" });
+  const acknowledged = incidentSchema.parse(
+    await (
+      await admin.request(`/api/incidents/commands/${incident.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).json(),
+  );
+  expect(acknowledged.evidenceStatus).toBe("ready");
+  const replay = await admin.request(`/api/incidents/evidence/${incident.id}`);
+  expect(replay.status).toBe(200);
+  expect(new Uint8Array(await replay.arrayBuffer())).toEqual(mp4Clip);
+  const range = await harness.fetch(`${origin}/api/incidents/evidence/${incident.id}`, {
+    headers: {
+      Cookie: [...admin.cookies].map(([key, value]) => `${key}=${value}`).join("; "),
+      Range: "bytes=4-7",
+    },
+  });
+  expect(range.status).toBe(206);
+  expect(range.headers.get("Content-Range")).toBe("bytes 4-7/16");
+  expect(new Uint8Array(await range.arrayBuffer())).toEqual(mp4Clip.slice(4, 8));
+  const invalidRange = await harness.fetch(`${origin}/api/incidents/evidence/${incident.id}`, {
+    headers: {
+      Cookie: [...admin.cookies].map(([key, value]) => `${key}=${value}`).join("; "),
+      Range: "bytes=999-1000",
+    },
+  });
+  expect(invalidRange.status).toBe(416);
+  expect(incidentSchema.parse(await (await admin.request(detail)).json())).toMatchObject({
+    evidenceStatus: "ready",
+    status: "acknowledged",
+    version: 2,
+  });
+});
+
+test("evidence timeout, missing footage, missing objects, expiry and access checks are explicit", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const other = await owner("Other workspace");
+  const otherDevice = await paired(other);
+  const removedMember = await teammate(admin);
+  const incident = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  const start = `/api/incidents/evidence-start/${incident.id}`;
+  const detail = `/api/incidents/detail/${incident.id}`;
+  expect(
+    (
+      await device.request(`/api/incidents/evidence-unavailable/${incident.id}`, {
+        sessionId: report.sessionId,
+        eventId: report.eventId,
+        reason: "No camera footage remained.",
+      })
+    ).status,
+  ).toBe(200);
+  expect(incidentSchema.parse(await (await admin.request(detail)).json())).toMatchObject({
+    evidenceStatus: "unavailable",
+    evidenceReason: "No camera footage remained.",
+  });
+  expect(
+    (await otherDevice.request(start, { sessionId: report.sessionId, eventId: report.eventId }))
+      .status,
+  ).toBe(404);
+  expect((await other.request(`/api/incidents/evidence/${incident.id}`)).status).toBe(404);
+  const removedActor = memberSchema.parse(
+    await (await removedMember.request("/api/access/principal")).json(),
+  );
+  expect(
+    (await admin.request("/api/access/remove-member", { id: removedActor.userId })).status,
+  ).toBe(200);
+  expect((await removedMember.request(`/api/incidents/evidence/${incident.id}`)).status).toBe(403);
+  expect((await uploadClip(device, incident.id, report.sessionId, "wrong-event")).status).toBe(404);
+  expect(
+    (await device.request(start, { sessionId: report.sessionId, eventId: report.eventId })).status,
+  ).toBe(200);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE incident_evidence SET updated_at=0 WHERE incident_id=?")
+    .bind(incident.id)
+    .run();
+  expect(await (await admin.request(detail)).json()).toMatchObject({
+    evidenceStatus: "unavailable",
+    evidenceReason: "Upload interrupted. Retry from the device.",
+  });
+  expect((await uploadClip(device, incident.id, report.sessionId, report.eventId)).status).toBe(
+    200,
+  );
+  const actor = devicePrincipalSchema.parse(
+    await (await device.request("/api/access/principal")).json(),
+  );
+  const key = `${actor.workspaceId}/${incident.id}.mp4`;
+  await env.EVIDENCE.delete(key);
+  expect(await (await admin.request(detail)).json()).toMatchObject({
+    evidenceStatus: "unavailable",
+    evidenceReason: "Saved clip is missing.",
+  });
+  expect(
+    (
+      await device.request(`/api/incidents/evidence-unavailable/${incident.id}`, {
+        sessionId: report.sessionId,
+        eventId: report.eventId,
+        reason: "No camera footage remained.",
+      })
+    ).status,
+  ).toBe(200);
+  expect((await uploadClip(device, incident.id, report.sessionId, report.eventId)).status).toBe(
+    200,
+  );
+  await env.DB.prepare("UPDATE incident_evidence SET expires_at=0 WHERE incident_id=?")
+    .bind(incident.id)
+    .run();
+  expect((await admin.request(`/api/incidents/evidence/${incident.id}`)).status).toBe(404);
+  expect(incidentSchema.parse(await (await admin.request(detail)).json()).evidenceReason).toBe(
+    "Clip expired.",
+  );
+  expect((await uploadClip(device, incident.id, report.sessionId, report.eventId)).status).toBe(
+    410,
+  );
 });
 
 async function liveSetup() {
@@ -1062,4 +1233,164 @@ test("device revocation and member removal terminate both sides of live signalin
   await admin.request("/api/access/devices/revoke", { id: actor.deviceId });
   expect((await admin.request("/api/peer/poll", { id: current.id })).status).toBe(410);
   expect((await device.request("/api/peer/device", source)).status).toBe(401);
+});
+
+test("a real alarm survives object eviction and publishes one follow-up using the incident policy snapshot", async () => {
+  const { admin, device, report, rule } = await incidentSetup(1);
+  const created = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  expect(created.followUp).toEqual({ kind: "scheduled", dueAt: created.receivedAt + 1000 });
+  await harness.getWorker().evictDurableObject("INCIDENT_FOLLOW_UP", { name: created.id });
+  await admin.request("/api/config/rules/update", {
+    ...rule,
+    definition: { ...rule.definition, escalationDelaySeconds: 3600 },
+  });
+  const detail = async () =>
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${created.id}`)).json());
+  await expect
+    .poll(async () => (await detail()).followUp.kind, { timeout: 10_000 })
+    .toBe("attempted");
+  const attempted = await detail();
+  expect(attempted).toMatchObject({ status: "open", owner: null, version: 1, rule });
+  expect(attempted.timeline.map((entry) => entry.kind)).toEqual([
+    "reported",
+    "follow-up-attempted",
+  ]);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  const alarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+  await Promise.all([alarm.dispatch(), alarm.dispatch()]);
+  expect(await detail()).toEqual(attempted);
+  expect(
+    reportReceiptSchema.parse(await (await device.request("/api/incidents/reports", report)).json())
+      .incident,
+  ).toEqual(attempted);
+  expect(
+    incidentInboxSchema.parse(await (await admin.request("/api/incidents/alerts")).json())
+      .incidents,
+  ).toEqual([attempted]);
+});
+
+test("acknowledge, dismiss and resolve prevent new follow-up attempts, including repeated alarm delivery", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  for (const action of ["acknowledge", "dismiss", "resolve"]) {
+    const created = reportReceiptSchema.parse(
+      await (
+        await device.request("/api/incidents/reports", {
+          ...report,
+          eventId: crypto.randomUUID(),
+        })
+      ).json(),
+    ).incident;
+    const path = `/api/incidents/commands/${created.id}`;
+    const preparation =
+      action === "resolve"
+        ? await admin.request(path, { action: "acknowledge", version: 1 })
+        : null;
+    const response = await admin.request(path, { action, version: action === "resolve" ? 2 : 1 });
+    expect([preparation?.status ?? 200, response.status]).toEqual([200, 200]);
+    await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?")
+      .bind(created.id)
+      .run();
+    const alarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+    await Promise.all([alarm.dispatch(), alarm.dispatch()]);
+    const stopped = incidentSchema.parse(
+      await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+    );
+    expect(stopped.followUp.kind).toBe("cancelled");
+    expect(stopped.timeline.some((entry) => entry.kind === "follow-up-attempted")).toBe(false);
+  }
+});
+
+test("acknowledgment racing dispatch either follows the submitted attempt or prevents it atomically", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  for (let index = 0; index < 6; index++) {
+    const created = reportReceiptSchema.parse(
+      await (
+        await device.request("/api/incidents/reports", {
+          ...report,
+          eventId: crypto.randomUUID(),
+        })
+      ).json(),
+    ).incident;
+    await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?")
+      .bind(created.id)
+      .run();
+    const alarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+    const [, acknowledgment] = await Promise.all([
+      alarm.dispatch(),
+      admin.request(`/api/incidents/commands/${created.id}`, { action: "acknowledge", version: 1 }),
+    ]);
+    expect(acknowledgment.status).toBe(200);
+    await alarm.dispatch();
+    const result = incidentSchema.parse(
+      await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+    );
+    expect(result.status).toBe("acknowledged");
+    expect(result.timeline.map((entry) => entry.kind)).toEqual(
+      result.followUp.kind === "attempted"
+        ? ["reported", "follow-up-attempted", "acknowledged"]
+        : ["reported", "acknowledged"],
+    );
+  }
+});
+
+test("failed in-app publication leaves no partial attempt and retries without duplication", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const created = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  await env.DB.prepare(
+    "CREATE TRIGGER fail_follow_up BEFORE UPDATE OF follow_up_attempted_at ON incident BEGIN SELECT RAISE(ABORT,'synthetic delivery failure'); END",
+  ).run();
+  const failedAlarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+  await expect(failedAlarm.dispatch()).rejects.toBeInstanceOf(Error);
+  const failed = incidentSchema.parse(
+    await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+  );
+  expect(failed.followUp.kind).toBe("scheduled");
+  expect(failed.timeline.map((entry) => entry.kind)).toEqual(["reported"]);
+  await env.DB.prepare("DROP TRIGGER fail_follow_up").run();
+  await env.INCIDENT_FOLLOW_UP.getByName(created.id).dispatch();
+  const recovered = incidentSchema.parse(
+    await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+  );
+  expect(recovered.followUp.kind).toBe("attempted");
+  expect(recovered.timeline.map((entry) => entry.kind)).toEqual([
+    "reported",
+    "follow-up-attempted",
+  ]);
+});
+
+test("a failed creation resets the object and recovers its durable intent through the real alarm", async () => {
+  const { admin, device, report } = await incidentSetup(1);
+  const worker = harness.getWorker();
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare(
+    "CREATE TRIGGER fail_creation BEFORE INSERT ON incident BEGIN SELECT RAISE(ABORT,'synthetic insertion failure'); END",
+  ).run();
+  expect((await device.request("/api/incidents/reports", report)).status).toBe(500);
+  const ids = await worker.listDurableObjectIds("INCIDENT_FOLLOW_UP");
+  expect(ids).toHaveLength(1);
+  await env.DB.prepare("DROP TRIGGER fail_creation").run();
+  await expect(worker.evictDurableObject("INCIDENT_FOLLOW_UP", { id: ids[0]! })).rejects.toThrow(
+    "it is not currently running",
+  );
+  const inbox = async () =>
+    incidentInboxSchema.parse(await (await admin.request("/api/incidents/inbox")).json()).incidents;
+  await expect
+    .poll(async () => (await inbox())[0]?.followUp.kind, { timeout: 10_000 })
+    .toBe("attempted");
+  const recovered = await inbox();
+  expect(recovered).toHaveLength(1);
+  expect(recovered[0]?.timeline.map((entry) => entry.kind)).toEqual([
+    "reported",
+    "follow-up-attempted",
+  ]);
+  expect((await device.request("/api/incidents/reports", report)).status).toBe(200);
+  expect(await inbox()).toEqual(recovered);
 });

@@ -94,6 +94,7 @@ const repliesSchema = z.object({
   has_more: z.boolean().optional(),
   response_metadata: z.object({ next_cursor: z.string().optional() }).optional(),
 });
+const reactionErrorSchema = z.object({ data: z.object({ error: z.string() }) });
 
 export function createSlackTransport(options: {
   identity: Identity;
@@ -134,6 +135,22 @@ export function createSlackTransport(options: {
         thread_ts: address.rootTs,
         status,
       });
+    },
+    async setCompleted(address: Incoming["address"], completed: boolean): Promise<void> {
+      try {
+        await call(completed ? "reactions.add" : "reactions.remove", {
+          channel: address.channel,
+          timestamp: address.rootTs,
+          name: "white_check_mark",
+        });
+      } catch (error) {
+        const parsed = reactionErrorSchema.safeParse(error);
+        if (
+          !parsed.success ||
+          parsed.data.data.error !== (completed ? "already_reacted" : "no_reaction")
+        )
+          throw error;
+      }
     },
     async context(input: Incoming): Promise<ThreadContext> {
       try {
@@ -187,6 +204,7 @@ export async function connectSlack(options: {
   identity: Identity;
   publish: (address: Incoming["address"], text: string) => Promise<void>;
   setStatus: ReturnType<typeof createSlackTransport>["setStatus"];
+  setCompleted: ReturnType<typeof createSlackTransport>["setCompleted"];
   context: ReturnType<typeof createSlackTransport>["context"];
   profiles: ReturnType<typeof createSlackTransport>["profiles"];
   listen: (oracle: Oracle) => Promise<void>;
@@ -249,6 +267,7 @@ export async function connectSlack(options: {
     identity,
     publish: transport.publish,
     setStatus: transport.setStatus,
+    setCompleted: transport.setCompleted,
     context: transport.context,
     profiles: transport.profiles,
     async listen(oracle) {

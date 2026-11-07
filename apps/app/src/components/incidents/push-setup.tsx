@@ -1,3 +1,4 @@
+import { Bell, BellOff, LoaderCircle } from "lucide-react";
 import { AccordionPanel } from "@/components/ui/accordion-panel";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -145,6 +146,8 @@ export function PushSetup() {
                   : "Background alerts are off for this browser session."}
               </output>
               <Button
+                size="sm"
+                icon={pending ? LoaderCircle : setup.enabled ? BellOff : Bell}
                 className="w-fit"
                 variant="outline"
                 disabled={pending}

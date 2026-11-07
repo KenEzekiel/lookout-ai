@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+Reload triggers and New trigger share the same default button size, with reload and add icons respectively. Reload is outlined as a secondary action. The toolbar wraps at narrow widths. Source creation, save, edit, disable, and cancel also have decorative action icons; pending forms keep descriptive labels and reject repeat submissions.
+
 Workspace owners and operators create named camera or replay sources, then define incidents in plain language with optional exclusions. The editor starts blank instead of offering a fixed event catalog. Existing template definitions remain readable and open as editable text; saving converts them to custom definitions without changing their observable condition. Each trigger selects one source, warning/critical severity, current workspace recipients, and one escalation delay. The owner is the default recipient. Duration is optional and never imposed on falls or crashes. Duration and escalation delay accept whole seconds from 1 to 3600.
 
 Triggers save enabled or disabled. Every edit, disable, or re-enable increments the version. A stale edit cannot overwrite another save. Invalid conditions, cross-workspace sources, and unauthorized recipients reject the entire save. Removing an operator disables and version-bumps every rule naming that recipient in the same D1 transaction.
@@ -32,11 +34,13 @@ F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` pr
 
 Local capture now exists at `/device`, but connecting its capture identity to configured source IDs remains unimplemented. F-AI-RELAY now uses the authoritative source/rule/version contract to authorize remote assessment requests and derives condition text from stored definitions. F-INCIDENT-RESPONSE now checks source/rule IDs and current versions when accepting device reports and snapshots the rule definition. F-ALERT-INAPP routes only to those snapshotted recipients; later edits do not rewrite an existing incident. Assessment submission, background notifications, and escalation execution remain planned consumers. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Saving settings does not send an alert or start capture.
 
+F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to schedule one in-app follow-up. Later rule edits do not reschedule it. F-ALERT-PUSH preserves the independent initial background-delivery path.
+
 ## Implementation
 
 [Shared schemas](../../../apps/app/src/lib/rules.ts), [configuration handlers](../../../apps/app/src/server/rules.ts), [route adapter](../../../apps/app/src/routes/api/config/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [migration](../../../apps/app/migrations/0002_rule_configuration.sql) implement storage and delivery. [Workspace operations](../../../apps/app/src/server/workspaces.ts) disable rules when recipients leave.
 
-[Trigger route](../../../apps/app/src/routes/triggers.tsx), [workspace screen](../../../apps/app/src/components/rules/workspace.tsx), [editor and summaries](../../../apps/app/src/components/rules/editor.tsx), and [device screen](../../../apps/app/src/components/access/monitor.tsx) connect the operator-to-device configuration journey. Connecting local capture to configured sources and downstream execution remain unimplemented, so status stays partial.
+[Trigger route](../../../apps/app/src/routes/_workspace.triggers.tsx), [workspace screen](../../../apps/app/src/components/rules/workspace.tsx), [editor and summaries](../../../apps/app/src/components/rules/editor.tsx), and [device screen](../../../apps/app/src/components/access/monitor.tsx) connect the operator-to-device configuration journey. Connecting local capture to configured sources and downstream execution remain unimplemented, so status stays partial.
 
 ## Verification
 
@@ -57,6 +61,8 @@ Dropdown panels open outside the trigger with a six-pixel gap and matching width
 The Sources, assessment help, inline source creation, and timing sections use the shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel.tsx). The trigger sits four pixels inside the frame and has its own rounded inset focus ring in both states, keeping the entire highlight away from the clipping boundary. Full-width keyboard-operable buttons expose expansion state and preserve mounted form values while collapsed. Router integration coverage checks keyboard activation and draft preservation. This replaces native disclosure triangles at Ken’s request.
 
 ## Decisions and sources
+
+Kenneth requested consistent button sizes and action icons. [Trigger actions](../../../apps/app/src/components/rules/workspace.tsx), [editor actions](../../../apps/app/src/components/rules/editor.tsx), and [device configuration refresh](../../../apps/app/src/components/access/monitor.tsx) inherit F-APP-SHELL sizing and icons. [Complete-route tests](../../../apps/app/tests/integration/rules.test.tsx) exercise visible action icons, accessible labels, pending reload, failed reload, duplicate-submit prevention, and successful retry. No configuration schema, version, or consumer-wiring contract changes.
 
 Ken approved the revised issue #18 flow in the implementation conversation: incident definitions are authored by the operator and will feed Decisions assessment, rather than being fixed UI choices. The [fall experiment](../../../experiments/decisions-falls/experiment.py) and [crash experiment](../../../experiments/decisions-crashes/experiment.py) supply the predicate/exclusions and separate uncertainty-question pattern. This change stores the definition only; it does not impose the experiments' candidate threshold or sampling cadence, call Decisions, or implement candidate review.
 

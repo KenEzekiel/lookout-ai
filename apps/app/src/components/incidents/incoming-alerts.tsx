@@ -1,11 +1,16 @@
+import { BellOff, BellRing, ExternalLink, Hand, RotateCw, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { BellRing } from "lucide-react";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type { Member } from "@/lib/access";
 import { message, request } from "@/lib/api";
-import { type Incident, incidentInboxSchema, incidentSchema } from "@/lib/incidents";
+import {
+  type Incident,
+  incidentAlertKey,
+  incidentInboxSchema,
+  incidentSchema,
+} from "@/lib/incidents";
 
 function playAlarm(context: AudioContext, buffer: AudioBuffer) {
   const source = context.createBufferSource();
@@ -81,10 +86,10 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
     [context],
   );
   const incoming = incidents.filter(
-    (incident) => incident.status === "open" && !silenced.has(incident.id),
+    (incident) => incident.status === "open" && !silenced.has(incidentAlertKey(incident)),
   );
   const incident = incoming[0];
-  const ringingId = incident?.id;
+  const ringingId = incident ? incidentAlertKey(incident) : undefined;
   useEffect(() => {
     const audio = context;
     if (sound !== "on" || !audio || !buffer) return;
@@ -180,15 +185,15 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
         </p>
         <div className="flex flex-wrap gap-2">
           {delivery === "unavailable" && (
-            <Button size="sm" variant="outline" onClick={() => void refresh()}>
+            <Button icon={RotateCw} size="sm" variant="outline" onClick={() => void refresh()}>
               Retry alerts
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => void testSound()}>
+          <Button icon={Volume2} size="sm" variant="outline" onClick={() => void testSound()}>
             {sound === "on" ? "Test sound" : "Enable sound and test"}
           </Button>
           {sound === "on" && (
-            <Button size="sm" variant="ghost" onClick={() => setSound("off")}>
+            <Button icon={VolumeX} size="sm" variant="ghost" onClick={() => setSound("off")}>
               Turn sound off
             </Button>
           )}
@@ -210,7 +215,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       )}
       <div aria-live="assertive" aria-atomic="true" className="sr-only">
         {incident
-          ? `Incoming incident. ${incident.rule.definition.name}. ${incident.source.name}.`
+          ? `${incident.followUp.kind === "attempted" ? "Incident follow-up" : "Incoming incident"}. ${incident.rule.definition.name}. ${incident.source.name}.`
           : ""}
       </div>
       {incident && (
@@ -219,7 +224,8 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
           className="rounded-2xl border-2 border-incident bg-card p-5 sm:p-7"
         >
           <p className="flex items-center gap-2 text-sm font-semibold text-incident">
-            <BellRing aria-hidden="true" className="size-5" /> Incoming incident
+            <BellRing aria-hidden="true" className="size-5" />
+            {incident.followUp.kind === "attempted" ? "Incident follow-up" : "Incoming incident"}
             {incoming.length > 1 ? ` · ${incoming.length} waiting` : ""}
           </p>
           <h2 className="mt-3 text-2xl font-semibold break-words sm:text-3xl">
@@ -233,28 +239,30 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
             <time dateTime={new Date(incident.eventTime).toISOString()}>
               {new Date(incident.eventTime).toLocaleString()}
             </time>{" "}
-            · {incident.rule.definition.severity === "critical" ? "Critical" : "Warning"} · Evidence
-            pending
+            · {incident.rule.definition.severity === "critical" ? "Critical" : "Warning"} · Evidence{" "}
+            {incident.evidenceStatus}
           </p>
           <p className="mt-3 text-sm text-muted-foreground">
             No owner yet. Acknowledge to let your team know you are handling it.
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <Button disabled={pending} onClick={() => void acknowledge()}>
+            <Button icon={Hand} disabled={pending} onClick={() => void acknowledge()}>
               {pending ? "Acknowledging…" : "Acknowledge alert"}
             </Button>
             <Link
               to="/incidents/$incidentId"
               params={{ incidentId: incident.id }}
-              onClick={() => silence(incident.id)}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-signal focus-visible:outline-2 focus-visible:outline-ring"
+              onClick={() => silence(incidentAlertKey(incident))}
+              className={buttonVariants({ variant: "outline" })}
             >
+              <ExternalLink aria-hidden="true" />
               Open incident
             </Link>
             <Button
+              icon={BellOff}
               variant="ghost"
               onClick={() => {
-                silence(incident.id);
+                silence(incidentAlertKey(incident));
               }}
             >
               Silence here

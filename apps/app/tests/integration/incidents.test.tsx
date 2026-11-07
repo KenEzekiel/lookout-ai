@@ -47,7 +47,9 @@ function reportedIncident(): Incident {
     status: "open",
     version: 1,
     owner: null,
-    evidenceStatus: "pending",
+    evidenceStatus: "preparing",
+    evidenceReason: null,
+    evidenceExpiresAt: null,
     notificationStatus: "not-sent",
     timeline: [
       {
@@ -151,7 +153,7 @@ test("an operator opens an incident, acknowledges ownership with evidence pendin
   await user.click(event);
   expect(await screen.findByRole("heading", { name: "Possible fall" })).toBeVisible();
   expect(screen.getByText("Rule version 4")).toBeVisible();
-  expect(screen.getByRole("heading", { name: "Evidence pending" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Preparing evidence" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Resolve" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Play|Replay/ })).not.toBeInTheDocument();
   expect(incident.status).toBe("open");
@@ -241,4 +243,86 @@ test("paired devices cannot access operator incident controls", async () => {
   expect(await screen.findByRole("heading", { name: "Device connected" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "Incident inbox" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Acknowledge" })).not.toBeInTheDocument();
+});
+
+test("evidence moves from preparing to uploading, unavailable, and ready replay without changing response", async () => {
+  const user = await open("/incidents/fall");
+  expect(await screen.findByRole("heading", { name: "Preparing evidence" })).toBeVisible();
+  incident = incidentSchema.parse({ ...incident, evidenceStatus: "uploading" });
+  await user.click(screen.getByRole("button", { name: "Reload incident" }));
+  expect(await screen.findByRole("heading", { name: "Uploading evidence" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();
+  incident = incidentSchema.parse({
+    ...incident,
+    evidenceStatus: "unavailable",
+    evidenceReason: "No camera footage remained.",
+  });
+  await user.click(screen.getByRole("button", { name: "Reload incident" }));
+  expect(await screen.findByRole("heading", { name: "Evidence unavailable" })).toBeVisible();
+  expect(screen.getByText("No camera footage remained.")).toBeVisible();
+  expect(screen.queryByLabelText("Event clip replay")).not.toBeInTheDocument();
+  incident = incidentSchema.parse({
+    ...incident,
+    evidenceStatus: "ready",
+    evidenceReason: null,
+    evidenceExpiresAt: 1_790_604_800_000,
+  });
+  await user.click(screen.getByRole("button", { name: "Reload incident" }));
+  expect(await screen.findByRole("heading", { name: "Saved event replay" })).toBeVisible();
+  const video = screen.getByLabelText("Event clip replay");
+  expect(video).toHaveAttribute("controls");
+  expect(video).toHaveAttribute("src", "/api/incidents/evidence/fall");
+  expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();
+});
+
+test("detail shows the scheduled follow-up and cancellation after acknowledgment", async () => {
+  incident = incidentSchema.parse({
+    ...incident,
+    followUp: { kind: "scheduled", dueAt: incident.receivedAt + 60_000 },
+  });
+  const user = await open("/incidents/fall");
+  expect(await screen.findByText(/One in-app follow-up due/)).toBeVisible();
+  expect(screen.getByText(/Acknowledge to cancel it/)).toBeVisible();
+  server.use(
+    http.post("/api/incidents/commands/fall", async () => {
+      incident = incidentSchema.parse({
+        ...incident,
+        status: "acknowledged",
+        version: 2,
+        owner: { userId: actor.userId, name: actor.name },
+        followUp: { kind: "cancelled", dueAt: incident.receivedAt + 60_000 },
+      });
+      return HttpResponse.json(incident);
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Acknowledge" }));
+  expect(
+    await screen.findByText("Pending follow-up cancelled by the incident response."),
+  ).toBeVisible();
+});
+
+test("an attempted follow-up is visibly distinct from operator acknowledgment", async () => {
+  incident = incidentSchema.parse({
+    ...incident,
+    followUp: {
+      kind: "attempted",
+      dueAt: incident.receivedAt + 60_000,
+      attemptedAt: incident.receivedAt + 60_010,
+    },
+    timeline: [
+      ...incident.timeline,
+      {
+        kind: "follow-up-attempted",
+        at: incident.receivedAt + 60_010,
+        actorId: "system",
+        actorName: "Lookout",
+      },
+    ],
+  });
+  await open("/incidents/fall");
+  expect(await screen.findByText(/This does not confirm anyone saw it/)).toBeVisible();
+  expect(screen.getByText("In-app follow-up attempted by Lookout")).toBeVisible();
+  expect(screen.getByText("No owner yet")).toBeVisible();
+  expect(screen.queryByText("Acknowledged by Lookout")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Acknowledge" })).toBeEnabled();
 });

@@ -7,6 +7,7 @@ Depends on: F-AUTH-ACCESS, F-ALERT-INAPP
 ## Behavior
 
 Background alert settings use the shared accordion panel with a full-width keyboard-operable button and exposed expansion state, replacing the native disclosure triangle at Ken’s request.
+Background-alert enable and disable actions use the F-APP-SHELL compact button size and decorative bell icons. Pending updates retain their visible progress label and a busy icon.
 
 An operator explicitly enables background alerts for their signed-in browser session. Setup explains blocked permission, unsupported or insecure browsers, missing server configuration, and the iPhone or iPad Home Screen prerequisite. Turning alerts off removes the server subscription before unsubscribing the browser. Signing out ends delivery for that session. Membership removal deletes that operator's workspace subscriptions.
 
@@ -16,7 +17,7 @@ Delivery is best effort. No native call UI, continuous ringtone, silent-mode byp
 
 ## Entry points
 
-Every member screen has a **Background alerts** disclosure with **Enable alerts** and **Turn off background alerts** controls. Permission is requested only after a click. iPhone and iPad users must add Lookout to the Home Screen in Safari and open it there on a supported OS. The manifest and PNG icons support installation; no authenticated content is cached for offline use.
+The shared workspace layout keeps the **Background alerts** disclosure mounted across Devices, Team, Triggers, inbox, and detail navigation. Every member screen has a **Background alerts** disclosure with **Enable alerts** and **Turn off background alerts** controls. Permission is requested only after a click. iPhone and iPad users must add Lookout to the Home Screen in Safari and open it there on a supported OS. The manifest and PNG icons support installation; no authenticated content is cached for offline use.
 
 ## Wiring and compatibility
 
@@ -28,7 +29,7 @@ The existing incident report path calls [the push service](../../../apps/app/src
 
 The request awaits provider attempts with a five-second fetch timeout per endpoint. Each encrypted RFC 8291 message uses VAPID authentication and a 60-second TTL. Provider 404 or 410 removes the subscription; other errors retain it for later incidents and record failure. A response or sign-out stops new eligible claims, but cannot retract an in-flight provider request. A crash after claiming can lose the attempt and leave an attempting receipt. There is no queue or retry scheduler in this slice.
 
-F-INCIDENT-RESPONSE publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`. At least one provider acceptance takes precedence over pending or failed attempts. Accepted means provider acceptance, not display on a device. A failed aggregate includes expired subscriptions. In-app visibility and replay readiness remain separate. F-ALERT-ESCALATE is still unimplemented and must not reuse the initial-attempt claim as an escalation receipt.
+F-INCIDENT-RESPONSE publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`. At least one provider acceptance takes precedence over pending or failed attempts. Accepted means provider acceptance, not display on a device. A failed aggregate includes expired subscriptions. In-app visibility and replay readiness remain separate. F-ALERT-ESCALATE now provides one durable in-app follow-up with its own attempt timestamp. It preserves this initial push path and does not reuse the initial-attempt claim or send a second background push.
 
 ## Implementation
 
@@ -47,6 +48,8 @@ Implementation and local integration coverage are present. Physical desktop back
 Manual browser QA and its exact mocks, tested build and media belong in the PR. Actual OS notification delivery, foreground and background operation on target desktop, Android and iOS devices, Home Screen installation, and denied-permission recovery remain required target-device checks. Emulation and CI do not establish those results.
 
 ## Decisions and sources
+
+Kenneth requested consistent button sizing and clearer action icons. [Background-alert controls](../../../apps/app/src/components/incidents/push-setup.tsx) use the shared Button size and icon contract. Permission consent and delivery behavior remain unchanged; existing complete-screen tests cover enable, disable, failure, and retry.
 
 [Issue #24](https://github.com/KenEzekiel/lookout-ai/issues/24), [experience design](../../architecture/design.md#operator-notifications), and [visual design](../../../DESIGN.md). This PR introduces the subscription and attempt contracts above.
 

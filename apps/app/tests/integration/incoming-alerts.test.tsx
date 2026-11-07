@@ -40,7 +40,9 @@ const reported = incidentSchema.parse({
   status: "open",
   version: 1,
   owner: null,
-  evidenceStatus: "pending",
+  evidenceStatus: "preparing",
+  evidenceReason: null,
+  evidenceExpiresAt: null,
   notificationStatus: "not-sent",
   timeline: [],
 });
@@ -89,7 +91,7 @@ test("a connected operator receives context once, silences locally and keeps it 
   expect(alert).toHaveTextContent("Possible fall");
   expect(alert).toHaveTextContent("Living room");
   expect(alert).toHaveTextContent("Replayed footage");
-  expect(alert).toHaveTextContent("Evidence pending");
+  expect(alert).toHaveTextContent("Evidence preparing");
   fireEvent(window, new Event("focus"));
   expect(screen.getAllByRole("article", { name: "Incoming incident" })).toHaveLength(1);
   await view.user.click(within(alert).getByRole("button", { name: "Silence here" }));
@@ -106,7 +108,7 @@ test("opening an alert navigates to evidence-pending detail without acknowledgin
   const { user } = await open();
   await user.click(await screen.findByRole("link", { name: "Open incident" }));
   expect(await screen.findByRole("heading", { name: "Possible fall" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "Evidence pending" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Preparing evidence" })).toBeVisible();
   expect(screen.getByText("No owner yet")).toBeVisible();
   expect(commands).toEqual([]);
   expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
@@ -195,5 +197,34 @@ test("silencing one incident advances to the next eligible incident", async () =
   expect(await screen.findByText("Incoming incident · 2 waiting")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Silence here" }));
   expect(await screen.findByRole("heading", { name: "Possible crash" })).toBeVisible();
+  expect(commands).toEqual([]);
+});
+
+test("one durable follow-up re-alerts a locally silenced incident and repeated delivery stays silenced", async () => {
+  deliveries = [reported];
+  const { user } = await open();
+  await user.click(await screen.findByRole("button", { name: "Silence here" }));
+  expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
+  deliveries = [
+    incidentSchema.parse({
+      ...reported,
+      followUp: {
+        kind: "attempted",
+        dueAt: reported.receivedAt + 60_000,
+        attemptedAt: reported.receivedAt + 60_010,
+      },
+    }),
+  ];
+  fireEvent(window, new Event("focus"));
+  const alert = await screen.findByRole("article", { name: "Incoming incident" });
+  expect(alert).toHaveTextContent("Incident follow-up");
+  expect(commands).toEqual([]);
+  fireEvent(window, new Event("focus"));
+  expect(screen.getAllByRole("article", { name: "Incoming incident" })).toHaveLength(1);
+  await user.click(within(alert).getByRole("button", { name: "Silence here" }));
+  fireEvent(window, new Event("online"));
+  await waitFor(() =>
+    expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument(),
+  );
   expect(commands).toEqual([]);
 });

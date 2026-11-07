@@ -1,3 +1,4 @@
+import { Check, Hand, RotateCw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, Clock, Video } from "lucide-react";
@@ -24,6 +25,12 @@ function Status({ incident }: { incident: Incident }) {
     </span>
   );
 }
+const evidenceLabels: Record<Incident["evidenceStatus"], string> = {
+  preparing: "Preparing evidence",
+  uploading: "Uploading evidence",
+  ready: "Replay ready",
+  unavailable: "Evidence unavailable",
+};
 export function IncidentInbox() {
   const [incidents, setIncidents] = useState<Incident[]>();
   const [error, setError] = useState("");
@@ -78,7 +85,7 @@ export function IncidentInbox() {
             Review what happened and take ownership of the response.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void refresh()}>
+        <Button icon={RotateCw} variant="outline" onClick={() => void refresh()}>
           Reload inbox
         </Button>
       </div>
@@ -123,8 +130,8 @@ export function IncidentInbox() {
                     <EventTime at={incident.eventTime} />
                   </p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {incident.owner ? `Owned by ${incident.owner.name}` : "No owner yet"} · Evidence
-                    pending
+                    {incident.owner ? `Owned by ${incident.owner.name}` : "No owner yet"} ·{" "}
+                    {evidenceLabels[incident.evidenceStatus]}
                   </p>
                 </div>
                 <Status incident={incident} />
@@ -228,6 +235,7 @@ export function IncidentDetail({ id }: { id: string }) {
           Back to inbox
         </Link>
         <Button
+          icon={RotateCw}
           variant="outline"
           disabled={pending}
           onClick={() => {
@@ -268,14 +276,45 @@ export function IncidentDetail({ id }: { id: string }) {
           </header>
           <div className="grid items-start gap-6 lg:grid-cols-[1.5fr_1fr]">
             <div className="grid gap-6">
-              <div className="flex min-h-60 flex-col items-center justify-center gap-3 rounded-2xl bg-card p-8 text-center">
-                <Video aria-hidden="true" className="size-8 text-muted-foreground" />
-                <h3 className="text-xl font-medium">Evidence pending</h3>
-                <p className="max-w-sm text-muted-foreground">
-                  Preparing replay. No saved clip is available yet. You can respond while evidence
-                  is pending.
-                </p>
-              </div>
+              <section
+                aria-label="Evidence"
+                className="flex min-h-60 flex-col items-center justify-center gap-3 rounded-2xl bg-card p-8 text-center"
+              >
+                {incident.evidenceStatus === "ready" ? (
+                  <>
+                    <h3 className="text-xl font-medium">Saved event replay</h3>
+                    <video
+                      controls
+                      aria-label="Event clip replay"
+                      preload="metadata"
+                      className="w-full max-w-2xl rounded-xl bg-black"
+                      src={`/api/incidents/evidence/${encodeURIComponent(incident.id)}`}
+                    >
+                      <track kind="captions" src="data:text/vtt,WEBVTT" />
+                      Your browser cannot play this video.
+                    </video>
+                    {incident.evidenceExpiresAt && (
+                      <p className="text-sm text-muted-foreground">
+                        Available until <EventTime at={incident.evidenceExpiresAt} />
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Video aria-hidden="true" className="size-8 text-muted-foreground" />
+                    <h3 className="text-xl font-medium">
+                      {evidenceLabels[incident.evidenceStatus]}
+                    </h3>
+                    <p className="max-w-sm text-muted-foreground">
+                      {incident.evidenceStatus === "unavailable"
+                        ? incident.evidenceReason || "No playable clip is available for this event."
+                        : incident.evidenceStatus === "uploading"
+                          ? "The device is sending the clip. You can respond while it uploads."
+                          : "The device is preparing the clip. You can respond while evidence is pending."}
+                    </p>
+                  </>
+                )}
+              </section>
               <section aria-labelledby="rule-title" className="rounded-2xl bg-card p-6">
                 <h3 id="rule-title" className="text-lg font-semibold">
                   Matched trigger
@@ -313,17 +352,22 @@ export function IncidentDetail({ id }: { id: string }) {
                 {notice && <output className="mt-4 block text-sm">{notice}</output>}
                 <div className="mt-5 grid gap-3">
                   {incident.status === "open" && (
-                    <Button disabled={pending} onClick={() => void respond("acknowledge")}>
+                    <Button
+                      icon={Hand}
+                      disabled={pending}
+                      onClick={() => void respond("acknowledge")}
+                    >
                       Acknowledge
                     </Button>
                   )}
                   {incident.status === "acknowledged" && (
-                    <Button disabled={pending} onClick={() => void respond("resolve")}>
+                    <Button icon={Check} disabled={pending} onClick={() => void respond("resolve")}>
                       Resolve
                     </Button>
                   )}
                   {(incident.status === "open" || incident.status === "acknowledged") && (
                     <Button
+                      icon={X}
                       variant="outline"
                       disabled={pending}
                       onClick={() => void respond("dismiss")}
@@ -349,10 +393,21 @@ export function IncidentDetail({ id }: { id: string }) {
                     }[incident.notificationStatus]
                   }
                 </p>
-                {incident.status === "open" && (
+                {incident.followUp.kind === "scheduled" ? (
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Configured follow-up delay {incident.rule.definition.escalationDelaySeconds}{" "}
-                    seconds. No follow-up is scheduled.
+                    One in-app follow-up due <EventTime at={incident.followUp.dueAt} />. Acknowledge
+                    to cancel it.
+                  </p>
+                ) : incident.followUp.kind === "attempted" ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    In-app follow-up attempted <EventTime at={incident.followUp.attemptedAt} />.
+                    This does not confirm anyone saw it.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {incident.followUp.kind === "cancelled"
+                      ? "Pending follow-up cancelled by the incident response."
+                      : "No follow-up was scheduled for this incident."}
                   </p>
                 )}
               </section>
@@ -371,7 +426,9 @@ export function IncidentDetail({ id }: { id: string }) {
                             ? "Acknowledged by"
                             : entry.kind === "dismissed"
                               ? "Dismissed by"
-                              : "Resolved by"}{" "}
+                              : entry.kind === "follow-up-attempted"
+                                ? "In-app follow-up attempted by"
+                                : "Resolved by"}{" "}
                         {entry.actorName}
                       </p>
                       <p className="mt-1 text-muted-foreground">

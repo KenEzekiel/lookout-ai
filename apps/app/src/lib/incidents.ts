@@ -24,6 +24,16 @@ export const incidentCommandSchema = z
   })
   .strict();
 const ownerSchema = z.object({ userId: z.string(), name: z.string() });
+export const followUpSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("none") }),
+  z.object({ kind: z.literal("scheduled"), dueAt: z.number().int() }),
+  z.object({ kind: z.literal("cancelled"), dueAt: z.number().int() }),
+  z.object({
+    kind: z.literal("attempted"),
+    dueAt: z.number().int(),
+    attemptedAt: z.number().int(),
+  }),
+]);
 const incidentBaseSchema = z.object({
   id: z.string(),
   deviceId: z.string(),
@@ -34,11 +44,14 @@ const incidentBaseSchema = z.object({
   source: sourceSchema,
   rule: ruleSchema,
   version: z.number().int().positive(),
-  evidenceStatus: z.literal("pending"),
+  evidenceStatus: z.enum(["preparing", "uploading", "ready", "unavailable"]),
+  evidenceReason: z.string().nullable(),
+  evidenceExpiresAt: z.number().int().nullable(),
   notificationStatus: z.enum(["not-sent", "attempting", "accepted", "failed"]),
+  followUp: followUpSchema.default({ kind: "none" }),
   timeline: z.array(
     z.object({
-      kind: z.enum(["reported", "acknowledged", "dismissed", "resolved"]),
+      kind: z.enum(["reported", "acknowledged", "dismissed", "resolved", "follow-up-attempted"]),
       at: z.number().int(),
       actorId: z.string(),
       actorName: z.string(),
@@ -55,6 +68,9 @@ export const incidentInboxSchema = z.object({ incidents: z.array(incidentSchema)
 export const reportReceiptSchema = z.object({ incident: incidentSchema });
 export type Incident = z.infer<typeof incidentSchema>;
 export type IncidentCommand = z.infer<typeof incidentCommandSchema>;
+export function incidentAlertKey(incident: Incident) {
+  return incident.followUp.kind === "attempted" ? `${incident.id}:follow-up` : incident.id;
+}
 export const incidentStatusLabels: Record<Incident["status"], string> = {
   open: "Needs attention",
   acknowledged: "Acknowledged",
