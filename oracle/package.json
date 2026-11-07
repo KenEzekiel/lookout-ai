@@ -1,0 +1,21 @@
+{
+  "name": "@lookout/oracle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx dispatcher/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.*",
+    "check:shared": "tsx tools/check-shared.ts"
+  },
+  "dependencies": {
+    "@slack/bolt": "5.1.0",
+    "dotenv": "18.0.9",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}
