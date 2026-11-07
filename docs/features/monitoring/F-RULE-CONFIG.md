@@ -32,6 +32,8 @@ F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` pr
 
 Local capture now exists at `/device`, but connecting its capture identity to configured source IDs remains unimplemented. F-AI-RELAY now uses the authoritative source/rule/version contract to authorize remote assessment requests and derives condition text from stored definitions. F-INCIDENT-RESPONSE now checks source/rule IDs and current versions when accepting device reports and snapshots the rule definition. F-ALERT-INAPP routes only to those snapshotted recipients; later edits do not rewrite an existing incident. Assessment submission, background notifications, and escalation execution remain planned consumers. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Saving settings does not send an alert or start capture.
 
+F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to schedule one in-app follow-up. Later rule edits do not reschedule it. F-ALERT-PUSH preserves the independent initial background-delivery path.
+
 ## Implementation
 
 [Shared schemas](../../../apps/app/src/lib/rules.ts), [configuration handlers](../../../apps/app/src/server/rules.ts), [route adapter](../../../apps/app/src/routes/api/config/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [migration](../../../apps/app/migrations/0002_rule_configuration.sql) implement storage and delivery. [Workspace operations](../../../apps/app/src/server/workspaces.ts) disable rules when recipients leave.

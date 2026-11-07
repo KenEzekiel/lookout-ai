@@ -589,10 +589,15 @@ test("operators configure rules and removing a recipient disables and versions a
   );
 });
 
-async function incidentSetup() {
+async function incidentSetup(escalationDelaySeconds = 60) {
   const workspace = await configuredWorkspace();
   const rule = ruleSchema.parse(
-    await (await workspace.admin.request("/api/config/rules/create", workspace.input)).json(),
+    await (
+      await workspace.admin.request("/api/config/rules/create", {
+        ...workspace.input,
+        definition: { ...workspace.input.definition, escalationDelaySeconds },
+      })
+    ).json(),
   );
   const device = await paired(workspace.admin);
   const session = captureSessionSchema.parse(
@@ -1062,4 +1067,164 @@ test("device revocation and member removal terminate both sides of live signalin
   await admin.request("/api/access/devices/revoke", { id: actor.deviceId });
   expect((await admin.request("/api/peer/poll", { id: current.id })).status).toBe(410);
   expect((await device.request("/api/peer/device", source)).status).toBe(401);
+});
+
+test("a real alarm survives object eviction and publishes one follow-up using the incident policy snapshot", async () => {
+  const { admin, device, report, rule } = await incidentSetup(1);
+  const created = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  expect(created.followUp).toEqual({ kind: "scheduled", dueAt: created.receivedAt + 1000 });
+  await harness.getWorker().evictDurableObject("INCIDENT_FOLLOW_UP", { name: created.id });
+  await admin.request("/api/config/rules/update", {
+    ...rule,
+    definition: { ...rule.definition, escalationDelaySeconds: 3600 },
+  });
+  const detail = async () =>
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${created.id}`)).json());
+  await expect
+    .poll(async () => (await detail()).followUp.kind, { timeout: 10_000 })
+    .toBe("attempted");
+  const attempted = await detail();
+  expect(attempted).toMatchObject({ status: "open", owner: null, version: 1, rule });
+  expect(attempted.timeline.map((entry) => entry.kind)).toEqual([
+    "reported",
+    "follow-up-attempted",
+  ]);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  const alarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+  await Promise.all([alarm.dispatch(), alarm.dispatch()]);
+  expect(await detail()).toEqual(attempted);
+  expect(
+    reportReceiptSchema.parse(await (await device.request("/api/incidents/reports", report)).json())
+      .incident,
+  ).toEqual(attempted);
+  expect(
+    incidentInboxSchema.parse(await (await admin.request("/api/incidents/alerts")).json())
+      .incidents,
+  ).toEqual([attempted]);
+});
+
+test("acknowledge, dismiss and resolve prevent new follow-up attempts, including repeated alarm delivery", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  for (const action of ["acknowledge", "dismiss", "resolve"]) {
+    const created = reportReceiptSchema.parse(
+      await (
+        await device.request("/api/incidents/reports", {
+          ...report,
+          eventId: crypto.randomUUID(),
+        })
+      ).json(),
+    ).incident;
+    const path = `/api/incidents/commands/${created.id}`;
+    const preparation =
+      action === "resolve"
+        ? await admin.request(path, { action: "acknowledge", version: 1 })
+        : null;
+    const response = await admin.request(path, { action, version: action === "resolve" ? 2 : 1 });
+    expect([preparation?.status ?? 200, response.status]).toEqual([200, 200]);
+    await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?")
+      .bind(created.id)
+      .run();
+    const alarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+    await Promise.all([alarm.dispatch(), alarm.dispatch()]);
+    const stopped = incidentSchema.parse(
+      await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+    );
+    expect(stopped.followUp.kind).toBe("cancelled");
+    expect(stopped.timeline.some((entry) => entry.kind === "follow-up-attempted")).toBe(false);
+  }
+});
+
+test("acknowledgment racing dispatch either follows the submitted attempt or prevents it atomically", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  for (let index = 0; index < 6; index++) {
+    const created = reportReceiptSchema.parse(
+      await (
+        await device.request("/api/incidents/reports", {
+          ...report,
+          eventId: crypto.randomUUID(),
+        })
+      ).json(),
+    ).incident;
+    await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?")
+      .bind(created.id)
+      .run();
+    const alarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+    const [, acknowledgment] = await Promise.all([
+      alarm.dispatch(),
+      admin.request(`/api/incidents/commands/${created.id}`, { action: "acknowledge", version: 1 }),
+    ]);
+    expect(acknowledgment.status).toBe(200);
+    await alarm.dispatch();
+    const result = incidentSchema.parse(
+      await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+    );
+    expect(result.status).toBe("acknowledged");
+    expect(result.timeline.map((entry) => entry.kind)).toEqual(
+      result.followUp.kind === "attempted"
+        ? ["reported", "follow-up-attempted", "acknowledged"]
+        : ["reported", "acknowledged"],
+    );
+  }
+});
+
+test("failed in-app publication leaves no partial attempt and retries without duplication", async () => {
+  const { admin, device, report } = await incidentSetup();
+  const created = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  ).incident;
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  await env.DB.prepare(
+    "CREATE TRIGGER fail_follow_up BEFORE UPDATE OF follow_up_attempted_at ON incident BEGIN SELECT RAISE(ABORT,'synthetic delivery failure'); END",
+  ).run();
+  const failedAlarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+  await expect(failedAlarm.dispatch()).rejects.toBeInstanceOf(Error);
+  const failed = incidentSchema.parse(
+    await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+  );
+  expect(failed.followUp.kind).toBe("scheduled");
+  expect(failed.timeline.map((entry) => entry.kind)).toEqual(["reported"]);
+  await env.DB.prepare("DROP TRIGGER fail_follow_up").run();
+  await env.INCIDENT_FOLLOW_UP.getByName(created.id).dispatch();
+  const recovered = incidentSchema.parse(
+    await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+  );
+  expect(recovered.followUp.kind).toBe("attempted");
+  expect(recovered.timeline.map((entry) => entry.kind)).toEqual([
+    "reported",
+    "follow-up-attempted",
+  ]);
+});
+
+test("a failed creation resets the object and recovers its durable intent through the real alarm", async () => {
+  const { admin, device, report } = await incidentSetup(1);
+  const worker = harness.getWorker();
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare(
+    "CREATE TRIGGER fail_creation BEFORE INSERT ON incident BEGIN SELECT RAISE(ABORT,'synthetic insertion failure'); END",
+  ).run();
+  expect((await device.request("/api/incidents/reports", report)).status).toBe(500);
+  const ids = await worker.listDurableObjectIds("INCIDENT_FOLLOW_UP");
+  expect(ids).toHaveLength(1);
+  await env.DB.prepare("DROP TRIGGER fail_creation").run();
+  await expect(worker.evictDurableObject("INCIDENT_FOLLOW_UP", { id: ids[0]! })).rejects.toThrow(
+    "it is not currently running",
+  );
+  const inbox = async () =>
+    incidentInboxSchema.parse(await (await admin.request("/api/incidents/inbox")).json()).incidents;
+  await expect
+    .poll(async () => (await inbox())[0]?.followUp.kind, { timeout: 10_000 })
+    .toBe("attempted");
+  const recovered = await inbox();
+  expect(recovered).toHaveLength(1);
+  expect(recovered[0]?.timeline.map((entry) => entry.kind)).toEqual([
+    "reported",
+    "follow-up-attempted",
+  ]);
+  expect((await device.request("/api/incidents/reports", report)).status).toBe(200);
+  expect(await inbox()).toEqual(recovered);
 });
