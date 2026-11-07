@@ -4,6 +4,7 @@ import { type z } from "zod";
 import { type Member, teamSchema } from "@/lib/access";
 import { request, message } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { LiveView } from "@/components/live-view";
 import { WorkspaceActions, type WorkspaceAction } from "./workspace-actions";
 
 export function Workspace({
@@ -19,6 +20,7 @@ export function Workspace({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [action, setAction] = useState<WorkspaceAction | null>(null);
+  const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null);
   const owner = actor.role === "owner";
   async function refresh(notice: string) {
     setTeam(await request("/api/access/team", teamSchema));
@@ -60,6 +62,7 @@ export function Workspace({
           </Button>
         )}
       </div>
+      {viewing && devices && <LiveView device={viewing} onClose={() => setViewing(null)} />}
       {devices && (
         <p className="mb-6 rounded-lg bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
           Paired devices can capture a camera or local video. Automatic AI detection and device
@@ -116,7 +119,7 @@ export function Workspace({
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-border">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 bg-card px-5 py-3 text-xs text-muted-foreground sm:grid-cols-[minmax(0,1fr)_140px_130px]">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 bg-card px-5 py-3 text-xs text-muted-foreground sm:grid-cols-[minmax(0,1fr)_110px_240px]">
                 <span>Device</span>
                 <span>Access</span>
                 <span className="hidden sm:block" />
@@ -125,7 +128,7 @@ export function Workspace({
                 {team.devices.map((device) => (
                   <li
                     key={device.id}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_140px_130px]"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_110px_240px]"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <Monitor className="hidden size-5 shrink-0 text-muted-foreground sm:block" />
@@ -141,20 +144,31 @@ export function Workspace({
                     <span className="text-xs text-muted-foreground">
                       {device.revokedAt === null ? "Paired" : "Access removed"}
                     </span>
-                    {owner && device.revokedAt === null ? (
-                      <Button
-                        variant="ghost"
-                        className="col-span-2 h-9 justify-self-end text-muted-foreground sm:col-span-1"
-                        aria-label={`Remove access for ${device.name}`}
-                        onClick={() =>
-                          setAction({ kind: "revoke-device", id: device.id, name: device.name })
-                        }
-                      >
-                        Remove access
-                      </Button>
-                    ) : (
-                      <span className="hidden sm:block" />
-                    )}
+                    <div className="col-span-2 flex flex-wrap justify-end gap-2 sm:col-span-1">
+                      {device.revokedAt === null && (
+                        <Button
+                          variant="secondary"
+                          aria-label={`Live view of ${device.name}`}
+                          onClick={() => setViewing({ id: device.id, name: device.name })}
+                        >
+                          Live view
+                        </Button>
+                      )}
+                      {owner && device.revokedAt === null ? (
+                        <Button
+                          variant="ghost"
+                          className="col-span-2 h-9 justify-self-end text-muted-foreground sm:col-span-1"
+                          aria-label={`Remove access for ${device.name}`}
+                          onClick={() =>
+                            setAction({ kind: "revoke-device", id: device.id, name: device.name })
+                          }
+                        >
+                          Remove access
+                        </Button>
+                      ) : (
+                        <span className="hidden sm:block" />
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
