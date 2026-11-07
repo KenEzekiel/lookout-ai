@@ -6,6 +6,8 @@ Depends on: F-INCIDENT-RESPONSE
 
 ## Behavior
 
+The full-screen alert groups incident context, response actions and sound preferences with explicit section spacing. Acknowledgment errors sit beside the response actions; compact sound controls follow a separator below the incident response. The same reading order applies on narrow screens, with internal scrolling retaining access to all controls.
+
 Issue #99 changes incoming presentation to a viewport-covering modal in the shared operator layout. The shared dialog traps focus and restores it on local silence. Escape silences locally; outside clicks do not dismiss. Content scrolls inside the overlay. Sound controls and command errors remain accessible inside it. Delivery, follow-up keys, queue ordering and ownership commands remain unchanged. Production Chromium verification with isolated, migrated D1 passed: overlay above an open trigger dialog, preserved draft and restored focus, queue and duplicate handling, failed acknowledgment and retry, cross-session acknowledgment, delayed submission feedback, reduced motion, and scrolling to actions at 320 × 300. The PR contains screenshots and video evidence.
 
 For [issue #87](https://github.com/KenEzekiel/lookout-ai/issues/87), delivery is scoped to already-activated escalation levels. The server returns each member’s newest eligible deliveryLevel; advancing a level for someone else does not reopen that member’s silenced alert. Initial and legacy follow-up silence keys remain stable; levels 3–6 have distinct ordinal keys.
