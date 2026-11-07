@@ -1,13 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
-import { AccessApp } from "@/components/access/app";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
-  validateSearch: z.object({ view: z.enum(["devices", "team"]).optional().catch(undefined) }),
-  component: Home,
+  beforeLoad: () => {
+    throw redirect({ to: "/devices", replace: true });
+  },
 });
-
-function Home() {
-  const { view } = Route.useSearch();
-  return <AccessApp view={view} />;
-}
