@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { mutate } from "@/lib/api";
+import { RememberedDeviceLink } from "./remembered-device-link";
 import { ActionForm, Field, Panel } from "./forms";
 
 export function Account({
@@ -70,6 +71,7 @@ export function Account({
           {register ? "Sign in" : "Create an account"}
         </Button>
       </div>
+      <RememberedDeviceLink />
       <div className="mt-10 border-t border-border pt-6 text-center text-sm">
         <Link to="/monitor" className="text-muted-foreground hover:text-foreground">
           Set up this device

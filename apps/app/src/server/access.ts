@@ -4,24 +4,15 @@ import { auth } from "./auth";
 import { AccessError, cookie, digest } from "./http";
 
 export const deviceCookie = "lookout_device";
+export const deviceModeCookie = "lookout_device_mode";
 export const pairingCookie = "lookout_pairing";
 export async function principal(request: Request): Promise<Principal> {
-  const credential = cookie(request, deviceCookie);
-  if (credential) {
-    const row = await env.DB.prepare(
-      "SELECT d.id AS deviceId,d.workspace_id AS workspaceId,w.name AS workspaceName,d.name FROM device d JOIN workspace w ON w.id=d.workspace_id WHERE d.token_hash=? AND d.revoked_at IS NULL",
-    )
-      .bind(await digest(credential))
-      .first();
-    if (!row)
-      throw new AccessError(
-        401,
-        "Device access revoked. Ask the owner to pair this browser again.",
-      );
-    return devicePrincipalSchema.parse({ ...row, kind: "device" });
-  }
   const session = await auth().api.getSession({ headers: request.headers });
-  if (!session) return { kind: "visitor" };
+  if (!session) {
+    if (cookie(request, deviceModeCookie) !== "workspace" && cookie(request, deviceCookie))
+      return monitoringDevice(request);
+    return { kind: "visitor" };
+  }
   const row = await env.DB.prepare(
     "SELECT m.workspace_id AS workspaceId,w.name AS workspaceName,m.role FROM membership m JOIN workspace w ON w.id=m.workspace_id WHERE m.user_id=?",
   )
@@ -55,12 +46,35 @@ export async function unassigned(request: Request) {
     );
   return actor;
 }
+export async function rememberedDevice(request: Request) {
+  const credential = cookie(request, deviceCookie);
+  if (!credential) return null;
+  const row = await env.DB.prepare(
+    "SELECT d.id AS deviceId,d.workspace_id AS workspaceId,w.name AS workspaceName,d.name FROM device d JOIN workspace w ON w.id=d.workspace_id WHERE d.token_hash=? AND d.revoked_at IS NULL",
+  )
+    .bind(await digest(credential))
+    .first();
+  if (!row) return null;
+  const device = devicePrincipalSchema.parse({ ...row, kind: "device" });
+  const session = await auth().api.getSession({ headers: request.headers });
+  if (session) {
+    const membership = await env.DB.prepare(
+      "SELECT workspace_id AS workspaceId FROM membership WHERE user_id=?",
+    )
+      .bind(session.user.id)
+      .first<{ workspaceId: string }>();
+    if (membership?.workspaceId !== device.workspaceId) return null;
+  }
+  return device;
+}
 export async function monitoringDevice(request: Request) {
-  const actor = await principal(request);
-  if (actor.kind !== "device")
+  const device = await rememberedDevice(request);
+  if (!device) {
+    const session = await auth().api.getSession({ headers: request.headers });
     throw new AccessError(
-      actor.kind === "visitor" ? 401 : 403,
-      "A paired monitoring device is required.",
+      session && !cookie(request, deviceCookie) ? 403 : 401,
+      "Device access revoked or unavailable. Ask the owner to pair this browser again.",
     );
-  return actor;
+  }
+  return device;
 }

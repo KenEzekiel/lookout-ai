@@ -202,7 +202,11 @@ test("team SSE denies visitors, unassigned accounts, and paired devices", async 
   expect((await browser.request("/api/access/devices/activate", { name: "Camera" })).status).toBe(
     200,
   );
-  expect((await browser.request("/api/access/team/events")).status).toBe(403);
+  const device = new Browser();
+  const token = browser.cookies.get("lookout_device");
+  assert.ok(token);
+  device.cookies.set("lookout_device", token);
+  expect((await device.request("/api/access/team/events")).status).toBe(403);
 });
 
 test("team SSE rechecks operator membership and closes after removal", async () => {
@@ -370,18 +374,131 @@ test("device pairing is restricted to the claiming browser and revocation is imm
   expect((await device.request("/api/access/principal")).status).toBe(401);
 });
 
-test("same-browser activation invalidates the owner session, and owner sign-out elsewhere does not revoke devices", async () => {
+test("same-browser capture preserves login and reuses its remembered device until explicitly forgotten", async () => {
   const admin = await owner();
   const copiedSession = new Browser();
   copiedSession.cookies = new Map(admin.cookies);
-  const activated = await admin.request("/api/access/devices/activate", { name: "This browser" });
-  expect(activated.status).toBe(200);
-  expect((await copiedSession.request("/api/access/team")).status).toBe(401);
-  expect((await admin.request("/api/access/team")).status).toBe(403);
-  expect((await admin.request("/api/auth/sign-out", {})).status).toBe(200);
-  expect((await admin.request("/api/access/devices/status")).status).toBe(200);
+  expect(
+    (await admin.request("/api/access/devices/activate", { name: "This browser" })).status,
+  ).toBe(200);
+  const device = devicePrincipalSchema.parse(
+    await (await admin.request("/api/access/principal?mode=device")).json(),
+  );
+  expect((await copiedSession.request("/api/access/team")).status).toBe(200);
+  expect((await admin.request("/api/access/team")).status).toBe(200);
+  expect(await (await admin.request("/api/access/principal")).json()).toMatchObject({
+    kind: "member",
+  });
+  expect((await admin.request("/api/config/device")).status).toBe(200);
   expect((await admin.request("/api/access/devices/leave", {})).status).toBe(200);
-  expect((await admin.request("/api/access/devices/status")).status).toBe(401);
+  expect(admin.cookies.has("lookout_device")).toBe(true);
+  expect(await (await admin.request("/api/access/devices/remembered")).json()).toEqual({ device });
+  expect(
+    (await admin.request("/api/access/devices/activate", { name: "Another name" })).status,
+  ).toBe(200);
+  const team = teamSchema.parse(await (await admin.request("/api/access/team")).json());
+  expect(team.devices).toEqual([{ id: device.deviceId, name: "This browser", revokedAt: null }]);
+  expect((await admin.request("/api/access/devices/forget", {})).status).toBe(200);
+  expect((await admin.request("/api/access/devices/status")).status).toBe(403);
+  expect((await admin.request("/api/access/team")).status).toBe(200);
+  expect(await (await admin.request("/api/access/devices/remembered")).json()).toEqual({
+    device: null,
+  });
+});
+
+test("standalone devices can return to sign-in and resume without losing pairing", async () => {
+  const admin = await owner();
+  const device = await paired(admin);
+  const identity = await (await device.request("/api/access/devices/status")).json();
+  expect((await device.request("/api/access/team")).status).toBe(403);
+  await device.request("/api/access/devices/leave", {});
+  expect(await (await device.request("/api/access/principal")).json()).toEqual({ kind: "visitor" });
+  const restarted = new Browser();
+  restarted.cookies = new Map(device.cookies);
+  expect(await (await restarted.request("/api/access/devices/remembered")).json()).toEqual({
+    device: identity,
+  });
+  expect(await (await restarted.request("/api/access/principal?mode=device")).json()).toEqual(
+    identity,
+  );
+  expect((await restarted.request("/api/access/team")).status).toBe(401);
+  await restarted.request("/api/access/devices/forget", {});
+  expect((await restarted.request("/api/access/principal?mode=device")).status).toBe(401);
+});
+
+test("owner reconnect preserves device identity and invalidates old credentials and pairing claims", async () => {
+  const admin = await owner();
+  const original = await paired(admin);
+  const identity = devicePrincipalSchema.parse(
+    await (await original.request("/api/access/devices/status")).json(),
+  );
+  const staleClaim = new Browser();
+  const previousToken = original.cookies.get("lookout_device");
+  assert.ok(previousToken);
+  staleClaim.cookies.set("lookout_pairing", previousToken);
+  const replacement = new Browser();
+  const pairing = pairingSchema.parse(
+    await (await replacement.request("/api/access/pairing/start", {})).json(),
+  );
+  const other = await owner();
+  expect(
+    (
+      await other.request("/api/access/pairing/approve", {
+        code: pairing.code,
+        deviceId: identity.deviceId,
+      })
+    ).status,
+  ).toBe(404);
+  expect((await original.request("/api/access/devices/status")).status).toBe(200);
+  expect(
+    (
+      await admin.request("/api/access/pairing/approve", {
+        code: "000000",
+        deviceId: identity.deviceId,
+      })
+    ).status,
+  ).toBe(400);
+  expect((await original.request("/api/access/devices/status")).status).toBe(200);
+  expect(
+    (
+      await admin.request("/api/access/pairing/approve", {
+        code: pairing.code,
+        deviceId: identity.deviceId,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await replacement.request("/api/access/pairing/claim", {})).status).toBe(200);
+  expect(await (await replacement.request("/api/access/devices/status")).json()).toEqual(identity);
+  expect((await original.request("/api/access/devices/status")).status).toBe(401);
+  expect((await original.request("/api/config/device")).status).toBe(401);
+  expect((await staleClaim.request("/api/access/pairing/claim", {})).status).toBe(410);
+  expect((await original.request("/api/peer/device", {})).status).toBe(401);
+  expect((await replacement.request("/api/access/team")).status).toBe(403);
+  expect(
+    teamSchema.parse(await (await admin.request("/api/access/team")).json()).devices,
+  ).toHaveLength(1);
+  expect(
+    (
+      await admin.request("/api/access/pairing/approve", {
+        code: pairing.code,
+        deviceId: identity.deviceId,
+      })
+    ).status,
+  ).toBe(400);
+  await admin.request("/api/access/devices/revoke", { id: identity.deviceId });
+  const retry = pairingSchema.parse(
+    await (await replacement.request("/api/access/pairing/start", {})).json(),
+  );
+  expect(
+    (
+      await admin.request("/api/access/pairing/approve", {
+        code: retry.code,
+        deviceId: identity.deviceId,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await replacement.request("/api/access/pairing/claim", {})).status).toBe(200);
+  expect(await (await replacement.request("/api/access/devices/status")).json()).toEqual(identity);
 });
 
 test("invalid, unauthenticated, cross-origin and cross-workspace requests cannot mutate protected state", async () => {
@@ -2115,4 +2232,93 @@ test("the migration preserves legacy pending, attempted and unscheduled incident
   ]);
   await env.INCIDENT_FOLLOW_UP.getByName(unscheduled.id).dispatch();
   expect((await detail(unscheduled.id)).escalationActivations).toEqual([unscheduled.receivedAt]);
+});
+
+test("remembered credentials and pairing claims cannot cross signed-in workspace membership", async () => {
+  const admin = await owner();
+  const original = await paired(admin);
+  const other = await owner();
+  const originalToken = original.cookies.get("lookout_device");
+  assert.ok(originalToken);
+  other.cookies.set("lookout_device", originalToken);
+  expect(await (await other.request("/api/access/devices/remembered")).json()).toEqual({
+    device: null,
+  });
+  expect((await other.request("/api/access/principal?mode=device")).status).toBe(401);
+  expect((await other.request("/api/access/team")).status).toBe(200);
+  const pending = pairingSchema.parse(
+    await (await other.request("/api/access/pairing/start", {})).json(),
+  );
+  expect(
+    (
+      await admin.request("/api/access/pairing/approve", {
+        code: pending.code,
+        name: "Other browser",
+      })
+    ).status,
+  ).toBe(200);
+  expect((await other.request("/api/access/pairing/claim", {})).status).toBe(403);
+  const invitation = inviteSchema.parse(
+    await (await admin.request("/api/access/invitations", {})).json(),
+  );
+  const operator = new Browser();
+  await operator.register();
+  await operator.request("/api/access/join", { code: invitation.code });
+  const device = devicePrincipalSchema.parse(
+    await (await original.request("/api/access/devices/status")).json(),
+  );
+  expect(
+    (
+      await operator.request("/api/access/pairing/approve", {
+        code: pending.code,
+        deviceId: device.deviceId,
+      })
+    ).status,
+  ).toBe(403);
+  const approved = pairingSchema.parse(
+    await (await operator.request("/api/access/pairing/start", {})).json(),
+  );
+  await admin.request("/api/access/pairing/approve", {
+    code: approved.code,
+    name: "Operator camera",
+  });
+  expect((await operator.request("/api/access/pairing/claim", {})).status).toBe(200);
+  expect(await (await operator.request("/api/access/principal")).json()).toMatchObject({
+    kind: "member",
+    role: "operator",
+  });
+  expect((await operator.request("/api/config/device")).status).toBe(200);
+  expect((await operator.request("/api/access/invitations", {})).status).toBe(403);
+});
+
+test("sign-in and registration retain a saved device while enforcing workspace compatibility", async () => {
+  const admin = new Browser();
+  const email = await admin.register();
+  await admin.request("/api/access/workspace", { name: "Remembered workspace" });
+  const device = await paired(admin);
+  const identity = devicePrincipalSchema.parse(
+    await (await device.request("/api/access/devices/status")).json(),
+  );
+  await device.request("/api/access/devices/leave", {});
+  expect(
+    (await device.request("/api/auth/sign-in/email", { email, password: "demo-password-123" }))
+      .status,
+  ).toBe(200);
+  expect(await (await device.request("/api/access/devices/remembered")).json()).toEqual({
+    device: identity,
+  });
+  expect(await (await device.request("/api/access/principal?mode=device")).json()).toEqual(
+    identity,
+  );
+  expect(await (await device.request("/api/access/principal")).json()).toMatchObject({
+    kind: "member",
+    role: "owner",
+  });
+  await device.request("/api/auth/sign-out", {});
+  await device.register("New account");
+  expect(device.cookies.has("lookout_device")).toBe(true);
+  expect(await (await device.request("/api/access/devices/remembered")).json()).toEqual({
+    device: null,
+  });
+  expect((await device.request("/api/access/principal?mode=device")).status).toBe(401);
 });

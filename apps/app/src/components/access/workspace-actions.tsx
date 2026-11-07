@@ -1,4 +1,5 @@
 import { Check, Copy, Monitor, Trash2, UserPlus, X } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { type z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ export type WorkspaceAction =
   | { kind: "invite" }
   | { kind: "pair" }
   | { kind: "activate" }
+  | { kind: "reconnect"; id: string; name: string }
   | { kind: "remove-member"; id: string; name: string }
   | { kind: "revoke-device"; id: string; name: string };
 
@@ -31,6 +33,7 @@ export function WorkspaceActions({
   onChanged: (notice: string) => Promise<void>;
   onActivated: () => Promise<void>;
 }) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(true);
   const [invite, setInvite] = useState<z.infer<typeof inviteSchema>>();
   const [copyNotice, setCopyNotice] = useState("");
@@ -48,7 +51,12 @@ export function WorkspaceActions({
     activate: {
       title: "Switch to device mode",
       description:
-        "This signs you out of workspace management in every tab of this browser and switches to device mode. You can sign in again to return.",
+        "Set up this browser for capture. Your workspace login and other tabs stay signed in. This device will be remembered when you return.",
+    },
+    reconnect: {
+      title: "Reconnect existing device",
+      description:
+        "On the replacement browser, open Set up this device and get a pairing code. Reconnecting keeps this device’s history and disconnects its previous browser.",
     },
     "remove-member": {
       title: "Remove team member?",
@@ -127,14 +135,16 @@ export function WorkspaceActions({
               </p>
             </ActionForm>
           )
-        ) : action.kind === "pair" ? (
+        ) : action.kind === "pair" || action.kind === "reconnect" ? (
           <ActionForm
             icon={Monitor}
-            submit="Connect device"
+            submit={action.kind === "reconnect" ? "Reconnect device" : "Connect device"}
             pendingLabel="Connecting device…"
             action={async (data) => {
               await mutate("/api/access/pairing/approve", {
-                name: data.get("name"),
+                ...(action.kind === "reconnect"
+                  ? { deviceId: action.id }
+                  : { name: data.get("name") }),
                 code: data.get("code"),
               });
               await onChanged(
@@ -143,12 +153,16 @@ export function WorkspaceActions({
               setOpen(false);
             }}
           >
-            <Field
-              label="Device name"
-              name="name"
-              maxLength={80}
-              placeholder="e.g. Front desk iPad"
-            />
+            {action.kind === "reconnect" ? (
+              <p className="font-medium">{action.name}</p>
+            ) : (
+              <Field
+                label="Device name"
+                name="name"
+                maxLength={80}
+                placeholder="e.g. Front desk iPad"
+              />
+            )}
             <Field
               label="Pairing code"
               name="code"
@@ -163,11 +177,12 @@ export function WorkspaceActions({
         ) : action.kind === "activate" ? (
           <ActionForm
             icon={Monitor}
-            submit="Sign out and set up device"
+            submit="Set up device"
             pendingLabel="Setting up device…"
             action={async (data) => {
               await mutate("/api/access/devices/activate", { name: data.get("name") });
               await onActivated();
+              await navigate({ to: "/device" });
             }}
           >
             <Field
