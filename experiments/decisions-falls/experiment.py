@@ -194,7 +194,7 @@ def summarize(results, output_dir):
     fields = ["clip", "expected", "window_start", "window_end", "fall_probability",
               "unclear_probability", "elapsed_seconds"]
     with (output_dir / "windows.csv").open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows({key: row[key] for key in fields} for row in ok)
     print(json.dumps(summary, indent=2))
