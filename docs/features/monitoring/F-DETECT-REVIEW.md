@@ -18,6 +18,8 @@ F-RULE-CONFIG now publishes [versioned rule snapshots](../../../apps/app/src/lib
 
 Use the capture session and rule version in reports. Preserve the event interval on confirmation and report before waiting for upload. Repeated observations of an ongoing event update its incident.
 
+F-INCIDENT-RESPONSE now provides [session, report, and receipt schemas](../../../apps/app/src/lib/incidents.ts) and `/api/incidents/sessions`, `/api/incidents/sessions/end`, and `/api/incidents/reports`. The future loop must start a server session for its configured source, use the current rule ID/version, and reuse one event ID and event time for retries. Store the returned incident ID for evidence. Capture lifecycle and assessment are not yet connected to those endpoints, and observation enrichment remains unimplemented.
+
 ## Implementation
 
 Not implemented in the current application. Add actual source links when implementation lands.

@@ -9,17 +9,22 @@ import { Workspace } from "./workspace";
 import { Monitor, PairBrowser } from "./monitor";
 import { ActionForm } from "./forms";
 import { RuleWorkspace } from "@/components/rules/workspace";
+import { IncidentDetail, IncidentInbox } from "@/components/incidents/workspace";
 
 export function AccessApp({
   pairing = false,
   capture = false,
   invitation,
   triggers = false,
+  incidents = false,
+  incidentId,
 }: {
   pairing?: boolean;
   capture?: boolean;
   invitation?: string;
   triggers?: boolean;
+  incidents?: boolean;
+  incidentId?: string;
 }) {
   const [actor, setActor] = useState<Principal>();
   const [error, setError] = useState("");
@@ -67,6 +72,11 @@ export function AccessApp({
             Workspace
           </Link>
           {actor?.kind === "member" && (
+            <Link to="/incidents" className="underline underline-offset-4">
+              Incidents
+            </Link>
+          )}
+          {actor?.kind === "member" && (
             <Link to="/triggers" className="underline underline-offset-4">
               Triggers
             </Link>
@@ -111,6 +121,12 @@ export function AccessApp({
         <Account onSignedIn={refresh} />
       ) : actor.kind === "unassigned-user" ? (
         <Onboarding invitation={invitation} onJoined={refresh} />
+      ) : incidents ? (
+        incidentId ? (
+          <IncidentDetail key={actor.workspaceId + incidentId} id={incidentId} />
+        ) : (
+          <IncidentInbox key={actor.workspaceId} />
+        )
       ) : triggers ? (
         <RuleWorkspace key={actor.workspaceId} />
       ) : (

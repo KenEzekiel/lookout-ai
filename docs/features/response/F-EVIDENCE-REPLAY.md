@@ -18,6 +18,8 @@ Use F-AUTH-ACCESS device identities for workspace-scoped uploads and human membe
 
 Attach retrying uploads to the same incident. Notification does not wait for upload. Preserve local event footage independently of acknowledgment. Capture timestamps position the event marker, distinct from detection time.
 
+F-INCIDENT-RESPONSE now publishes the incident ID and report receipt in [the shared contract](../../../apps/app/src/lib/incidents.ts). Its evidence state is currently pending and it never exposes a playable clip. Future upload/replay wiring must extend that authoritative state without blocking response commands or creating another incident.
+
 ## Implementation
 
 Not implemented in the current application. Add actual source links when implementation lands.
