@@ -133,16 +133,8 @@ export function createT3Runner(options: {
         });
         await inspect(threadId);
         assertActive(signal);
-        if (result.kind === "needs_input")
-          return {
-            kind: "reply",
-            text: "The coding thread needs input in T3 Code. Send a fresh request after resolving it.",
-          };
-        if (result.kind === "ended")
-          return {
-            kind: "reply",
-            text: "The coding turn was interrupted. Send a fresh request to continue.",
-          };
+        if (result.kind === "needs_input") throw new BoundaryError("turn_needs_input");
+        if (result.kind === "ended") throw new BoundaryError("turn_interrupted");
         if (result.reply === null) throw new BoundaryError("reply_missing");
         const text = result.reply
           .trim()
@@ -153,6 +145,11 @@ export function createT3Runner(options: {
           throw new BoundaryError("reply_missing");
         return outcome;
       } catch (error) {
+        if (
+          error instanceof BoundaryError &&
+          ["turn_needs_input", "turn_interrupted"].includes(error.code)
+        )
+          throw error;
         if (
           error instanceof T3UnsafeToReleaseError ||
           (error instanceof BoundaryError && error.code === "backend_work_uncertain")

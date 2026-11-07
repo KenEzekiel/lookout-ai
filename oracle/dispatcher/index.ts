@@ -41,7 +41,12 @@ type ActiveTurn = {
   done: Promise<void>;
 };
 const failureReply = "The turn could not finish. Send a fresh request to continue.";
-const workspaceReplies = new Map([
+const failureReplies = new Map([
+  [
+    "turn_needs_input",
+    "The coding thread needs input in T3 Code. Send a fresh request after resolving it.",
+  ],
+  ["turn_interrupted", "The coding turn was interrupted. Send a fresh request to continue."],
   [
     "workspace_sync_dirty",
     "Oracle's runtime checkout has uncommitted changes and cannot sync main. A maintainer must preserve that work and clean the runtime checkout, then send a fresh request.",
@@ -60,6 +65,7 @@ export async function createOracle(deps: {
   runner: TurnRunner;
   publish: (address: Address, text: string) => Promise<void>;
   setStatus?: (address: Address, status: "processing" | "active") => Promise<void>;
+  setCompleted?: (address: Address, completed: boolean) => Promise<void>;
   limits: Limits;
   onFault?: (code: string) => void;
   now?: () => number;
@@ -73,7 +79,15 @@ export async function createOracle(deps: {
   const active = new Map<string, ActiveTurn>();
   let closed = false;
   let closingMode: ShutdownMode | undefined;
+  const setCompleted = async (address: Address, completed: boolean): Promise<void> => {
+    try {
+      await deps.setCompleted?.(address, completed);
+    } catch {
+      deps.onFault?.("slack_completion_unavailable");
+    }
+  };
   const setStatus = async (address: Address, status: "processing" | "active"): Promise<void> => {
+    if (status === "processing") await setCompleted(address, false);
     try {
       await deps.setStatus?.(address, status);
     } catch {
@@ -94,27 +108,29 @@ export async function createOracle(deps: {
     address: Address,
     kind: Parameters<SessionStore["delivery"]>[1],
     text: string,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     const id = await sessions.delivery(address, kind, text);
     try {
       await deps.publish(address, text);
     } catch {
       await sessions.settle(address, id, "uncertain");
       deps.onFault?.("delivery_uncertain");
-      return;
+      return false;
     }
     await sessions.settle(address, id, "sent");
+    return true;
   };
-  const processTurn = async (turn: QueuedTurn, controller: AbortController): Promise<void> => {
+  const processTurn = async (turn: QueuedTurn, controller: AbortController): Promise<boolean> => {
     const { input, generation } = turn;
     const key = keyOf(input.address);
     try {
       await turn.ready;
-      if (generation !== (generations.get(key) ?? 0)) return;
+      if (generation !== (generations.get(key) ?? 0)) return false;
       assertActive(controller.signal);
       const history = await sessions.claim(input);
       assertActive(controller.signal);
       let outcome: Outcome;
+      let succeeded = true;
       try {
         outcome = outcomeSchema.parse(
           await deps.runner.run({
@@ -137,15 +153,19 @@ export async function createOracle(deps: {
         if (controller.signal.aborted) {
           if (closingMode !== "reload")
             await sessions.complete(input, { kind: "silent" }, "cancelled");
-          return;
+          return false;
         }
         const code = error instanceof BoundaryError ? error.code : "turn_failed";
-        outcome = { kind: "reply", text: workspaceReplies.get(code) ?? failureReply };
+        succeeded = false;
+        outcome = { kind: "reply", text: failureReplies.get(code) ?? failureReply };
         deps.onFault?.(code);
       }
       await sessions.complete(input, outcome);
       assertActive(controller.signal);
-      if (outcome.kind === "reply") await deliver(input.address, "result", outcome.text);
+      if (outcome.kind === "silent") return false;
+      const sent = await deliver(input.address, "result", outcome.text);
+      assertActive(controller.signal);
+      return succeeded && sent;
     } catch (error) {
       if (
         error instanceof BoundaryError &&
@@ -153,6 +173,7 @@ export async function createOracle(deps: {
       )
         throw error;
       if (!controller.signal.aborted) throw error;
+      return false;
     }
   };
   const schedule = (): void => {
@@ -167,8 +188,17 @@ export async function createOracle(deps: {
       if (!turn) return;
       const key = keyOf(turn.input.address);
       const controller = new AbortController();
+      const unfinished = (): boolean =>
+        closed ||
+        controller.signal.aborted ||
+        queue.some(({ input }) => keyOf(input.address) === key);
       const done = Promise.resolve()
         .then(() => processTurn(turn, controller))
+        .then(async (completed) => {
+          if (!completed || unfinished()) return;
+          await setCompleted(turn.input.address, true);
+          if (unfinished()) await setCompleted(turn.input.address, false);
+        })
         .catch(fault)
         .finally(async () => {
           if (!queue.some(({ input }) => keyOf(input.address) === key))

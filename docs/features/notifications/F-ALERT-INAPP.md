@@ -6,6 +6,8 @@ Depends on: F-INCIDENT-RESPONSE
 
 ## Behavior
 
+Alert actions display decorative icons alongside their visible labels. Acknowledge, Open incident, and Silence here share default sizing; sound preferences and retry use the shared compact size. Open incident remains a navigation link and still silences only this browser.
+
 An open operator client shows a prominent incoming alert for an open incident naming that member in its snapshotted recipients. It shows the trigger summary, source, event time, severity, and current evidence status. Open incident navigates to detail and silences locally. Silence here hides only that incident in the current browser tab. Neither action acknowledges it. Acknowledge alert uses the existing versioned command and records shared ownership.
 
 Sound starts off. Enable sound and test requests browser playback and plays an original 1.2-second, three-pulse incident alarm with sharp alternating 960/720 Hz tones and restrained harmonics. While enabled, the current incoming incident repeats the alarm every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the shared workspace layout. It survives navigation between Devices, Team, Triggers, inbox, and detail, and must be enabled again after leaving that layout or reloading. No background delivery, continuous ringtone, or OS sound bypass is promised.
@@ -41,6 +43,8 @@ The [sound browser integration tests](../../../tests/e2e/alert-sound.spec.ts) ex
 The follow-up PR adds complete-screen coverage for re-alerting an initially silenced incident and keeping a repeatedly delivered follow-up silenced. Production-build journey QA and per-run evidence are recorded in that PR.
 
 ## Decisions and sources
+
+Kenneth requested clearer action icons and consistent sizing. [Incoming alert controls](../../../apps/app/src/components/incidents/incoming-alerts.tsx) use F-APP-SHELL Button sizes, including buttonVariants for the incident link. Sound, polling, local silence, and shared acknowledgment semantics remain unchanged.
 
 The current routing PR moves member dashboard pages under one persistent layout at Arsa’s request. Incoming alerts stay in that layout, preserving connection and sound state across child-route navigation. Polling cadence, recipient checks, local silence, and acknowledgment semantics remain unchanged.
 

@@ -1,3 +1,4 @@
+import { Plus, RotateCw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -75,9 +76,16 @@ export function RuleWorkspace() {
             Define what matters for each source in your workspace.
           </p>
         </div>
-        <div className="flex gap-3">
-          <ActionForm submit="Reload triggers" pendingLabel="Reloading triggers…" action={reload} />
+        <div className="flex flex-wrap gap-3">
+          <ActionForm
+            icon={RotateCw}
+            variant="outline"
+            submit="Reload triggers"
+            pendingLabel="Reloading triggers…"
+            action={reload}
+          />
           <Button
+            icon={Plus}
             disabled={!configuration}
             onClick={(event) => {
               editorTrigger.current = event.currentTarget;
@@ -120,6 +128,7 @@ export function RuleWorkspace() {
               ))}
             </ul>
             <ActionForm
+              icon={Plus}
               submit="Add source"
               pendingLabel="Adding source…"
               action={async (data) => {

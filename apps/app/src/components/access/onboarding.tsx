@@ -1,3 +1,4 @@
+import { Plus, Users } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { mutate } from "@/lib/api";
@@ -25,6 +26,7 @@ export function Onboarding({
       </p>
       <ActionForm
         key={mode}
+        icon={creating ? Plus : Users}
         submit={creating ? "Create workspace" : "Join workspace"}
         pendingLabel={creating ? "Creating workspace…" : "Joining workspace…"}
         action={async (data) => {
@@ -63,7 +65,9 @@ export function Onboarding({
             <p>Invited by someone?</p>
             <Button
               variant="link"
-              className="h-auto justify-start p-0 text-signal"
+              size="inline"
+              icon={Users}
+              className="justify-start text-signal"
               onClick={() => setMode("code")}
             >
               Join with an invitation code
@@ -74,7 +78,9 @@ export function Onboarding({
             {mode === "invitation" && (
               <Button
                 variant="link"
-                className="h-auto justify-start p-0 text-signal"
+                size="inline"
+                icon={Users}
+                className="justify-start text-signal"
                 onClick={() => setMode("code")}
               >
                 Use an invitation code instead
@@ -82,7 +88,9 @@ export function Onboarding({
             )}
             <Button
               variant="link"
-              className="h-auto justify-start p-0 text-signal"
+              size="inline"
+              icon={Plus}
+              className="justify-start text-signal"
               onClick={() => setMode("create")}
             >
               Create a workspace instead

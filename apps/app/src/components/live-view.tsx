@@ -1,3 +1,4 @@
+import { RotateCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { mutate, request, message } from "@/lib/api";
@@ -116,7 +117,7 @@ export function LiveView({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-panel-title">Live view · {device.name}</h2>
-        <Button variant="secondary" onClick={onClose}>
+        <Button icon={X} variant="secondary" onClick={onClose}>
           Close live view
         </Button>
       </div>
@@ -138,7 +139,7 @@ export function LiveView({
           <p role="alert" className="text-sm text-destructive">
             {state.message}
           </p>
-          <Button className="mt-3" onClick={() => setAttempt((value) => value + 1)}>
+          <Button icon={RotateCw} className="mt-3" onClick={() => setAttempt((value) => value + 1)}>
             Retry live view
           </Button>
         </div>

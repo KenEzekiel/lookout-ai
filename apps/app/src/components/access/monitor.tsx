@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Monitor as MonitorIcon } from "lucide-react";
+import { Camera, KeyRound, LogIn, Monitor as MonitorIcon, RotateCw } from "lucide-react";
 import { type z } from "zod";
 import { type DevicePrincipal, pairingSchema, pairingStatusSchema } from "@/lib/access";
 import { type DeviceConfiguration, deviceConfigurationSchema } from "@/lib/rules";
 import { mutate, request, message } from "@/lib/api";
+import { buttonVariants } from "@/components/ui/button";
 import { ActionForm, Panel } from "./forms";
 
 export function PairBrowser({
@@ -80,6 +81,7 @@ export function PairBrowser({
         </p>
       )}
       <ActionForm
+        icon={KeyRound}
         submit={pairing ? "Get a new code" : "Get pairing code"}
         pendingLabel="Getting code…"
         variant={pairing && !error ? "secondary" : "default"}
@@ -138,10 +140,8 @@ export function Monitor({ actor }: { actor: DevicePrincipal }) {
         </output>
       )}
       {!error && (
-        <Link
-          to="/device"
-          className="mb-3 flex h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/80"
-        >
+        <Link to="/device" className={buttonVariants({ className: "mb-3 flex" })}>
+          <Camera aria-hidden="true" />
           Open capture station
         </Link>
       )}
@@ -180,6 +180,7 @@ export function Monitor({ actor }: { actor: DevicePrincipal }) {
             confirmation of active monitoring.
           </p>
           <ActionForm
+            icon={RotateCw}
             submit="Refresh configuration"
             pendingLabel="Refreshing configuration…"
             variant="secondary"
@@ -197,6 +198,7 @@ export function Monitor({ actor }: { actor: DevicePrincipal }) {
         </section>
       )}
       <ActionForm
+        icon={LogIn}
         submit="Return to sign in"
         pendingLabel="Returning to sign in…"
         variant="secondary"

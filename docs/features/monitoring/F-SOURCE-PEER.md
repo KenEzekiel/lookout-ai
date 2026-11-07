@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS, F-SOURCE-CAPTURE
 
 ## Behavior
 
+Live view, Retry live view, and Close live view retain visible labels and add decorative video, reload, and close icons. Row actions share compact sizing; player actions use the shared default size.
+
 An authorized owner or operator opens a paired device's active capture in Live view. One viewer may connect per device. This P2 capability remains outside the core demo. Closing the player closes the peer connection and its cloned outgoing tracks without stopping capture, its sampler, or the local evidence buffer.
 
 Browser WebRTC uses Cloudflare's free public STUN service and direct connectivity only. No TURN, SFU, paid subscription, payment method, VPC, or VPN is configured. Restrictive NAT or firewall conditions can prevent viewing. Connection failure explains the missing relay and offers retry on the same Wi-Fi or another network. There is no automatic paid fallback.
@@ -37,6 +39,8 @@ The [live-view panel](../../../apps/app/src/components/live-view.tsx) uses the s
 The production-build Chromium run on source revision 08a803c used separate owner/device browser contexts, isolated D1, and a simulated camera with real peer connections. It received 640×480 video, confirmed capture and buffer continuity across close/reopen, resumed video after source restart and retry, ended viewing on revocation, and checked keyboard close and a 375-pixel layout without overflow. The selected ICE pair was host/host; same-machine RTT was reported as zero and does not establish cross-network or end-to-end video latency. Successful baseline requests and the browser console had no errors. `pnpm verify` passed with 38 UI and 23 API integration tests. [PR #67](https://github.com/KenEzekiel/lookout-ai/pull/67) contains the manual steps, screenshots, recording, and remaining verification gaps. Physical separate-device, desktop/mobile, and same-network/cross-network verification from issue #28 remain required before claiming the feature implemented. Local browser contexts do not establish cross-network connectivity. Record actual selected ICE candidate types and observed latency. No production TURN integration is claimed or required under the accepted free-only scope.
 
 ## Decisions and sources
+
+Kenneth requested consistent button sizing and clearer action icons. [Device rows](../../../apps/app/src/components/access/workspace.tsx) and [player controls](../../../apps/app/src/components/live-view.tsx) use F-APP-SHELL Button variants. The wider desktop action column accommodates both labeled icons. Signaling, permissions, and media ownership remain unchanged.
 
 [Implementation PR #67](https://github.com/KenEzekiel/lookout-ai/pull/67), [issue #28](https://github.com/KenEzekiel/lookout-ai/issues/28), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 

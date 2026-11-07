@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Monitor, Plus, Users } from "lucide-react";
+import { Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
 import { type z } from "zod";
 import { type Member, teamSchema } from "@/lib/access";
 import { request, message } from "@/lib/api";
@@ -53,11 +53,7 @@ export function Workspace({
           </p>
         </div>
         {owner && (
-          <Button
-            className="h-10 px-4"
-            onClick={() => setAction({ kind: devices ? "pair" : "invite" })}
-          >
-            <Plus />
+          <Button icon={Plus} onClick={() => setAction({ kind: devices ? "pair" : "invite" })}>
             {devices ? "Add device" : "Invite member"}
           </Button>
         )}
@@ -83,6 +79,7 @@ export function Workspace({
           </p>
           <Button
             variant="secondary"
+            icon={RotateCw}
             onClick={() => {
               void refresh("").catch((error) => setError(message(error)));
             }}
@@ -110,7 +107,8 @@ export function Workspace({
               {owner && (
                 <Button
                   variant="secondary"
-                  className="mt-6 h-10 px-4"
+                  className="mt-6"
+                  icon={Plus}
                   onClick={() => setAction({ kind: "pair" })}
                 >
                   Connect your first device
@@ -119,7 +117,7 @@ export function Workspace({
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-border">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 bg-card px-5 py-3 text-xs text-muted-foreground sm:grid-cols-[minmax(0,1fr)_110px_240px]">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 bg-card px-5 py-3 text-xs text-muted-foreground sm:grid-cols-[minmax(0,1fr)_90px_300px]">
                 <span>Device</span>
                 <span>Access</span>
                 <span className="hidden sm:block" />
@@ -128,7 +126,7 @@ export function Workspace({
                 {team.devices.map((device) => (
                   <li
                     key={device.id}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_110px_240px]"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_90px_300px]"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <Monitor className="hidden size-5 shrink-0 text-muted-foreground sm:block" />
@@ -148,6 +146,8 @@ export function Workspace({
                       {device.revokedAt === null && (
                         <Button
                           variant="secondary"
+                          size="sm"
+                          icon={Video}
                           aria-label={`Live view of ${device.name}`}
                           onClick={() => setViewing({ id: device.id, name: device.name })}
                         >
@@ -157,7 +157,9 @@ export function Workspace({
                       {owner && device.revokedAt === null ? (
                         <Button
                           variant="ghost"
-                          className="col-span-2 h-9 justify-self-end text-muted-foreground sm:col-span-1"
+                          size="sm"
+                          icon={Trash2}
+                          className="col-span-2 justify-self-end text-muted-foreground sm:col-span-1"
                           aria-label={`Remove access for ${device.name}`}
                           onClick={() =>
                             setAction({ kind: "revoke-device", id: device.id, name: device.name })
@@ -200,7 +202,9 @@ export function Workspace({
                 {owner && person.role === "operator" && (
                   <Button
                     variant="ghost"
-                    className="h-9 text-muted-foreground"
+                    size="sm"
+                    icon={Trash2}
+                    className="text-muted-foreground"
                     aria-label={`Remove ${person.name}`}
                     onClick={() =>
                       setAction({ kind: "remove-member", id: person.userId, name: person.name })
@@ -217,7 +221,9 @@ export function Workspace({
         <div className="mt-8">
           <Button
             variant="link"
-            className="h-auto p-0 text-signal"
+            size="inline"
+            icon={Monitor}
+            className="text-signal"
             onClick={() => setAction({ kind: "activate" })}
           >
             Use this device instead
