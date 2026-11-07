@@ -1,0 +1,80 @@
+{
+  "repository": "https://github.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos",
+  "revision": "5abac7693229900cf80f722e878fbb119211fc1c",
+  "citation": "Ekram Alam et al., GMDCSA24 (2024). https://doi.org/10.5281/zenodo.12921216",
+  "license_note": "Repository MIT license is included. Footage-specific public redistribution permission was not separately verified. Videos are downloaded locally and not committed.",
+  "clips": [
+    {
+      "id": "fall-chair",
+      "expected": "fall",
+      "source_onset_seconds": 3.4,
+      "description": "Fall from chair, partial occlusion",
+      "sha256": "9807eb2335544fc18df2438aa4b5a9df6cd01b3d92bc813339dd4fa29306ee6b",
+      "bytes": 6891695,
+      "url": "https://raw.githubusercontent.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos/5abac7693229900cf80f722e878fbb119211fc1c/Subject%201/Fall/01.mp4"
+    },
+    {
+      "id": "fall-walking",
+      "expected": "fall",
+      "source_onset_seconds": 1.8,
+      "description": "Sideways fall while walking",
+      "sha256": "1aad4e2ee93b5498283fdc4a0478a5913dffc2ac8e2538574cd821ffb1b485f1",
+      "bytes": 5872655,
+      "url": "https://raw.githubusercontent.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos/5abac7693229900cf80f722e878fbb119211fc1c/Subject%201/Fall/05.mp4"
+    },
+    {
+      "id": "fall-person2",
+      "expected": "fall",
+      "source_onset_seconds": 2.7,
+      "description": "Second participant, sideways fall",
+      "sha256": "a8825d89c0955f6817c74438f4900b022988a43aca7b99ccab34c086fc14b429",
+      "bytes": 8595129,
+      "url": "https://raw.githubusercontent.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos/5abac7693229900cf80f722e878fbb119211fc1c/Subject%202/Fall/02.mp4"
+    },
+    {
+      "id": "fall-backward",
+      "expected": "fall",
+      "source_onset_seconds": 3.3,
+      "description": "Backward fall near window",
+      "sha256": "f249125e2c270bcdc71b09c34dfa4d398ae027fd00e9304bc6f41d1e5cd2663b",
+      "bytes": 10581582,
+      "url": "https://raw.githubusercontent.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos/5abac7693229900cf80f722e878fbb119211fc1c/Subject%202/Fall/04.mp4"
+    },
+    {
+      "id": "normal-bed",
+      "expected": "no_fall",
+      "source_onset_seconds": null,
+      "description": "Deliberately lying on bed",
+      "sha256": "781f8a2ec152ba27c2d405b15af5f4a28f453c6e839b61ed3f4f5e2aa9a19aa4",
+      "bytes": 8013673,
+      "url": "https://raw.githubusercontent.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos/5abac7693229900cf80f722e878fbb119211fc1c/Subject%201/ADL/01.mp4"
+    },
+    {
+      "id": "normal-pickup",
+      "expected": "no_fall",
+      "source_onset_seconds": null,
+      "description": "Pick phone from floor, then sit",
+      "sha256": "2cf0d421cfd8e34280bf02afc67a4f1d1abee3cd87a23f11e69ef393fedc6fdb",
+      "bytes": 7233079,
+      "url": "https://raw.githubusercontent.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos/5abac7693229900cf80f722e878fbb119211fc1c/Subject%201/ADL/15.mp4"
+    },
+    {
+      "id": "normal-exercise",
+      "expected": "no_fall",
+      "source_onset_seconds": null,
+      "description": "Stretching and touching ground",
+      "sha256": "ef58c25c6d49708af13033c18623abc977215f2866ca8afcd42e6fd2f73679d8",
+      "bytes": 14001257,
+      "url": "https://raw.githubusercontent.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos/5abac7693229900cf80f722e878fbb119211fc1c/Subject%202/ADL/08.mp4"
+    },
+    {
+      "id": "normal-floor",
+      "expected": "no_fall",
+      "source_onset_seconds": null,
+      "description": "Deliberately sitting on floor",
+      "sha256": "1df8fb1ff892699b0382b60a55fcf4dbd497892082b8ec7edaf6eb44fab07d6b",
+      "bytes": 11237415,
+      "url": "https://raw.githubusercontent.com/ekramalam/GMDCSA24-A-Dataset-for-Human-Fall-Detection-in-Videos/5abac7693229900cf80f722e878fbb119211fc1c/Subject%202/ADL/09.mp4"
+    }
+  ]
+}
