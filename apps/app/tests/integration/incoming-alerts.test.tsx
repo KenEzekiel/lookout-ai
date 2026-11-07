@@ -1,5 +1,5 @@
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, expect, test } from "vitest";
@@ -79,29 +79,30 @@ async function open(path = "/incidents") {
     scrollRestoration: false,
   });
   await router.load();
-  const rendered = render(<RouterProvider router={router} />);
+  const rendered = render(<RouterProvider router={router} />, { container: document });
   await screen.findByText(/Incoming alerts connected/);
   return { user: userEvent.setup(), ...rendered };
 }
 
 test("a connected operator receives context once, silences locally and keeps it silenced across navigation and reload", async () => {
   const view = await open();
-  expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument();
   deliveries = [reported];
   fireEvent(window, new Event("online"));
-  const alert = await screen.findByRole("article", { name: "Incoming incident" });
+  const alert = await screen.findByRole("dialog", { name: "Incoming incident" });
   expect(alert).toHaveTextContent("Possible fall");
   expect(alert).toHaveTextContent("Living room");
   expect(alert).toHaveTextContent("Replayed footage");
   expect(alert).toHaveTextContent("Evidence preparing");
   fireEvent(window, new Event("focus"));
-  expect(screen.getAllByRole("article", { name: "Incoming incident" })).toHaveLength(1);
+  expect(screen.getAllByRole("dialog", { name: "Incoming incident" })).toHaveLength(1);
   await view.user.click(within(alert).getByRole("button", { name: "Silence here" }));
-  expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument();
   expect(commands).toEqual([]);
   view.unmount();
+  cleanup();
   await open();
-  expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument();
   expect(commands).toEqual([]);
 });
 
@@ -113,7 +114,7 @@ test("opening an alert navigates to evidence-pending detail without acknowledgin
   expect(screen.getByRole("heading", { name: "Preparing evidence" })).toBeVisible();
   expect(screen.getByText("No owner yet")).toBeVisible();
   expect(commands).toEqual([]);
-  expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument();
 });
 
 test("acknowledgment sends the last-read version, removes the alert and confirms shared ownership", async () => {
@@ -122,17 +123,17 @@ test("acknowledgment sends the last-read version, removes the alert and confirms
   await user.click(await screen.findByRole("button", { name: "Acknowledge alert" }));
   expect(await screen.findByText("You are handling Possible fall.")).toBeVisible();
   expect(commands).toEqual([{ action: "acknowledge", version: 1 }]);
-  expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument();
 });
 
 test("another operator's response removes the incoming interruption on reconnect", async () => {
   deliveries = [reported];
   await open();
-  await screen.findByRole("article", { name: "Incoming incident" });
+  await screen.findByRole("dialog", { name: "Incoming incident" });
   deliveries = [];
   fireEvent(window, new Event("online"));
   await waitFor(() =>
-    expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument(),
+    expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument(),
   );
   expect(commands).toEqual([]);
 });
@@ -149,13 +150,13 @@ test("failed delivery and reconnect are visible, retry recovers, and a stale com
     scrollRestoration: false,
   });
   await router.load();
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { container: document });
   expect(await screen.findByText(/Incoming alerts unavailable/)).toBeVisible();
   const user = userEvent.setup();
   deliveries = [reported];
   server.use(http.get("/api/incidents/alerts", () => HttpResponse.json({ incidents: deliveries })));
   await user.click(screen.getByRole("button", { name: "Retry alerts" }));
-  expect(await screen.findByRole("article", { name: "Incoming incident" })).toBeVisible();
+  expect(await screen.findByRole("dialog", { name: "Incoming incident" })).toBeVisible();
   server.use(
     http.post("/api/incidents/commands/fall", () => {
       deliveries = [];
@@ -168,7 +169,7 @@ test("failed delivery and reconnect are visible, retry recovers, and a stale com
   await user.click(screen.getByRole("button", { name: "Acknowledge alert" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Incident changed");
   await waitFor(() =>
-    expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument(),
+    expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument(),
   );
   expect(screen.queryByText("You are handling Possible fall.")).not.toBeInTheDocument();
 });
@@ -177,8 +178,12 @@ test("blocked sound leaves an actionable visible alert and never acknowledges", 
   deliveries = [reported];
   const { user } = await open();
   await user.click(screen.getByRole("button", { name: "Enable sound and test" }));
-  expect(await screen.findByText(/Sound playback is unavailable or blocked/)).toBeVisible();
-  expect(screen.getByRole("article", { name: "Incoming incident" })).toBeVisible();
+  expect(
+    await within(screen.getByRole("dialog", { name: "Incoming incident" })).findByText(
+      /Sound playback is unavailable or blocked/,
+    ),
+  ).toBeVisible();
+  expect(screen.getByRole("dialog", { name: "Incoming incident" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Acknowledge alert" })).toBeEnabled();
   expect(commands).toEqual([]);
 });
@@ -206,7 +211,7 @@ test("one durable follow-up re-alerts a locally silenced incident and repeated d
   deliveries = [reported];
   const { user } = await open();
   await user.click(await screen.findByRole("button", { name: "Silence here" }));
-  expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument();
   deliveries = [
     incidentSchema.parse({
       ...reported,
@@ -218,16 +223,58 @@ test("one durable follow-up re-alerts a locally silenced incident and repeated d
     }),
   ];
   fireEvent(window, new Event("focus"));
-  const alert = await screen.findByRole("article", { name: "Incoming incident" });
+  const alert = await screen.findByRole("dialog", { name: "Incoming incident" });
   expect(alert).toHaveTextContent("Incident follow-up");
   expect(commands).toEqual([]);
   fireEvent(window, new Event("focus"));
-  expect(screen.getAllByRole("article", { name: "Incoming incident" })).toHaveLength(1);
+  expect(screen.getAllByRole("dialog", { name: "Incoming incident" })).toHaveLength(1);
   await user.click(within(alert).getByRole("button", { name: "Silence here" }));
   fireEvent(window, new Event("online"));
   await waitFor(() =>
-    expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument(),
+    expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument(),
   );
+  expect(commands).toEqual([]);
+});
+
+test("Escape silences locally and restores keyboard access without acknowledging", async () => {
+  const { user } = await open();
+  const control = screen.getByRole("button", { name: "Enable sound and test" });
+  control.focus();
+  deliveries = [reported];
+  fireEvent(window, new Event("online"));
+  const alert = await screen.findByRole("dialog", { name: "Incoming incident" });
+  await waitFor(() => expect(alert).toContainElement(document.activeElement as HTMLElement));
+  await user.keyboard("{Escape}");
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument(),
+  );
+  expect(commands).toEqual([]);
+  await waitFor(() => expect(control).toHaveFocus());
+});
+
+test("an alert interrupts trigger editing and silence restores its draft and focus", async () => {
+  server.use(
+    http.get("/api/config/operator", () =>
+      HttpResponse.json({
+        sources: [reported.source],
+        rules: [],
+        recipients: [{ userId: "owner", name: "Alex", role: "owner" }],
+      }),
+    ),
+  );
+  const { user } = await open("/triggers");
+  await user.click(await screen.findByRole("button", { name: "New trigger" }));
+  const editor = await screen.findByRole("dialog", { name: "New trigger" });
+  const name = within(editor).getByLabelText("Incident name");
+  await user.type(name, "Unsaved lobby rule");
+  deliveries = [reported];
+  fireEvent(window, new Event("online"));
+  const alert = await screen.findByRole("dialog", { name: "Incoming incident" });
+  await waitFor(() => expect(alert.contains(document.activeElement)).toBe(true));
+  await user.click(within(alert).getByRole("button", { name: "Silence here" }));
+  await waitFor(() => expect(name).toHaveFocus());
+  expect(name).toHaveValue("Unsaved lobby rule");
+  expect(editor).toBeVisible();
   expect(commands).toEqual([]);
 });
 
@@ -238,12 +285,12 @@ test("each later level interrupts once while earlier recipient delivery stays si
   for (const deliveryLevel of [2, 3]) {
     deliveries = [incidentSchema.parse({ ...reported, deliveryLevel })];
     fireEvent(window, new Event("focus"));
-    const alert = await screen.findByRole("article", { name: "Incoming incident" });
+    const alert = await screen.findByRole("dialog", { name: "Incoming incident" });
     expect(alert).toHaveTextContent("Incident follow-up");
     await user.click(within(alert).getByRole("button", { name: "Silence here" }));
     fireEvent(window, new Event("online"));
     await waitFor(() =>
-      expect(screen.queryByRole("article", { name: "Incoming incident" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "Incoming incident" })).not.toBeInTheDocument(),
     );
   }
   expect(commands).toEqual([]);
