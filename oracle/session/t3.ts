@@ -230,7 +230,10 @@ export class T3Client {
         ...(input.message === undefined ? {} : { message: input.message }),
         modelSelection: {
           ...input.modelSelection,
-          options: [{ id: "reasoningEffort", value: "high" }],
+          options: [
+            { id: "reasoningEffort", value: "high" },
+            { id: "serviceTier", value: "priority" },
+          ],
         },
         clientRequestId: input.requestId,
         workspaceStrategy: { type: "existing_worktree", worktreePath: input.workspace },
@@ -249,7 +252,10 @@ export class T3Client {
         threadId: input.threadId,
         modelSelection: {
           ...input.modelSelection,
-          options: [{ id: "reasoningEffort", value: "high" }],
+          options: [
+            { id: "reasoningEffort", value: "high" },
+            { id: "serviceTier", value: "priority" },
+          ],
         },
       }),
     );
