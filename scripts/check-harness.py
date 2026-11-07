@@ -39,12 +39,12 @@ def check(root):
             if target and not (entry.parent / target).exists():
                 errors.append(f"{entry.relative_to(root)}: missing link target {target}")
 
-    manifest = json.loads((root / "vendor/pstack/upstream.json").read_text())
+    manifest = json.loads((root / ".agents/pstack/upstream.json").read_text())
     for source in manifest["source_sha256"]:
         local = source.replace("plugins/pstack/skills/", ".agents/skills/", 1).replace("plugins/pstack/agents/", ".agents/roles/", 1)
         if not (root / local).is_file():
             errors.append(f"Missing copied resource: {local}")
-    for required in ("AGENTS.md", ".agents/pstack-models.md", "vendor/pstack/LICENSE", "vendor/pstack/LICENSE-cursor-team-kit", "vendor/pstack/LICENSE-thermos", "vendor/pstack/NOTICE.md", "vendor/pstack/NOTICE-skills.md"):
+    for required in ("AGENTS.md", ".agents/pstack-models.md", ".agents/pstack/LICENSE", ".agents/pstack/LICENSE-cursor-team-kit", ".agents/pstack/LICENSE-thermos", ".agents/pstack/NOTICE.md", ".agents/pstack/NOTICE-skills.md"):
         if not (root / required).is_file():
             errors.append(f"Missing {required}")
     return entries, errors
