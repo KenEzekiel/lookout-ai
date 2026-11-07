@@ -8,7 +8,7 @@ Depends on: F-INCIDENT-RESPONSE
 
 An open operator client shows a prominent incoming alert for an open incident naming that member in its snapshotted recipients. It shows the trigger summary, source, event time, severity, and pending evidence before a clip exists. Open incident navigates to detail and silences locally. Silence here hides only that incident in the current browser tab. Neither action acknowledges it. Acknowledge alert uses the existing versioned command and records shared ownership.
 
-Sound starts off. Enable sound and test requests browser playback and plays a two-tone chime. While enabled, the current incoming incident chimes every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the mounted screen and must be enabled again after navigation or reload. No background delivery, continuous ringtone, or OS sound bypass is promised.
+Sound starts off. Enable sound and test requests browser playback and plays an original 1.2-second, three-pulse incident alarm with sharp alternating 960/720 Hz tones and restrained harmonics. While enabled, the current incoming incident repeats the alarm every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the mounted screen and must be enabled again after navigation or reload. No background delivery, continuous ringtone, or OS sound bypass is promised.
 
 ## Entry points
 
@@ -26,6 +26,8 @@ Failed delivery hides stale response controls, stops sound, shows reconnection s
 
 [Incoming alerts](../../../apps/app/src/components/incidents/incoming-alerts.tsx) owns local presentation, sound, silence, polling and response feedback. [The access shell](../../../apps/app/src/components/access/app.tsx) mounts it only for members. [The incident service](../../../apps/app/src/server/incidents.ts) owns recipient filtering, and [the route adapter](../../../apps/app/src/routes/api/incidents/$.ts) exposes the delivery read beside existing commands. No second notification store or command path is introduced.
 
+The [original alarm asset](../../../apps/app/public/sounds/incident-alert.wav) is created before wiring playback and can be reproduced with `node scripts/generate-incident-alert.mjs` using [the deterministic generator](../../../scripts/generate-incident-alert.mjs). The mono 44.1 kHz, 16-bit WAV has three 280 ms pulses spaced 400 ms apart, an 8 ms attack and 18 ms release, and a capped digital peak. The sound is fetched and decoded only after opt-in, then cached in the mounted screen. Test playback and incoming repeats share `playAlarm(context: AudioContext, buffer: AudioBuffer): () => void`. One playback owner disconnects the previous sound before a test or repeat and on effect cleanup. Asset-fetch and decode failures use the existing blocked-playback message and retry control.
+
 The in-app incident consumer is implemented. Assessment and capture-to-report integration remain separate unfinished prerequisites for AI-generated events; synthetic device reports use the real incident path.
 
 ## Verification
@@ -34,11 +36,15 @@ The in-app incident consumer is implemented. Assessment and capture-to-report in
 
 `pnpm verify` passed locally with 36 UI integration tests and 19 API integration tests. Contained Chromium QA used the production Worker, isolated D1 and real reports with two operator sessions. It verified context, duplicate delivery, local silence, opening without acknowledgment, cross-session acknowledgment, keyboard Enter, and 390/320-pixel layouts without overflow. Temporary HTTP interceptions verified 503/retry and 409/refresh paths. A real Web Audio analyser measured a nonzero chime signal and no further oscillator starts after sound-off, silence or shared acknowledgment. Physical speaker output was not perceptually assessed. The final build repeated arrival, deduplication, keyboard silence and mobile checks after copy refinements; the PR records both tested builds, screenshots and video attachments.
 
+The [sound browser integration tests](../../../tests/e2e/alert-sound.spec.ts) exercise the production app with HTTP-only principal and incident fixtures, real Web Audio and the real sound asset. They verify the three-pulse waveform, opt-in, test, sound-off, local silence, unavailable asset and retry. Run them after building with `pnpm exec playwright test tests/e2e/alert-sound.spec.ts`. The current sound-change PR records its executed checks and contained manual QA evidence; the earlier chime measurements above describe the prior sound. Physical speaker perception still requires a listener.
+
 ## Decisions and sources
 
 [Issue #23](https://github.com/KenEzekiel/lookout-ai/issues/23), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 
-The current PR's synthesis decision is recipient-filtered polling over the existing incident service. The inbox and commands already use polling and version checks, so a second event transport or durable delivery framework would add another ownership path. A focused incoming view keeps context and controls readable without interrupting keyboard focus. Local silence belongs to the browser session, while acknowledgment belongs to shared incident state.
+The incoming-alert implementation's synthesis decision is recipient-filtered polling over the existing incident service. The inbox and commands already use polling and version checks, so a second event transport or durable delivery framework would add another ownership path. A focused incoming view keeps context and controls readable without interrupting keyboard focus. Local silence belongs to the browser session, while acknowledgment belongs to shared incident state.
+
+[Sound revision issue #68](https://github.com/KenEzekiel/lookout-ai/issues/68) records Kenneth's request for an incident-appropriate alert. The current PR replaces the soft rising chime with the original three-pulse alarm. A static generated WAV makes the exact sound reviewable and gives test and incoming playback identical audio; we accept one small asset fetch on opt-in. Continuing procedural oscillator synthesis would avoid that fetch but would require a separately rendered review artifact and could let the reviewed sound drift from playback. The six-second interval, opt-in, local silence and shared response contracts remain unchanged.
 
 ## Open questions
 
