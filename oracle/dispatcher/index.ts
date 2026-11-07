@@ -115,7 +115,6 @@ export async function createOracle(deps: {
   const processTurn = async (turn: QueuedTurn, controller: AbortController): Promise<void> => {
     const { input, generation } = turn;
     const key = keyOf(input.address);
-    const timeout = setTimeout(() => controller.abort(), limits.maxTurnMs);
     try {
       await turn.ready;
       if (generation !== (generations.get(key) ?? 0)) return;
@@ -171,8 +170,6 @@ export async function createOracle(deps: {
       )
         throw error;
       if (!controller.signal.aborted) throw error;
-    } finally {
-      clearTimeout(timeout);
     }
   };
   const schedule = (): void => {

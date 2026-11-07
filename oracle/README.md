@@ -12,6 +12,8 @@ queue. CI-waiting conversations release their execution slots and retain their
 place ahead of their own follow-ups. They do not stop unrelated ready work.
 Exact `stop`, `cancel`, or `abort` requests abort active work and cancel queued
 work only for that conversation. A fresh direct request resumes it.
+Coding turns have no dispatcher time limit. Long-running work continues until it
+finishes, is stopped, or the service shuts down.
 
 Slack shows its native agent stop control while Oracle sets the thread's
 `agents.sessions.setStatus` to `processing`. The app must subscribe to the
@@ -70,7 +72,7 @@ for that exact commit on `main`. CI already runs on pull requests and pushes to
 current checkout in place. Coding requests wait when a newer commit is unverified.
 Oracle saves the original request, acknowledges the wait once, and retries every
 30 seconds. It continues in the same Slack thread after verification succeeds.
-Users do not need to resend. Waiting does not consume the coding turn timeout.
+Users do not need to resend.
 Logs identify the main commit and whether the checkout is current or waiting for CI.
 
 Runtime sync and task-worktree preparation share a short Git queue. Coding turns
