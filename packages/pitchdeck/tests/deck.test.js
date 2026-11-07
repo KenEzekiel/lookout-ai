@@ -68,7 +68,9 @@ test("notes are opt-in and follow the current slide", async () => {
   await user.click(screen.getByRole("button", { name: "Notes" }));
   expect(screen.getByRole("complementary").textContent).toContain("introduce the team");
   await user.click(screen.getByRole("button", { name: "Next slide" }));
-  expect(screen.getByRole("complementary").textContent).toContain("one concrete example");
+  expect(screen.getByRole("complementary").textContent).toContain(
+    "Possible scenarios include car crashes",
+  );
   await user.click(screen.getByRole("button", { name: "Notes" }));
   expect(screen.queryByRole("complementary")).toBeNull();
 });
