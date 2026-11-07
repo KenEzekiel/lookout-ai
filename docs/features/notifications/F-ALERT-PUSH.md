@@ -18,6 +18,8 @@ Use F-AUTH-ACCESS human membership when registering recipients and subscriptions
 
 Authorize subscriptions and route only to configured recipients. Opening a push does not acknowledge the incident or keep a capture tab running. Delivery state remains independent of replay readiness.
 
+F-ALERT-INAPP now publishes the member-scoped `GET /api/incidents/alerts` polling boundary in [the incident service](../../../apps/app/src/server/incidents.ts). It returns open incidents with immutable recipient snapshots, IDs and versions. Push can reuse those identities and response commands, but requires its own subscription authorization and delivery receipts. The browser's local silence does not cancel shared paging. No push subscription or delivery is introduced by the in-app feature.
+
 ## Implementation
 
 Not implemented in the current application. Add actual source links when implementation lands.

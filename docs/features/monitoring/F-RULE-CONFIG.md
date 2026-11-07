@@ -24,7 +24,7 @@ F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` pr
 
 `POST /api/config/sources` creates source metadata. `POST /api/config/rules/create` saves a validated definition. `POST /api/config/rules/update` requires the last-read `id` and `version`. `POST /api/config/rules/disable` requires the same version pair. All mutations use the existing same-origin boundary. Membership validation and the rule write happen in one SQL statement.
 
-Local capture now exists at `/device`, but connecting its capture identity to configured source IDs remains unimplemented. Relay authorization, assessment, incident submission, notifications, and escalation execution remain planned consumers. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Stale incident-report rejection belongs to the incident endpoint when implemented. Saving settings does not send an alert or start capture.
+Local capture now exists at `/device`, but connecting its capture identity to configured source IDs remains unimplemented. F-INCIDENT-RESPONSE now checks source/rule IDs and current versions when accepting device reports and snapshots the rule definition. F-ALERT-INAPP routes only to those snapshotted recipients; later edits do not rewrite an existing incident. Relay authorization, assessment submission, background notifications, and escalation execution remain planned consumers. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Saving settings does not send an alert or start capture.
 
 ## Implementation
 
@@ -52,4 +52,4 @@ The configuration slice introduces this contract. Synthesis decision: keep sourc
 
 ## Open questions
 
-Connect capture, assessment, relay authorization, incident reports, alerts, and escalation to the published contract. Device application acknowledgments and production deployment remain unverified. No fixed sampling rate is agreed. Source renaming/deletion and per-device assignments are outside this slice.
+Connect capture, assessment, relay authorization, background notifications, and escalation to the published contract. Synthetic incident reports and in-app recipient delivery are connected through F-INCIDENT-RESPONSE and F-ALERT-INAPP. Device application acknowledgments and production deployment remain unverified. No fixed sampling rate is agreed. Source renaming/deletion and per-device assignments are outside this slice.

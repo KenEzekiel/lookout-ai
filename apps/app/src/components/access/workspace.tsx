@@ -62,8 +62,8 @@ export function Workspace({
       </div>
       {devices && (
         <p className="mb-6 rounded-lg bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-          Paired devices can capture a camera or local video. AI detection and alerts are not
-          available yet.
+          Paired devices can capture a camera or local video. Automatic AI detection and device
+          reports are not available yet.
         </p>
       )}
       {!owner && (
