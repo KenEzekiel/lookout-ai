@@ -47,8 +47,8 @@ export function Brand() {
               width={36}
               height={24}
               shape="none"
-              colorBack="#3459e6"
-              colorTint="#7094ff"
+              colorBack="#829aff"
+              colorTint="#c4d2ff"
               repetition={2}
               softness={0.35}
               shiftRed={0}

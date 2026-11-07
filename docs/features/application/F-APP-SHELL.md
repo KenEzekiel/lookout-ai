@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+The animated header icon uses a lighter blue base (`#829aff`) and pale blue highlights (`#c4d2ff`) for stronger contrast against the dark background, following Ken's request. The static fallback and animation settings are unchanged.
+
 The shared header mark now layers Paper Liquid Metal over the original Horizon SVG using a local [mask](../../../apps/app/public/horizon-mask.svg). The wordmark, accessible name, footprint, and favicon stay unchanged. The shader loads only on the client, unmounts for reduced motion or hidden documents, and leaves the static SVG visible while loading or when WebGL cannot render. This decision follows Ken's request to animate the logo with Paper shaders.
 
 Action buttons share a 40-pixel minimum height, 16-pixel icons, and consistent spacing. Compact header, row, and alert-preference actions use the explicit 36-pixel size. Inline text actions keep their compact layout. Labels wrap on narrow screens; icons supplement visible labels and remain hidden from assistive technology.
