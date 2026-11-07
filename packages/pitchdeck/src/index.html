@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lookout AI · Hackathon pitch</title>
+    <style>
+      {{styles}}
+    </style>
+  </head>
+  <body>
+    <header class="toolbar">
+      <a class="brand" href="#1">LOOKOUT <span>AI</span></a>
+      <span class="deck-label">Hackathon pitch</span>
+      <button id="present" type="button">Present</button>
+    </header>
+    <main id="slides" aria-label="Pitch slides">{{slides}}</main>
+    <aside id="notes-panel" aria-label="Speaker notes" hidden>
+      <h2>Speaker notes</h2>
+      <div id="notes-content"></div>
+    </aside>
+    <footer class="controls">
+      <button id="previous" type="button" aria-label="Previous slide">←</button>
+      <label class="sr-only" for="slide-picker">Choose slide</label>
+      <select id="slide-picker"></select>
+      <span id="counter" role="status" aria-live="polite"></span>
+      <button id="next" type="button" aria-label="Next slide">→</button>
+      <button id="notes-toggle" type="button" aria-expanded="false" aria-controls="notes-panel">
+        Notes
+      </button>
+      <span class="keyboard-hint">← → navigate · F fullscreen · N notes</span>
+    </footer>
+    <p id="notice" role="alert" hidden></p>
+    <script type="module">
+      __PITCHDECK_PLAYER__;
+    </script>
+  </body>
+</html>
