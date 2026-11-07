@@ -103,6 +103,7 @@ export function createT3Runner(options: {
           threadId,
           message,
           requestId: requestId(`turn:${eventId(input)}`),
+          modelSelection: { instanceId: options.instanceId, model: options.model },
         });
         if (sent.threadId !== threadId) throw new BoundaryError("thread_identity_changed");
         const result = await client.finish({

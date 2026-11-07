@@ -40,6 +40,11 @@ test("creates an idle visible thread before any coding message", async () => {
   assert.equal(calls[0].name, "t3_thread_launch");
   assert.equal(Object.hasOwn(calls[0].input, "message"), false);
   assert.equal(calls[0].input.clientRequestId, "session-key");
+  assert.deepEqual(calls[0].input.modelSelection, {
+    instanceId: "codex",
+    model: "model",
+    options: [{ id: "reasoningEffort", value: "high" }],
+  });
   assert.deepEqual(calls[0].input.workspaceStrategy, {
     type: "existing_worktree",
     worktreePath: "/workspace/oracle",
@@ -49,6 +54,17 @@ test("creates an idle visible thread before any coding message", async () => {
 test("sends into the saved thread with stable request id", async () => {
   const client = new T3Client({
     async call(name, input) {
+      if (name === "t3_thread_configure") {
+        assert.deepEqual(input, {
+          threadId,
+          modelSelection: {
+            instanceId: "codex",
+            model: "model",
+            options: [{ id: "reasoningEffort", value: "high" }],
+          },
+        });
+        return { sequence: 1 };
+      }
       assert.equal(name, "t3_thread_send");
       assert.deepEqual(input, {
         threadId,
@@ -59,8 +75,38 @@ test("sends into the saved thread with stable request id", async () => {
       return { threadId, runId, delivery: "started" };
     },
   });
-  await client.send({ threadId, message: "Please edit the file", requestId: "delivery-key" });
+  await client.send({
+    threadId,
+    message: "Please edit the file",
+    requestId: "delivery-key",
+    modelSelection: { instanceId: "codex", model: "model" },
+  });
 });
+
+for (const failure of ["unavailable", "unacknowledged"]) {
+  test(`does not send a coding message when high effort is ${failure}`, async () => {
+    let sends = 0;
+    const client = new T3Client({
+      async call(name) {
+        if (name === "t3_thread_configure") {
+          if (failure === "unavailable") throw new T3Error();
+          return {};
+        }
+        sends++;
+        return { threadId, runId, delivery: "started" };
+      },
+    });
+    await assert.rejects(
+      client.send({
+        threadId,
+        message: "Please edit the file",
+        requestId: "delivery-key",
+        modelSelection: { instanceId: "codex", model: "model" },
+      }),
+    );
+    assert.equal(sends, 0);
+  });
+}
 
 test("reads final reply for exact run and joins a truncated message", async () => {
   const client = new T3Client({
@@ -292,8 +338,9 @@ test("refuses repeated continuation offsets and safely drains the completed run"
   assert.equal(stops, 1);
 });
 
-test("HTTP client uses MCP initialization, scoped session, and SSE response", async () => {
+test("HTTP client pins high effort on launch and every turn through MCP and SSE", async () => {
   const names = [];
+  let effort = "low";
   const server = createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
@@ -324,9 +371,23 @@ test("HTTP client uses MCP initialization, scoped session, and SSE response", as
       return;
     }
     names.push(body.params.name);
+    const args = body.params.arguments;
+    let result = snapshot();
+    if (body.params.name === "t3_thread_launch") {
+      assert.deepEqual(args.modelSelection.options, [{ id: "reasoningEffort", value: "high" }]);
+      result = { threadId, projectId: "project", runId: null };
+    }
+    if (body.params.name === "t3_thread_configure") {
+      effort = args.modelSelection.options.find((option) => option.id === "reasoningEffort")?.value;
+      result = { sequence: names.length };
+    }
+    if (body.params.name === "t3_thread_send") {
+      assert.equal(effort, "high");
+      result = { threadId, runId, delivery: "started" };
+    }
     response.writeHead(200, { "Content-Type": "text/event-stream" });
     response.end(
-      `event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: body.id, result: { structuredContent: snapshot(), content: [] } })}\n\n`,
+      `event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: body.id, result: { structuredContent: result, content: [] } })}\n\n`,
     );
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -337,7 +398,26 @@ test("HTTP client uses MCP initialization, scoped session, and SSE response", as
       token: "private-test-token",
     });
     assert.equal((await client.read({ threadId })).threadId, threadId);
-    assert.deepEqual(names, ["t3_thread_read"]);
+    const modelSelection = { instanceId: "codex", model: "gpt-6.1-sol" };
+    await client.launch({
+      projectId: "project",
+      title: "Slack request",
+      requestId: "session-key",
+      modelSelection,
+      workspace: "/workspace/oracle",
+    });
+    for (const requestId of ["first-turn", "follow-up"]) {
+      effort = "low";
+      await client.send({ threadId, message: "Please edit the file", requestId, modelSelection });
+    }
+    assert.deepEqual(names, [
+      "t3_thread_read",
+      "t3_thread_launch",
+      "t3_thread_configure",
+      "t3_thread_send",
+      "t3_thread_configure",
+      "t3_thread_send",
+    ]);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
