@@ -87,7 +87,7 @@ test("owner, operator and monitoring browser complete the access journey", async
     await secondTab.goto("/");
     await expect(secondTab.getByRole("button", { name: "Add device" })).toBeVisible();
     await owner.getByRole("link", { name: "Devices", exact: true }).click();
-    await owner.getByRole("button", { name: "Use this device instead" }).click();
+    await owner.getByRole("button", { name: "Switch to device mode" }).click();
     await owner.getByLabel("Device name").fill("Owner laptop");
     await owner.getByRole("button", { name: "Sign out and set up device" }).click();
     await expect(owner.getByRole("heading", { name: "Device connected" })).toBeVisible();
