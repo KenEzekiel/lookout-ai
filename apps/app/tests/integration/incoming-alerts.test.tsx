@@ -52,6 +52,7 @@ let deliveries: Incident[];
 let commands: unknown[];
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
   deliveries = [];
   commands = [];
   server.use(
@@ -177,7 +178,7 @@ test("failed delivery and reconnect are visible, retry recovers, and a stale com
 test("blocked sound leaves an actionable visible alert and never acknowledges", async () => {
   deliveries = [reported];
   const { user } = await open();
-  await user.click(screen.getByRole("button", { name: "Enable sound and test" }));
+  await user.click(screen.getByRole("button", { name: "Enable sound" }));
   expect(
     await within(screen.getByRole("dialog", { name: "Incoming incident" })).findByText(
       /Sound playback is unavailable or blocked/,
@@ -238,7 +239,7 @@ test("one durable follow-up re-alerts a locally silenced incident and repeated d
 
 test("Escape silences locally and restores keyboard access without acknowledging", async () => {
   const { user } = await open();
-  const control = screen.getByRole("button", { name: "Enable sound and test" });
+  const control = screen.getByRole("button", { name: "Enable sound" });
   control.focus();
   deliveries = [reported];
   fireEvent(window, new Event("online"));
@@ -294,4 +295,27 @@ test("each later level interrupts once while earlier recipient delivery stays si
     );
   }
   expect(commands).toEqual([]);
+});
+
+test("sound preference survives remount even when playback is unavailable and can be switched off", async () => {
+  const first = await open();
+  await first.user.click(screen.getByRole("button", { name: "Enable sound" }));
+  expect(await screen.findByRole("button", { name: "Retry sound" })).toBeVisible();
+  first.unmount();
+  cleanup();
+  const second = await open();
+  expect(await screen.findByRole("button", { name: "Turn sound off" })).toBeVisible();
+  await second.user.click(screen.getByRole("button", { name: "Turn sound off" }));
+  second.unmount();
+  cleanup();
+  await open();
+  expect(screen.getByRole("button", { name: "Enable sound" })).toBeVisible();
+});
+
+test("sound preference is isolated by member and workspace and invalid values default off", async () => {
+  localStorage.setItem("lookout:alerts:other:owner:sound", "on");
+  localStorage.setItem("lookout:alerts:team:other:sound", "on");
+  localStorage.setItem("lookout:alerts:team:owner:sound", "invalid");
+  await open();
+  expect(screen.getByRole("button", { name: "Enable sound" })).toBeVisible();
 });

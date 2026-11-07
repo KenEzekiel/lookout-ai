@@ -50,7 +50,7 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("operator opts into the original three-pulse alarm and can test, disable and silence it", async ({
+test("operator opts into the original three-pulse alarm and can disable and silence it", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -61,7 +61,7 @@ test("operator opts into the original three-pulse alarm and can test, disable an
   const download = page.waitForResponse("**/sounds/incident-alert.wav");
   await page
     .getByRole("dialog", { name: "Incoming incident" })
-    .getByRole("button", { name: "Enable sound and test" })
+    .getByRole("button", { name: "Enable sound" })
     .click();
   const response = await download;
   expect(response.ok()).toBe(true);
@@ -83,12 +83,11 @@ test("operator opts into the original three-pulse alarm and can test, disable an
     expect(peak(start + 0.3, start + 0.39)).toBe(0);
   }
   await expect(page.getByText(/Incoming alerts connected/)).toContainText("Sound enabled.");
-  await page.getByRole("button", { name: "Test sound", exact: true }).click();
   await page.getByRole("button", { name: "Turn sound off" }).click();
   await expect(page.getByText(/Incoming alerts connected/)).toContainText("Sound off.");
   await page
     .getByRole("dialog", { name: "Incoming incident" })
-    .getByRole("button", { name: "Enable sound and test" })
+    .getByRole("button", { name: "Enable sound" })
     .click();
   await page.getByRole("button", { name: "Silence here" }).click();
   await expect(page.getByRole("dialog", { name: "Incoming incident" })).toHaveCount(0);
@@ -103,7 +102,7 @@ test("unavailable audio keeps the incident actionable and can be retried", async
   await page.goto("/incidents");
   await page
     .getByRole("dialog", { name: "Incoming incident" })
-    .getByRole("button", { name: "Enable sound and test" })
+    .getByRole("button", { name: "Enable sound" })
     .click();
   await expect(
     page
@@ -115,7 +114,7 @@ test("unavailable audio keeps the incident actionable and can be retried", async
   await page.unroute("**/sounds/incident-alert.wav");
   await page
     .getByRole("dialog", { name: "Incoming incident" })
-    .getByRole("button", { name: "Enable sound and test" })
+    .getByRole("button", { name: "Retry sound" })
     .click();
   await expect(page.getByText(/Incoming alerts connected/)).toContainText("Sound enabled.");
   await expect(
@@ -123,4 +122,60 @@ test("unavailable audio keeps the incident actionable and can be retried", async
       .getByRole("dialog", { name: "Incoming incident" })
       .getByText(/Sound playback is unavailable or blocked/),
   ).toHaveCount(0);
+});
+
+test("enabling is silent, both preferences survive refresh, and only real alerts play", async ({
+  page,
+}) => {
+  let incoming = false;
+  await page.route("**/api/incidents/alerts", (route) =>
+    route.fulfill({ json: { incidents: incoming ? [incident] : [] } }),
+  );
+  await page.addInitScript(() => {
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      document.documentElement.dataset.soundStarts = String(
+        Number(document.documentElement.dataset.soundStarts ?? 0) + 1,
+      );
+      return start.apply(this, args);
+    };
+  });
+  await page.goto("/incidents");
+  await page.getByRole("button", { name: "Enable sound", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Turn sound off" })).toBeEnabled();
+  expect(await page.locator("html").getAttribute("data-sound-starts")).toBeNull();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Turn sound off" })).toBeEnabled();
+  expect(await page.locator("html").getAttribute("data-sound-starts")).toBeNull();
+  const retry = page.getByRole("button", { name: "Retry sound" });
+  if (await retry.isVisible()) await retry.click();
+  incoming = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.getByRole("dialog", { name: "Incoming incident" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-sound-starts", "1");
+  await page.getByRole("button", { name: "Turn sound off" }).click();
+  await page.reload();
+  await expect(page.getByRole("dialog", { name: "Incoming incident" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enable sound", exact: true })).toBeEnabled();
+  expect(await page.locator("html").getAttribute("data-sound-starts")).toBeNull();
+});
+
+test("unavailable browser storage reports the persistence limit without preventing sound controls", async ({
+  page,
+}) => {
+  await page.route("**/api/incidents/alerts", (route) =>
+    route.fulfill({ json: { incidents: [] } }),
+  );
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException("Storage unavailable", "SecurityError");
+    };
+  });
+  await page.goto("/incidents");
+  await page.getByRole("button", { name: "Enable sound", exact: true }).click();
+  await expect(
+    page.getByText("Sound preference changed for this screen. Browser storage is unavailable."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Turn sound off" }).click();
+  await expect(page.getByRole("button", { name: "Enable sound", exact: true })).toBeEnabled();
 });
