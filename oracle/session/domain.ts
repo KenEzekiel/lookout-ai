@@ -58,7 +58,6 @@ export const defaultLimits = {
   maxHistoryBytes: 32_000,
   maxHistoryTurns: 24,
   maxInputBytes: 12_000,
-  maxTurnMs: 180_000,
   maxEventAgeMs: 3_600_000,
   maxClockSkewMs: 60_000,
   maxDedupEntries: 512,
