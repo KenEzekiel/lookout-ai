@@ -6,6 +6,8 @@ Depends on: F-INCIDENT-RESPONSE
 
 ## Behavior
 
+Alert actions display decorative icons alongside their visible labels. Acknowledge, Open incident, and Silence here share default sizing; sound preferences and retry use the shared compact size. Open incident remains a navigation link and still silences only this browser.
+
 An open operator client shows a prominent incoming alert for an open incident naming that member in its snapshotted recipients. It shows the trigger summary, source, event time, severity, and pending evidence before a clip exists. Open incident navigates to detail and silences locally. Silence here hides only that incident in the current browser tab. Neither action acknowledges it. Acknowledge alert uses the existing versioned command and records shared ownership.
 
 Sound starts off. Enable sound and test requests browser playback and plays an original 1.2-second, three-pulse incident alarm with sharp alternating 960/720 Hz tones and restrained harmonics. While enabled, the current incoming incident repeats the alarm every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the mounted screen and must be enabled again after navigation or reload. No background delivery, continuous ringtone, or OS sound bypass is promised.
@@ -39,6 +41,8 @@ The in-app incident consumer is implemented. Assessment and capture-to-report in
 The [sound browser integration tests](../../../tests/e2e/alert-sound.spec.ts) exercise the production app with HTTP-only principal and incident fixtures, real Web Audio and the real sound asset. They verify the three-pulse waveform, opt-in, test, sound-off, local silence, unavailable asset and retry. Run them after building with `pnpm exec playwright test tests/e2e/alert-sound.spec.ts`. The current sound-change PR records its executed checks and contained manual QA evidence; the earlier chime measurements above describe the prior sound. Physical speaker perception still requires a listener.
 
 ## Decisions and sources
+
+Kenneth requested clearer action icons and consistent sizing. [Incoming alert controls](../../../apps/app/src/components/incidents/incoming-alerts.tsx) use F-APP-SHELL Button sizes, including buttonVariants for the incident link. Sound, polling, local silence, and shared acknowledgment semantics remain unchanged.
 
 [Issue #23](https://github.com/KenEzekiel/lookout-ai/issues/23), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 

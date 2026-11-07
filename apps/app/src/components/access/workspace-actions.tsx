@@ -1,3 +1,4 @@
+import { Check, Copy, Monitor, Trash2, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { type z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,7 @@ export function WorkspaceActions({
                 onFocus={(event) => event.target.select()}
               />
               <Button
-                className="h-11"
+                icon={Copy}
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(
@@ -114,6 +115,7 @@ export function WorkspaceActions({
             </div>
           ) : (
             <ActionForm
+              icon={UserPlus}
               submit="Create invitation"
               pendingLabel="Creating invitation…"
               action={async () =>
@@ -127,6 +129,7 @@ export function WorkspaceActions({
           )
         ) : action.kind === "pair" ? (
           <ActionForm
+            icon={Monitor}
             submit="Connect device"
             pendingLabel="Connecting device…"
             action={async (data) => {
@@ -159,6 +162,7 @@ export function WorkspaceActions({
           </ActionForm>
         ) : action.kind === "activate" ? (
           <ActionForm
+            icon={Monitor}
             submit="Sign out and set up device"
             pendingLabel="Setting up device…"
             action={async (data) => {
@@ -175,6 +179,7 @@ export function WorkspaceActions({
           </ActionForm>
         ) : (
           <ActionForm
+            icon={Trash2}
             submit={action.kind === "remove-member" ? "Remove member" : "Remove access"}
             pendingLabel="Removing access…"
             variant="destructive"
@@ -196,7 +201,7 @@ export function WorkspaceActions({
             <p className="font-medium">{action.name}</p>
           </ActionForm>
         )}
-        <DialogClose render={<Button variant="ghost" className="h-10" />}>
+        <DialogClose render={<Button variant="ghost" icon={invite ? Check : X} />}>
           {invite ? "Done" : "Cancel"}
         </DialogClose>
       </DialogContent>

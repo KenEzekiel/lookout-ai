@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS, F-RULE-CONFIG
 
 ## Behavior
 
+Inbox/detail reload and acknowledge, resolve, and dismiss actions use shared default sizing with descriptive icons and visible labels. Decorative icons do not change the accessible action names.
+
 An accepted device report persists one workspace incident with event time, source and rule snapshots, severity, configured recipients, owner, and timeline. Evidence remains pending and background notification delivery remains not-sent in this slice. Operators can respond before a saved clip exists.
 
 Acknowledge changes open to acknowledged and records the responding member as owner. Resolve changes acknowledged to resolved. Dismiss changes open or acknowledged to dismissed and records incorrect-alert feedback. Dismissed and resolved are distinct terminal states. Opening an incident changes nothing. Every response requires the last-read version, increments it, and appends one timeline entry atomically. Any current workspace member can respond, including resolving a colleague's acknowledged incident. Ownership is preserved after resolution or dismissal.
@@ -49,6 +51,8 @@ The idempotency key is device, session, event ID, and rule ID. The producer must
 `pnpm verify` passed with 28 UI integration tests and 18 real-handler API tests. Interactive Chromium QA against the production Worker and isolated D1 exercised account creation, joining, pairing, trigger creation, empty inbox, duplicate synthetic delivery, persistence after refresh, two-operator ownership conflicts, reload recovery, cross-session resolution, separate dismissal, keyboard incident entry, and a 390-pixel mobile layout. A temporary HTTP 503 interception verified inbox failure and recovery; successful report and response paths used real handlers without mocks. Screenshots, video, tested revision, and results are recorded in the PR.
 
 ## Decisions and sources
+
+Kenneth requested button consistency and action icons. [Incident controls](../../../apps/app/src/components/incidents/workspace.tsx) use F-APP-SHELL Button sizing and explicit icons. Response transitions, version checks, and permissions remain unchanged.
 
 [Issue #19](https://github.com/KenEzekiel/lookout-ai/issues/19), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 

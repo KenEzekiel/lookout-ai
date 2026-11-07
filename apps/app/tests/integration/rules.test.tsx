@@ -359,3 +359,48 @@ test("a first trigger adds its source inline, reviews exclusions and saves disab
     "People walking through.",
   );
 });
+
+test("reload keeps action labels and decorative icons through pending, failure and retry", async () => {
+  let finishReload = () => {};
+  const reloadFinished = new Promise<void>((resolve) => {
+    finishReload = resolve;
+  });
+  let reads = 0;
+  server.use(
+    http.get("/api/config/operator", async () => {
+      reads += 1;
+      if (reads === 2) {
+        await reloadFinished;
+        return HttpResponse.json(
+          { message: "Configuration unavailable. Try again." },
+          { status: 503 },
+        );
+      }
+      return HttpResponse.json(configuration);
+    }),
+  );
+  const user = await open();
+  const reload = await screen.findByRole("button", { name: "Reload triggers" });
+  await waitFor(() => expect(screen.getByRole("button", { name: "New trigger" })).toBeEnabled());
+  for (const name of ["Reload triggers", "New trigger"]) {
+    const icon = screen.getByRole("button", { name }).querySelector("svg");
+    expect(icon).toBeInTheDocument();
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+  }
+  await user.click(reload);
+  const pending = await screen.findByRole("button", { name: "Reloading triggers…" });
+  expect(pending).toBeDisabled();
+  expect(pending.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  await user.click(pending);
+  expect(reads).toBe(2);
+  finishReload();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Configuration unavailable");
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Reload triggers" })).toBeEnabled(),
+  );
+  configuration.sources.push({ id: "new-source", name: "Recovered source", kind: "camera" });
+  await user.click(screen.getByRole("button", { name: "Reload triggers" }));
+  await user.click(await screen.findByText("Sources (3)"));
+  expect(screen.getByText("Recovered source", { exact: false })).toBeVisible();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});

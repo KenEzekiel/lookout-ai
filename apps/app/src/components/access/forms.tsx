@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode, type ComponentProps } from "react";
+import { LoaderCircle, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { message } from "@/lib/api";
 
@@ -42,14 +43,16 @@ export function ActionForm({
   pendingLabel,
   action,
   variant = "default",
-  compact = false,
+  size = "default",
+  icon,
 }: {
   children?: ReactNode;
   submit: string;
   pendingLabel: string;
   action: (data: FormData) => Promise<void>;
   variant?: ComponentProps<typeof Button>["variant"];
-  compact?: boolean;
+  size?: ComponentProps<typeof Button>["size"];
+  icon: LucideIcon;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -84,7 +87,8 @@ export function ActionForm({
         type="submit"
         variant={variant}
         disabled={pending}
-        className={compact ? "h-9 px-3" : "h-11 px-4"}
+        size={size}
+        icon={pending ? LoaderCircle : icon}
       >
         {pending ? pendingLabel : submit}
       </Button>

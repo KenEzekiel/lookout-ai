@@ -280,22 +280,20 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               <div className="mt-5">
                 {running || paused || starting ? (
                   <Button
-                    size="lg"
                     variant="secondary"
-                    className="h-10 w-full rounded-xl text-xs"
+                    className="w-full"
                     onClick={() => sessionRef.current?.stop()}
                   >
-                    <Square size={15} fill="currentColor" />
+                    <Square aria-hidden="true" fill="currentColor" />
                     Stop
                   </Button>
                 ) : (
                   <Button
-                    size="lg"
-                    className="h-10 w-full rounded-xl text-xs"
+                    className="w-full"
                     disabled={sourceChoice === "file" && !selectedFile}
                     onClick={start}
                   >
-                    <Play size={16} fill="currentColor" />
+                    <Play aria-hidden="true" fill="currentColor" />
                     Start
                   </Button>
                 )}

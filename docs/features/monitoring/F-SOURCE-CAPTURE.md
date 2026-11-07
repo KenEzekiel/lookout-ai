@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+Start and Stop use shared default Button sizing, typography, and decorative play/stop icons. Open capture station uses the same button styling while retaining navigation-link semantics.
+
 A paired operational device selects a browser camera or local video, starts and stops capture, and retains timestamped frame samples and a rolling camera buffer in browser memory. Replayed footage is visibly labeled. Selecting a file does not upload it.
 
 The camera/local-video selector uses the existing [shadcn Select](../../../apps/app/src/components/ui/select.tsx) built on Base UI, with visible labels and keyboard interaction. Changing its value retains the existing capture-stop behavior. File selection and camera permission remain browser-managed.
@@ -39,6 +41,8 @@ The dropdown migration retains the existing capture integration coverage. Produc
 Dropdown panels open outside the trigger with a six-pixel gap and matching width. Four-pixel padding separates the rounded options from the panel border; the selected row no longer overlays the trigger. This corrects the visual alignment reported in PR #59. The preview keeps its minimum height within the available container width, so its aspect ratio cannot force horizontal overflow on a 320-pixel screen.
 
 ## Decisions and sources
+
+Kenneth requested a button consistency audit and clearer icons. [Capture controls](../../../apps/app/src/components/device-screen.tsx) and the [capture entry link](../../../apps/app/src/components/access/monitor.tsx) reuse F-APP-SHELL sizing. The existing capture lifecycle, identity, and media behavior remain unchanged.
 
 [Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#17](https://github.com/KenEzekiel/lookout-ai/issues/17). Issue status is not implementation evidence.
 

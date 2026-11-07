@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+Action buttons share a 40-pixel minimum height, 16-pixel icons, and consistent spacing. Compact header, row, and alert-preference actions use the explicit 36-pixel size. Inline text actions keep their compact layout. Labels wrap on narrow screens; icons supplement visible labels and remain hidden from assistive technology.
+
 Visitors open Lookout to sign in or register. Access and capture headers share the approved Horizon SVG mark; the document uses its matching favicon. Workspace members navigate between Devices (default) and Team using a URL search parameter, with reload and browser history support. Forms and lists adapt to narrow screens. Authenticated people see onboarding or workspace access controls. Devices see their restricted authorization status and a link to local capture. Members can also open trigger configuration from the Triggers link, with exactly one current navigation destination. Unknown routes still show Not Found. This is not yet a monitoring dashboard.
 
 ## Entry points
@@ -33,6 +35,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 [Route integration tests](../../../apps/app/tests/integration/app.test.tsx) cover the visible home heading and unknown-route fallback. [Capture UI tests](../../../apps/app/tests/integration/device.test.tsx) cover paired-device entry and visitor denial. Run `pnpm test`. [Access browser journeys](../../../tests/e2e/access.spec.ts) exercise entry, joining, and monitoring-mode navigation against the built app.
 
 ## Decisions and sources
+
+The shared [Button and buttonVariants](../../../apps/app/src/components/ui/button.tsx) own sizes and icon placement. [ActionForm](../../../apps/app/src/components/access/forms.tsx) requires an explicit Lucide action icon, substitutes a decorative busy icon while submitting, and inherits Button sizing. Button-like links reuse buttonVariants. This follows Kenneth's request to audit inconsistent button sizing and add action icons. A second form-only height was rejected because it caused the observed 44-pixel Reload versus 32-pixel New trigger mismatch. The typed icon prop follows Model the Domain and Type System Discipline by making form callers declare their action icon. No endpoint or permission contract changes.
 
 The merge with main preserves F-RULE-CONFIG navigation and device configuration delivery alongside the redesigned access screens.
 

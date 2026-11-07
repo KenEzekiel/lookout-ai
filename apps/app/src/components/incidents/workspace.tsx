@@ -1,3 +1,4 @@
+import { Check, Hand, RotateCw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, Clock, Video } from "lucide-react";
@@ -78,7 +79,7 @@ export function IncidentInbox() {
             Review what happened and take ownership of the response.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void refresh()}>
+        <Button icon={RotateCw} variant="outline" onClick={() => void refresh()}>
           Reload inbox
         </Button>
       </div>
@@ -228,6 +229,7 @@ export function IncidentDetail({ id }: { id: string }) {
           Back to inbox
         </Link>
         <Button
+          icon={RotateCw}
           variant="outline"
           disabled={pending}
           onClick={() => {
@@ -313,17 +315,22 @@ export function IncidentDetail({ id }: { id: string }) {
                 {notice && <output className="mt-4 block text-sm">{notice}</output>}
                 <div className="mt-5 grid gap-3">
                   {incident.status === "open" && (
-                    <Button disabled={pending} onClick={() => void respond("acknowledge")}>
+                    <Button
+                      icon={Hand}
+                      disabled={pending}
+                      onClick={() => void respond("acknowledge")}
+                    >
                       Acknowledge
                     </Button>
                   )}
                   {incident.status === "acknowledged" && (
-                    <Button disabled={pending} onClick={() => void respond("resolve")}>
+                    <Button icon={Check} disabled={pending} onClick={() => void respond("resolve")}>
                       Resolve
                     </Button>
                   )}
                   {(incident.status === "open" || incident.status === "acknowledged") && (
                     <Button
+                      icon={X}
                       variant="outline"
                       disabled={pending}
                       onClick={() => void respond("dismiss")}

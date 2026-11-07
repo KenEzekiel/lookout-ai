@@ -1,3 +1,4 @@
+import { LogIn, LogOut, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type Principal, principalSchema } from "@/lib/access";
@@ -142,9 +143,10 @@ export function AccessApp({
                   {actor.name.slice(0, 2).toUpperCase()}
                 </span>
                 <ActionForm
+                  icon={LogOut}
                   submit="Sign out"
                   pendingLabel="Signing out…"
-                  compact
+                  size="sm"
                   variant="ghost"
                   action={async () => {
                     await mutate("/api/auth/sign-out");
@@ -171,8 +173,14 @@ export function AccessApp({
               {error}
             </p>
             <div className="grid gap-3">
-              <ActionForm submit="Try again" pendingLabel="Trying again…" action={refresh} />
               <ActionForm
+                icon={RotateCw}
+                submit="Try again"
+                pendingLabel="Trying again…"
+                action={refresh}
+              />
+              <ActionForm
+                icon={LogIn}
                 submit="Return to sign in"
                 pendingLabel="Returning to sign in…"
                 variant="secondary"
