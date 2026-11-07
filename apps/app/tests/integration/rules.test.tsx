@@ -103,14 +103,16 @@ test("operators define incidents with exclusions, edit and disable them, then re
   expect(screen.getByLabelText("Alex (owner)")).toBeChecked();
   expect(screen.queryByLabelText("Start from")).not.toBeInTheDocument();
   await user.type(screen.getByLabelText("Incident name"), "Possible fall");
-  await user.type(screen.getByLabelText("What should count?"), "A person falls to the floor.");
+  await user.click(screen.getByLabelText("What should count?"));
+  await user.paste("A person falls to the floor.");
   await user.click(screen.getByRole("button", { name: "Save enabled" }));
   expect(await screen.findByRole("article", { name: "Possible fall" })).toHaveTextContent(
     "Enabled · Version 1",
   );
   await user.click(screen.getByRole("button", { name: "New trigger" }));
   await user.type(screen.getByLabelText("Incident name"), "Possible crash");
-  await user.type(screen.getByLabelText("What should count?"), "Two vehicles visibly collide.");
+  await user.click(screen.getByLabelText("What should count?"));
+  await user.paste("Two vehicles visibly collide.");
   await user.click(screen.getByLabelText("Source", { exact: true }));
   await user.click(await screen.findByRole("option", { name: /Replayed footage/ }));
   await user.click(screen.getByRole("button", { name: "Save enabled" }));
@@ -120,14 +122,10 @@ test("operators define incidents with exclusions, edit and disable them, then re
   await user.click(screen.getByRole("button", { name: "New trigger" }));
 
   await user.type(screen.getByLabelText("Incident name"), "Blocked exit");
-  await user.type(
-    screen.getByLabelText("What should count?"),
-    "A vehicle blocks the marked emergency exit.",
-  );
-  await user.type(
-    screen.getByLabelText("What should not count? (optional)"),
-    "Vehicles passing the exit without stopping.",
-  );
+  await user.click(screen.getByLabelText("What should count?"));
+  await user.paste("A vehicle blocks the marked emergency exit.");
+  await user.click(screen.getByLabelText("What should not count? (optional)"));
+  await user.paste("Vehicles passing the exit without stopping.");
   await user.click(screen.getByText("Timing and urgency"));
   await user.type(screen.getByLabelText("Duration condition (seconds, optional)"), "15");
   await user.click(screen.getByLabelText("Severity", { exact: true }));
