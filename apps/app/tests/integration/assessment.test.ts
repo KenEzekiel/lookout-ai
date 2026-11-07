@@ -8,14 +8,29 @@ const observation: AssessmentRequest = {
   sourceId: "source-1",
   observation: {
     stage: "review",
-    frames: [{ mediaTimeMs: 0, imageDataUrl: "data:image/jpeg;base64,/9j/" }],
+    frames: [
+      {
+        mediaTimeMs: 0,
+        image: new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" }),
+      },
+    ],
   },
 };
 
 test("client transport sends only the observation and preserves rule rejection", async () => {
   server.use(
     http.post("/api/assessment", async ({ request }) => {
-      expect(await request.json()).toEqual(observation);
+      expect(request.headers.get("content-type")).toContain("multipart/form-data;");
+      const form = await request.formData();
+      expect(JSON.parse(String(form.get("metadata")))).toEqual({
+        ...observation,
+        observation: { stage: "review", frames: [{ mediaTimeMs: 0 }] },
+      });
+      const image = form.get("frame-0");
+      if (!image || typeof image === "string") throw new Error("Missing image.");
+      expect(image.type).toBe("image/jpeg");
+      expect(new Uint8Array(await image.arrayBuffer())).toEqual(new Uint8Array([255, 216, 255]));
+      expect([...form.keys()]).toEqual(["metadata", "frame-0"]);
       expect(request.headers.has("authorization")).toBe(false);
       return HttpResponse.json(
         { kind: "unavailable", reason: "rule_unavailable" },
@@ -84,4 +99,27 @@ test("network failure and cancellation remain explicit failures", async () => {
     kind: "unavailable",
     reason: "cancelled",
   });
+});
+
+test("client rejects invalid binary frames before sending a request", async () => {
+  let calls = 0;
+  server.use(
+    http.post("/api/assessment", () => {
+      calls += 1;
+      return HttpResponse.json({ kind: "unavailable", reason: "provider_error" });
+    }),
+  );
+  for (const image of [
+    new Blob([], { type: "image/jpeg" }),
+    new Blob(["png"], { type: "image/png" }),
+    new Blob([new Uint8Array(192 * 1024 + 1)], { type: "image/jpeg" }),
+  ]) {
+    expect(
+      await requestAssessment({
+        ...observation,
+        observation: { stage: "review", frames: [{ mediaTimeMs: 0, image }] },
+      }),
+    ).toEqual({ kind: "unavailable", reason: "invalid_request" });
+  }
+  expect(calls).toBe(0);
 });

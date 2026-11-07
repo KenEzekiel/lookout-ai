@@ -3,7 +3,7 @@ import { ruleVersionSchema, ruleInputSchema } from "./rules";
 
 export const assessmentLimits = {
   requestBytes: 2 * 1024 * 1024,
-  frameCharacters: 256 * 1024,
+  frameBytes: 192 * 1024,
   frames: 8,
   windowMs: 30_000,
   conditionCharacters: 2_000,
@@ -11,24 +11,20 @@ export const assessmentLimits = {
   providerResponseBytes: 64 * 1024,
 };
 
-export const observationSchema = z
+const frameMetadataSchema = z.strictObject({ mediaTimeMs: z.number().finite().nonnegative() });
+const frameSchema = frameMetadataSchema.extend({
+  image: z
+    .instanceof(Blob)
+    .refine(
+      (image) =>
+        image.type === "image/jpeg" && image.size > 0 && image.size <= assessmentLimits.frameBytes,
+    ),
+});
+
+const observationMetadataSchema = z
   .strictObject({
     stage: z.enum(["assessment", "review"]),
-    frames: z
-      .array(
-        z.strictObject({
-          mediaTimeMs: z.number().finite().nonnegative(),
-          imageDataUrl: z
-            .string()
-            .max(assessmentLimits.frameCharacters)
-            .regex(
-              /^data:image\/jpeg;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
-            )
-            .min(27),
-        }),
-      )
-      .min(1)
-      .max(assessmentLimits.frames),
+    frames: z.array(frameMetadataSchema).min(1).max(assessmentLimits.frames),
   })
   .superRefine(({ frames }, context) => {
     const first = frames[0];
@@ -46,14 +42,22 @@ export const observationSchema = z
     }
   });
 
+export const observationSchema = observationMetadataSchema.safeExtend({
+  frames: z.array(frameSchema).min(1).max(assessmentLimits.frames),
+});
+
 export const reviewVerdictSchema = z.strictObject({
   outcome: z.enum(["positive", "rejected", "need_more_evidence"]),
   explanation: z.string().min(1).max(600),
 });
 
-export const assessmentRequestSchema = z.strictObject({
+export const assessmentMetadataSchema = z.strictObject({
   rule: ruleVersionSchema.strict(),
   sourceId: ruleInputSchema.shape.sourceId,
+  observation: observationMetadataSchema,
+});
+
+export const assessmentRequestSchema = assessmentMetadataSchema.extend({
   observation: observationSchema,
 });
 
@@ -96,10 +100,24 @@ export async function requestAssessment(
   const input = assessmentRequestSchema.safeParse(request);
   if (!input.success) return { kind: "unavailable", reason: "invalid_request" };
   try {
+    const body = new FormData();
+    const { observation, ...reference } = input.data;
+    body.set(
+      "metadata",
+      JSON.stringify({
+        ...reference,
+        observation: {
+          ...observation,
+          frames: observation.frames.map(({ mediaTimeMs }) => ({ mediaTimeMs })),
+        },
+      }),
+    );
+    observation.frames.forEach(({ image }, index) =>
+      body.set(`frame-${index}`, image, `frame-${index}.jpg`),
+    );
     const response = await fetch("/api/assessment", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input.data),
+      body,
       signal,
     });
     if (response.status === 401 || response.status === 403)

@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { z } from "zod";
 import {
   assessmentLimits,
@@ -62,10 +63,18 @@ export async function requestProviderAssessment(
   const deadline = AbortSignal.timeout(assessmentLimits.providerTimeoutMs);
   const signal = callerSignal ? AbortSignal.any([callerSignal, deadline]) : deadline;
   const { observation, condition } = parsed.data;
-  const content = observation.frames.flatMap((frame) => [
-    { type: "input_text", text: `Source time: ${frame.mediaTimeMs} ms.` },
-    { type: "input_image", image_url: frame.imageDataUrl, detail: "high" },
-  ]);
+  const content = (
+    await Promise.all(
+      observation.frames.map(async (frame) => [
+        { type: "input_text", text: `Source time: ${frame.mediaTimeMs} ms.` },
+        {
+          type: "input_image",
+          image_url: `data:image/jpeg;base64,${Buffer.from(await frame.image.arrayBuffer()).toString("base64")}`,
+          detail: "high",
+        },
+      ]),
+    )
+  ).flat();
   const body =
     observation.stage === "assessment"
       ? {

@@ -52,8 +52,11 @@ afterAll(async () => {
 const observation: AssessmentRequest["observation"] = {
   stage: "assessment",
   frames: [
-    { mediaTimeMs: 0, imageDataUrl: "data:image/jpeg;base64,/9j/" },
-    { mediaTimeMs: 500, imageDataUrl: "data:image/jpeg;base64,/9j/" },
+    { mediaTimeMs: 0, image: new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" }) },
+    {
+      mediaTimeMs: 500,
+      image: new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" }),
+    },
   ],
 };
 const decisions = {
@@ -85,6 +88,27 @@ function review(outcome: string) {
 class Browser {
   cookies = new Map<string, string>();
   async request(path: string, body?: unknown, headers: Record<string, string> = {}) {
+    let payload: string | FormData | ArrayBuffer | undefined =
+      body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body);
+    if (body instanceof FormData) payload = body;
+    else if (path === "/api/assessment" && typeof body === "object" && body !== null) {
+      const form = new FormData();
+      let index = 0;
+      const metadata = JSON.stringify(body, (key, value) => {
+        if (key === "image" && value instanceof Blob) {
+          form.append(`frame-${index++}`, value, "frame.jpg");
+          return undefined;
+        }
+        return value;
+      });
+      form.set("metadata", metadata);
+      payload = form;
+    }
+    if (payload instanceof FormData) {
+      const encoded = new Response(payload);
+      headers = { "Content-Type": encoded.headers.get("content-type") ?? "", ...headers };
+      payload = await encoded.arrayBuffer();
+    }
     const response = await harness.fetch(origin + path, {
       method: body === undefined ? "GET" : "POST",
       headers: {
@@ -93,7 +117,7 @@ class Browser {
         Cookie: [...this.cookies].map(([key, value]) => `${key}=${value}`).join("; "),
         ...headers,
       },
-      body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
+      body: payload,
     });
     for (const cookie of response.headers.getSetCookie()) {
       const pair = cookie.split(";")[0];
@@ -180,9 +204,9 @@ test("authorized device gets typed probabilities without retaining images, decis
               text: `Monitoring condition: ${conditionText(rule.definition.condition)}`,
             },
             { type: "input_text", text: "Source time: 0 ms." },
-            { type: "input_image", image_url: observation.frames[0]?.imageDataUrl, detail: "high" },
+            { type: "input_image", image_url: "data:image/jpeg;base64,/9j/", detail: "high" },
             { type: "input_text", text: "Source time: 500 ms." },
-            { type: "input_image", image_url: observation.frames[1]?.imageDataUrl, detail: "high" },
+            { type: "input_image", image_url: "data:image/jpeg;base64,/9j/", detail: "high" },
           ],
         },
       ],
@@ -346,6 +370,37 @@ test("invalid observations, client rule text and oversized bodies are rejected",
   );
   expect(response.status).toBe(413);
   expect(await response.json()).toEqual({ kind: "unavailable", reason: "invalid_request" });
+  expect(requests).toHaveLength(0);
+});
+
+test("multipart uploads reject missing, duplicate, oversized and unexpected parts", async () => {
+  const { browser, input } = await configuredDevice();
+  const metadata = { ...input, observation: { stage: "assessment", frames: [{ mediaTimeMs: 0 }] } };
+  const image = new Blob([new Uint8Array([255, 216, 255])], { type: "image/jpeg" });
+  const mutations: ((form: FormData) => void)[] = [
+    (form) => form.delete("frame-0"),
+    (form) => form.append("frame-0", image),
+    (form) => form.append("metadata", JSON.stringify(metadata)),
+    (form) => form.set("frame-1", image),
+    (form) => form.set("frame-0", "data:image/jpeg;base64,/9j/"),
+    (form) => form.set("frame-0", new Blob([], { type: "image/jpeg" })),
+    (form) => form.set("frame-0", new Blob(["png"], { type: "image/png" })),
+    (form) =>
+      form.set("frame-0", new Blob([new Uint8Array(192 * 1024 + 1)], { type: "image/jpeg" })),
+    (form) => form.set("metadata", "not json"),
+  ];
+  for (const mutate of mutations) {
+    const form = new FormData();
+    form.set("metadata", JSON.stringify(metadata));
+    form.set("frame-0", image);
+    mutate(form);
+    expect((await browser.request("/api/assessment", form)).status).toBe(400);
+  }
+  const oversized = new FormData();
+  oversized.set("metadata", JSON.stringify(metadata));
+  oversized.set("frame-0", new Blob([new Uint8Array(2 * 1024 * 1024)], { type: "image/jpeg" }));
+  expect((await browser.request("/api/assessment", oversized)).status).toBe(413);
+  expect((await browser.request("/api/assessment", JSON.stringify(metadata))).status).toBe(400);
   expect(requests).toHaveLength(0);
 });
 

@@ -1,8 +1,7 @@
 import { env } from "cloudflare:workers";
-import { assessmentLimits, assessmentRequestSchema } from "../lib/assessment";
 import { conditionText } from "../lib/rules";
 import { monitoringDevice } from "./access";
-import { readAssessmentJson } from "./assessment-body";
+import { readAssessmentRequest } from "./assessment-body";
 import { json, limit } from "./http";
 import { assessmentRule } from "./rules";
 import { requestProviderAssessment } from "./assessment-provider";
@@ -14,9 +13,7 @@ export async function assessment(request: Request) {
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(5_000)]);
   let input;
   try {
-    input = assessmentRequestSchema.parse(
-      await readAssessmentJson(request, assessmentLimits.requestBytes, signal),
-    );
+    input = await readAssessmentRequest(request, signal);
   } catch (error) {
     if (error instanceof RangeError)
       return json({ kind: "unavailable", reason: "invalid_request" }, 413);

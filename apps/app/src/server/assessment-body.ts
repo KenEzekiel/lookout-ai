@@ -1,8 +1,14 @@
-export async function readAssessmentJson(
+import {
+  assessmentLimits,
+  assessmentMetadataSchema,
+  assessmentRequestSchema,
+} from "../lib/assessment";
+
+async function readAssessmentBody(
   message: Request | Response,
   maximum: number,
   signal: AbortSignal,
-): Promise<unknown> {
+): Promise<Uint8Array<ArrayBuffer>> {
   signal.throwIfAborted();
   if (message instanceof Response && Number(message.headers.get("content-length")) > maximum) {
     await message.body?.cancel();
@@ -38,9 +44,49 @@ export async function readAssessmentJson(
       body.set(chunk, offset);
       offset += chunk.byteLength;
     }
-    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
+    return body;
   } finally {
     signal.removeEventListener("abort", cancel);
     reader.releaseLock();
   }
+}
+
+export async function readAssessmentJson(
+  response: Response,
+  maximum: number,
+  signal: AbortSignal,
+): Promise<unknown> {
+  const body = await readAssessmentBody(response, maximum, signal);
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
+}
+
+export async function readAssessmentRequest(request: Request, signal: AbortSignal) {
+  const body = await readAssessmentBody(request, assessmentLimits.requestBytes, signal);
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!/^multipart\/form-data(?:;|$)/i.test(contentType))
+    throw new SyntaxError("Expected multipart images.");
+  const form = await new Response(body, { headers: { "Content-Type": contentType } }).formData();
+  signal.throwIfAborted();
+  const metadata = form.getAll("metadata");
+  if (metadata.length !== 1 || typeof metadata[0] !== "string")
+    throw new SyntaxError("Invalid metadata.");
+  const input = assessmentMetadataSchema.parse(JSON.parse(metadata[0]));
+  const expected = new Set([
+    "metadata",
+    ...input.observation.frames.map((_, index) => `frame-${index}`),
+  ]);
+  for (const key of form.keys()) {
+    if (!expected.has(key) || form.getAll(key).length !== 1)
+      throw new SyntaxError("Unexpected image part.");
+  }
+  return assessmentRequestSchema.parse({
+    ...input,
+    observation: {
+      ...input.observation,
+      frames: input.observation.frames.map((frame, index) => ({
+        ...frame,
+        image: form.get(`frame-${index}`),
+      })),
+    },
+  });
 }
