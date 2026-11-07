@@ -26,6 +26,8 @@ The shell uses the completed account/session portion of F-AUTH-ACCESS through sa
 
 ## Implementation
 
+The shared [typography scale](../../../apps/app/src/styles.css) gives Devices, Team, Triggers, Incidents, incident detail, and Capture a 30 px page title, 20 px panel/dialog headings, 15 px body/actions, and 13 px metadata. Account panels retain 24 px titles. Geist Variable, semantic colors, and existing navigation remain shared. Sizes use rem units with unitless line heights; editable controls use 16 px on narrow screens. [Production-browser typography journeys](../../../tests/e2e/typography.spec.ts) check desktop and narrow screens, computed typography, focus return, and overflow. This PR introduces the consistency fix requested in Slack; per-run browser evidence is recorded in its PR description.
+
 [Trigger route](../../../apps/app/src/routes/triggers.tsx) and [rule-screen integration tests](../../../apps/app/tests/integration/rules.test.tsx) add authenticated configuration navigation under F-RULE-CONFIG.
 
 [Home route](../../../apps/app/src/routes/index.tsx), [capture route](../../../apps/app/src/routes/device.tsx), [root route](../../../apps/app/src/routes/__root.tsx), [router](../../../apps/app/src/router.tsx), [access UI](../../../apps/app/src/components/access/app.tsx), [brand](../../../apps/app/src/components/access/brand.tsx), and [favicon](../../../apps/app/public/favicon.svg).

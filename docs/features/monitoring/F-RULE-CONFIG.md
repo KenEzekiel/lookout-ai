@@ -36,6 +36,8 @@ F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to schedule one
 
 ## Implementation
 
+The trigger workspace uses the shared 30 px page-title role and a level-one heading, matching Devices and Incidents. The editor dialog uses the shared 20 px panel-title role, and inherited body text follows the 15 px app default. [Typography browser journeys](../../../tests/e2e/typography.spec.ts) check the title, editor, Escape dismissal, and focus return at desktop and narrow widths. This PR changes presentation only; rule schemas and save semantics remain unchanged.
+
 [Shared schemas](../../../apps/app/src/lib/rules.ts), [configuration handlers](../../../apps/app/src/server/rules.ts), [route adapter](../../../apps/app/src/routes/api/config/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [migration](../../../apps/app/migrations/0002_rule_configuration.sql) implement storage and delivery. [Workspace operations](../../../apps/app/src/server/workspaces.ts) disable rules when recipients leave.
 
 [Trigger route](../../../apps/app/src/routes/triggers.tsx), [workspace screen](../../../apps/app/src/components/rules/workspace.tsx), [editor and summaries](../../../apps/app/src/components/rules/editor.tsx), and [device screen](../../../apps/app/src/components/access/monitor.tsx) connect the operator-to-device configuration journey. Connecting local capture to configured sources and downstream execution remain unimplemented, so status stays partial.

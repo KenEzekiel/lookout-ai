@@ -73,3 +73,20 @@ for (const width of [1440, 390]) {
     ).toBe(true);
   });
 }
+
+test("the exported pitch deck carries the Lookout font and palette offline", async ({ page }) => {
+  await page.goto(new URL("../../packages/pitchdeck/dist/index.html", import.meta.url).href);
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator("body")).toHaveCSS("font-family", /Geist Variable/);
+  await expect(page.locator("body")).toHaveCSS("color", "rgb(247, 246, 242)");
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(26, 26, 29)");
+  expect(
+    await page.evaluate(() =>
+      [...document.fonts].some(
+        (font) => font.family === "Geist Variable" && font.status === "loaded",
+      ),
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Next slide" }).click();
+  await expect(page.getByRole("heading", { name: /Cameras record/ })).toBeVisible();
+});

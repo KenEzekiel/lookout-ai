@@ -30,6 +30,8 @@ The incident service now has server-owned per-source session leases. The local c
 
 ## Implementation
 
+Capture consumes [shared typography roles](../../../apps/app/src/styles.css): a 30 px page title, 20 px panel headings, 15 px actions, and 13 px metadata replace independent pixel sizes. [Typography browser journeys](../../../tests/e2e/typography.spec.ts) reach capture through real device activation and inspect titles, actions, metadata, and narrow-screen overflow. Source selection, local retention, and capture permissions remain unchanged.
+
 [Capture route](../../../apps/app/src/routes/device.tsx), [paired-device gate](../../../apps/app/src/components/access/app.tsx), [device screen](../../../apps/app/src/components/device-screen.tsx), and [capture session](../../../apps/app/src/lib/capture-session.ts) implement local capture. The server-owned assessment and incident path remains planned.
 
 ## Verification

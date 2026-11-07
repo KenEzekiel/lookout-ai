@@ -115,7 +115,7 @@ export function LiveView({
       className="mb-6 rounded-xl border border-border bg-card p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Live view · {device.name}</h2>
+        <h2 className="text-panel-title">Live view · {device.name}</h2>
         <Button variant="secondary" onClick={onClose}>
           Close live view
         </Button>

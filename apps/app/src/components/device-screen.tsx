@@ -96,9 +96,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
 
       <main className="mx-auto max-w-[1680px] px-4 pt-7 pb-10 sm:px-6 sm:pt-9 lg:px-9">
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-[34px] leading-tight font-semibold tracking-[-0.02em] sm:text-[36px]">
-            Capture station
-          </h1>
+          <h1 className="text-page-title">Capture station</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             Connect a camera or play a local video on this device.
           </p>
@@ -110,8 +108,8 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               <span className="grid size-7 place-items-center rounded-lg bg-surface-raised text-muted-foreground">
                 <Camera size={17} />
               </span>
-              <h2 className="text-sm font-semibold">Source preview</h2>
-              <span className="rounded-lg bg-surface-raised px-2 py-1 text-[11px] text-muted-foreground">
+              <h2 className="text-panel-title">Source preview</h2>
+              <span className="rounded-lg bg-surface-raised px-2 py-1 text-xs text-muted-foreground">
                 {sourceChoice === "camera"
                   ? running
                     ? "Live camera"
@@ -163,7 +161,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               <div
                 className={cn(
                   "absolute top-4 right-4 z-10 rounded-lg border border-white/10",
-                  "bg-[#0d1114]/75 px-3 py-2 text-[11px] text-white backdrop-blur-sm",
+                  "bg-[#0d1114]/75 px-3 py-2 text-xs text-white backdrop-blur-sm",
                 )}
               >
                 {running ? "Capture running" : paused ? "Playback paused" : "Capture stopped"}
@@ -198,18 +196,15 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
             <section className={cn(panelClass, "md:row-span-2 lg:row-auto")}>
               <div className="flex items-center gap-2.5 text-muted-foreground">
                 <Activity size={16} />
-                <h2 className="text-sm font-semibold text-foreground">Capture controls</h2>
+                <h2 className="text-panel-title text-foreground">Capture controls</h2>
               </div>
               <div className="mt-6 flex items-center justify-between gap-3">
-                <strong
-                  key={statusTitle}
-                  className="motion-feedback text-[19px] font-semibold tracking-[-0.025em]"
-                >
+                <strong key={statusTitle} className="motion-feedback text-panel-title">
                   {statusTitle}
                 </strong>
                 <Badge
                   className={cn(
-                    "h-[23px] px-2 text-[11px]",
+                    "h-[23px] px-2 text-xs",
                     running
                       ? "bg-resolved/10 text-resolved"
                       : hasError
@@ -239,7 +234,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               </p>
 
               <div className="mt-5 flex flex-col gap-2">
-                <label className="text-xs text-muted-foreground" htmlFor="source-kind">
+                <label className="text-sm text-muted-foreground" htmlFor="source-kind">
                   Source type
                 </label>
                 <Select<SourceChoice>
@@ -260,7 +255,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               </div>
               {sourceChoice === "file" && (
                 <div className="motion-reveal mt-4 flex flex-col gap-2">
-                  <label className="text-xs text-muted-foreground" htmlFor="video-file">
+                  <label className="text-sm text-muted-foreground" htmlFor="video-file">
                     Video file
                   </label>
                   <input
@@ -285,7 +280,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                   <Button
                     size="lg"
                     variant="secondary"
-                    className="h-10 w-full rounded-xl text-xs"
+                    className="h-10 w-full rounded-xl text-sm"
                     onClick={() => sessionRef.current?.stop()}
                   >
                     <Square size={15} fill="currentColor" />
@@ -294,7 +289,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                 ) : (
                   <Button
                     size="lg"
-                    className="h-10 w-full rounded-xl text-xs"
+                    className="h-10 w-full rounded-xl text-sm"
                     disabled={sourceChoice === "file" && !selectedFile}
                     onClick={start}
                   >
@@ -314,7 +309,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
             <section className={panelClass}>
               <div className="flex items-center gap-2.5 text-muted-foreground">
                 <Clock3 size={16} />
-                <h2 className="text-sm font-semibold text-foreground">Recent footage</h2>
+                <h2 className="text-panel-title text-foreground">Recent footage</h2>
               </div>
               <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
                 Kept in this browser while capture runs.

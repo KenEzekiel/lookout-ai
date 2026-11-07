@@ -71,9 +71,9 @@ export function IncidentInbox() {
     <section aria-labelledby="inbox-title" className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 id="inbox-title" className="text-3xl font-semibold tracking-tight">
+          <h1 id="inbox-title" className="text-page-title">
             Incident inbox
-          </h2>
+          </h1>
           <p className="mt-2 text-muted-foreground">
             Review what happened and take ownership of the response.
           </p>
@@ -90,7 +90,7 @@ export function IncidentInbox() {
         <output>Loading incidents…</output>
       ) : incidents.length === 0 ? (
         <div className="rounded-2xl bg-card p-8">
-          <h3 className="text-xl font-medium">No incidents yet</h3>
+          <h3 className="text-panel-title">No incidents yet</h3>
           <p className="mt-2 text-muted-foreground">
             Reported events will appear here. Configure a trigger and keep its monitoring device
             active.
@@ -112,9 +112,7 @@ export function IncidentInbox() {
                 className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-card p-6 outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-accent"
               >
                 <div className="min-w-0">
-                  <p className="text-lg font-semibold break-words">
-                    {incident.rule.definition.name}
-                  </p>
+                  <p className="text-panel-title break-words">{incident.rule.definition.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground break-words">
                     {incident.source.name} ·{" "}
                     {incident.source.kind === "replay" ? "Replayed footage" : "Camera"}
@@ -255,9 +253,7 @@ export function IncidentDetail({ id }: { id: string }) {
                 {incident.rule.definition.severity === "critical" ? "Critical" : "Warning"}
               </span>
             </div>
-            <h2 className="text-3xl font-semibold tracking-tight break-words">
-              {incident.rule.definition.name}
-            </h2>
+            <h1 className="text-page-title break-words">{incident.rule.definition.name}</h1>
             <p className="mt-2 text-muted-foreground break-words">
               {incident.source.name} ·{" "}
               {incident.source.kind === "replay" ? "Replayed footage" : "Camera"}
@@ -270,14 +266,14 @@ export function IncidentDetail({ id }: { id: string }) {
             <div className="grid gap-6">
               <div className="flex min-h-60 flex-col items-center justify-center gap-3 rounded-2xl bg-card p-8 text-center">
                 <Video aria-hidden="true" className="size-8 text-muted-foreground" />
-                <h3 className="text-xl font-medium">Evidence pending</h3>
+                <h3 className="text-panel-title">Evidence pending</h3>
                 <p className="max-w-sm text-muted-foreground">
                   Preparing replay. No saved clip is available yet. You can respond while evidence
                   is pending.
                 </p>
               </div>
               <section aria-labelledby="rule-title" className="rounded-2xl bg-card p-6">
-                <h3 id="rule-title" className="text-lg font-semibold">
+                <h3 id="rule-title" className="text-panel-title">
                   Matched trigger
                 </h3>
                 <p className="mt-3">{conditionText(incident.rule.definition.condition)}</p>
@@ -290,7 +286,7 @@ export function IncidentDetail({ id }: { id: string }) {
             </div>
             <div className="grid gap-6 rounded-2xl bg-card p-6">
               <section aria-labelledby="response-title">
-                <h3 id="response-title" className="text-xl font-semibold">
+                <h3 id="response-title" className="text-panel-title">
                   Response
                 </h3>
                 <p className="mt-3">
@@ -334,7 +330,7 @@ export function IncidentDetail({ id }: { id: string }) {
                 </div>
               </section>
               <section aria-labelledby="alert-title">
-                <h3 id="alert-title" className="font-medium">
+                <h3 id="alert-title" className="text-panel-title">
                   Alert delivery
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -368,7 +364,7 @@ export function IncidentDetail({ id }: { id: string }) {
                 )}
               </section>
               <section aria-labelledby="timeline-title">
-                <h3 id="timeline-title" className="flex items-center gap-2 font-medium">
+                <h3 id="timeline-title" className="flex items-center gap-2 text-panel-title">
                   <Clock aria-hidden="true" className="size-4" />
                   Timeline
                 </h3>

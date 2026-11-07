@@ -26,6 +26,8 @@ F-SOURCE-CAPTURE owns source capture, monitoring resources, and memory buffers. 
 
 ## Implementation
 
+The [live-view panel](../../../apps/app/src/components/live-view.tsx) uses the shared 20 px panel-title role from [the app stylesheet](../../../apps/app/src/styles.css). Body and controls inherit the common type scale. Signaling, stream ownership, and access checks remain unchanged; existing live-view journey coverage remains the regression check.
+
 [Shared signaling schemas and free ICE configuration](../../../apps/app/src/lib/peer.ts), [peer connection and ICE gathering](../../../apps/app/src/lib/peer-connection.ts), [device peer lifecycle](../../../apps/app/src/components/live-source.tsx), [operator player](../../../apps/app/src/components/live-view.tsx), [capture station](../../../apps/app/src/components/device-screen.tsx), [Devices entry](../../../apps/app/src/components/access/workspace.tsx), [server handlers](../../../apps/app/src/server/peer.ts), and [migration](../../../apps/app/migrations/0004_peer_view.sql) implement the local path. Apply the real migration through the normal application deployment process. No external service provisioning or deployment is included.
 
 ## Verification
