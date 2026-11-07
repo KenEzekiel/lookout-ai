@@ -16,7 +16,7 @@ The interface separates Team and Devices. Only owners see invitation, pairing, a
 
 Access dialogs and action buttons use the shared interaction motion styles. Pending labels and new validation feedback use a short opacity reveal while retaining the existing disabled state, field retention, and accessible feedback. Reduced motion presents these changes immediately.
 
-The Devices screen places the owner-only **Use this device instead** action in a labeled **This browser** card above connected devices. It identifies the current workspace-management role and explains cross-tab sign-out before opening the existing name-and-confirm dialog. Connected-device rows group each name with its authorization badge, a prominent **Live view** action, and the owner-only secondary **Remove access** control. Revoked rows have no viewing action. No session, pairing, or permission contract changes.
+The Devices screen places the owner-only **Use this device instead** action in a labeled **This browser** secondary card beside connected devices on wide screens and after them on narrow screens. It identifies the current workspace-management role and explains cross-tab sign-out before opening the existing name-and-confirm dialog. Connected-device rows group each name with its authorization badge, a prominent **Live view** action, and the owner-only secondary **Remove access** control. Revoked rows have no viewing action. No session, pairing, or permission contract changes.
 
 ## Entry points
 
@@ -36,6 +36,8 @@ All existing access and configuration handlers use this boundary. F-RULE-CONFIG 
 
 ## Verification
 
+The Devices layout integration coverage in [access tests](../../../apps/app/tests/integration/access.test.tsx) exercises first-device pairing from the empty state, the registered-device count, authorization labels, and list-before-browser reading order. Existing tests retain removal confirmation, owner/operator permissions, activation cancellation, load retry, and Live view recovery. Manual production-build verification and evidence for this layout belong in the current PR; do not infer remote capture health from a Paired badge.
+
 The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-end checks. Interactive production-build QA exercised signup, workspace creation, invitation-based joining, invalid-code recovery, pairing, keyboard focus, cancellation, revocation, capture entry, and same-browser switching at desktop and narrow widths. [Screenshots and observations](https://github.com/KenEzekiel/lookout-ai/pull/53) record the changed journeys.
 
 [API integration tests](../../../apps/app/tests/api/access.test.ts) exercise real built Worker handlers and isolated D1 migrations, including concurrent invitation redemption, workspace isolation, restricted device access, session invalidation, expiry, attempt limits, and revocation. [UI integration tests](../../../apps/app/tests/integration/access.test.tsx) cover complete screens through MSW HTTP boundaries, including invitation-aware onboarding, copyable invitation links, invalid pairing codes, confirmation and cancellation, role restrictions, and load retry. Both run in `pnpm verify`.
@@ -43,6 +45,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 [Browser journey](../../../tests/e2e/access.spec.ts) verifies separate owner/operator/device sessions, link registration, refresh, owner sign-out, revocation, member removal, same-browser switching, and recovery. Interactive Playwright QA on the production build also exercised code-based joining, an invalid invitation, keyboard navigation, narrow-screen layout, and cross-tab access changes without internal mocks. The current PR records the tested revision and results. Cloud deployment verification on November 7, 2026 exercised signup, workspace creation, sign-in, secure cookies, and sign-out against the deployed Worker and D1 database. The temporary account and workspace were removed. [Deployment setup](../../../README.md#cloudflare-deployment) records the production origin and commands. Monitoring consumers remain unverified.
 
 ## Decisions and sources
+
+Ken requested improved design and layout for `/devices` in the Slack conversation for the current PR. Synthesis decision: keep the existing schema-derived team snapshot, Workspace state, dialogs, and API calls. Make the device list primary and browser activation secondary, rather than adding a dashboard or remote-health state. The [workspace screen](../../../apps/app/src/components/access/workspace.tsx) owns the layout. No shared signature, session, capture, or peer contract changes.
 
 The current PR implements Ken’s approved browser-card mockup and request to restore and emphasize connected-device Live view. Existing access and peer behavior is preserved. Complete-screen access integration tests cover activation confirmation/cancellation, role restrictions, viewing entry/retry/close, and removal of viewing access after revocation. Manual QA results belong in the PR.
 

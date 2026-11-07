@@ -12,7 +12,7 @@ Visitors open Lookout to sign in or register. Access and capture headers share t
 
 Shared controls use the [interaction motion styles](../../../apps/app/src/styles.css): enabled buttons give subtle press feedback, overlays use reversible opacity/transform transitions, and new feedback appears briefly. Navigation and typing remain immediate. The active workspace underline slides between destinations in 220 ms through Motion shared layout, including browser history and incident detail navigation. Reduced motion moves it immediately. Dialogs enter in 180 ms and exit in 120 ms; menus use 120 ms. Reduced motion disables CSS animation and transitions, including existing control effects. No animation delays an action or changes focus management.
 
-Devices separates an owner-only **This browser** card from the **Connected devices** list. The card explains local capture and cross-tab sign-out. Device rows pair authorization status with a primary Live view action and secondary owner-only removal. The layout wraps at narrow widths and reuses the shared Button and Badge components.
+Devices separates an owner-only **This browser** card from the **Connected devices** list. The card explains local capture and cross-tab sign-out. Device rows pair authorization status with a primary Live view action and secondary owner-only removal. Connected devices leads the reading order, with a count of all registered records, including removed access. The browser card sits beside the list on wide screens and follows it on narrow screens. Raised surfaces, larger device names, icon tiles, and a blue Paired badge distinguish device identity, authorization, and actions. The layout wraps at narrow widths and reuses the shared Button and Badge components.
 
 ## Entry points
 
@@ -22,7 +22,7 @@ Open `/`, `/devices`, `/team`, `/join`, `/monitor`, `/device`, `/triggers`, `/in
 
 ## Wiring and compatibility
 
-Member screens now mount [incoming alerts](../../../apps/app/src/components/incidents/incoming-alerts.tsx) for F-ALERT-INAPP. Visitors, unassigned users, paired devices, and pairing screens do not subscribe. The alert view and sound controls appear before each screen's content; opening or silencing never changes ownership. [Complete-screen alert tests](../../../apps/app/tests/integration/incoming-alerts.test.tsx) cover the shared shell integration. Device status copy distinguishes missing automatic reports from working operator alert delivery.
+Member screens now mount [incoming alerts](../../../apps/app/src/components/incidents/incoming-alerts.tsx) for F-ALERT-INAPP. Visitors, unassigned users, paired devices, and pairing screens do not subscribe. The alert view and sound controls appear before each screen's content; opening or silencing never changes ownership. [Complete-screen alert tests](../../../apps/app/tests/integration/incoming-alerts.test.tsx) cover the shared shell integration. Device copy explains that pairing grants workspace access and capture must run before Live view. Authorization never claims active monitoring.
 
 Member screens also mount [background-alert setup](../../../apps/app/src/components/incidents/push-setup.tsx) for F-ALERT-PUSH. The public manifest and root links provide Home Screen metadata. The service worker caches no authenticated pages. [Setup integration tests](../../../apps/app/tests/integration/push.test.tsx) cover consent, platform guidance, and recovery. Notification clicks use the existing protected incident URL.
 
@@ -38,6 +38,8 @@ The shell uses the completed account/session portion of F-AUTH-ACCESS through sa
 
 ## Verification
 
+The Devices layout integration coverage in [access tests](../../../apps/app/tests/integration/access.test.tsx) exercises first-device pairing from the empty state, the registered-device count, authorization labels, and list-before-browser reading order. Existing tests retain removal confirmation, owner/operator permissions, activation cancellation, load retry, and Live view recovery. Manual production-build verification and evidence for this layout belong in the current PR; do not infer remote capture health from a Paired badge.
+
 The [rendered-button regression](../../../tests/e2e/buttons.spec.ts) checks actual production CSS dimensions and decorative icons at 1280px and 320px. It covers default trigger/source/dialog/inbox actions, compact header/alert/device-row actions, reload pending/failure/recovery, and overflow. Run `pnpm exec playwright test tests/e2e/buttons.spec.ts` after building, or `pnpm qa:browser` for the full browser suite. Reinstating the historical form height and standalone-button size made both viewport cases fail with a 44px Reload where 40px was expected; restoring the shared sizes made them pass. HTTP principal, team, configuration, and incident fixtures keep this a UI layout regression rather than backend verification. Browser tests remain outside required CI under the repository verification policy.
 
 Button-consistency verification passed `pnpm verify`, including 46 complete-screen UI tests and 33 real-Worker API tests. The new [reload regression](../../../apps/app/tests/integration/rules.test.tsx) covers decorative icons, accessible labels, pending submission, failure, and retry. Production-build Chromium QA measured Reload and New trigger at 40 pixels with 16-pixel icons and device-row actions at 36 pixels. It exercised trigger creation/edit/disable, reload recovery, invitation copy, pairing, and incident response at desktop and narrow widths. Per-run screenshots, exact HTTP interceptions, revision, and remaining platform limitations belong in the PR.
@@ -51,6 +53,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 [Route integration tests](../../../apps/app/tests/integration/app.test.tsx) cover the home redirect, direct Devices and Team links, visitor denial, persistent header and access connection, path navigation, browser back and forward, and unknown-route fallback. [Capture UI tests](../../../apps/app/tests/integration/device.test.tsx) cover paired-device entry and visitor denial. Run `pnpm test`. [Access browser journeys](../../../tests/e2e/access.spec.ts) exercise entry, joining, and monitoring-mode navigation against the built app.
 
 ## Decisions and sources
+
+Ken requested improved design and layout for `/devices` in the Slack conversation for the current PR. Synthesis decision: keep the existing schema-derived team snapshot, Workspace state, dialogs, and API calls. Make the device list primary and browser activation secondary, rather than adding a dashboard or remote-health state. The [workspace screen](../../../apps/app/src/components/access/workspace.tsx) owns the layout. No shared signature, session, capture, or peer contract changes.
 
 The current PR implements Ken’s approved browser-card mockup and request to restore and emphasize connected-device Live view. Existing access and peer behavior is preserved. Complete-screen access integration tests cover activation confirmation/cancellation, role restrictions, viewing entry/retry/close, and removal of viewing access after revocation. Manual QA results belong in the PR.
 

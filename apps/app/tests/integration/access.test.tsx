@@ -151,11 +151,19 @@ test("owners can create invitations, approve devices and revoke them", async () 
   expect(await screen.findByRole("status")).toHaveTextContent("Invitation link copied.");
   await user.click(screen.getByRole("button", { name: "Done" }));
   await user.click(screen.getByRole("link", { name: "Devices" }));
-  await user.click(screen.getByRole("button", { name: "Add device" }));
+  const connected = screen.getByRole("region", { name: "Connected devices" });
+  expect(within(connected).getByLabelText("0 devices")).toBeVisible();
+  await user.click(within(connected).getByRole("button", { name: "Connect your first device" }));
   await user.type(screen.getByLabelText("Device name"), "Lobby");
   await user.type(screen.getByLabelText("Pairing code"), "654321");
   await user.click(screen.getByRole("button", { name: "Connect device" }));
   expect(await screen.findByRole("button", { name: "Live view of Lobby" })).toBeVisible();
+  expect(within(connected).getByLabelText("1 device")).toHaveTextContent("1");
+  expect(within(connected).getByText("Paired", { exact: true })).toBeVisible();
+  expect(
+    connected.compareDocumentPosition(screen.getByRole("region", { name: "This browser" })) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
   await user.click(await screen.findByRole("button", { name: "Remove access for Lobby" }));
   expect(screen.getByRole("dialog")).toHaveTextContent("Remove device access?");
   expect(screen.queryByText("Access removed", { exact: true })).not.toBeInTheDocument();
