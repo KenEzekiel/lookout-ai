@@ -1,94 +1,75 @@
 # Lookout AI
 
-Hackathon project with a **seven-hour total implementation budget**. Prioritize a working end-to-end demo and focused verification. The timebox applies to the whole project, not each agent session.
+**Define what matters in a visual feed. Turn it into an incident someone owns.**
 
-All changes go through PRs targeting `main`. Agents may merge their own completed PRs after relevant checks without waiting for another person’s review. Direct pushes to `main` are no longer the workflow. See [AGENTS.md](AGENTS.md) for the standing delivery policy.
+Lookout is an AI-assisted visual monitoring and incident-response project. Users describe events they care about, connect a camera or video source, and configure how to reach the responsible person. The intended flow combines visual assessment, evidence, phone alerts, acknowledgment, and escalation.
 
-pnpm workspace with one full-stack application in `apps/app`, named `@lookout/app`.
-The app uses TanStack Start, React, TypeScript, and Cloudflare Workers. UI components
-use shadcn/ui with Base UI and Tailwind CSS. Oxfmt formats the project and Oxlint
-checks application code.
+Think PagerDuty for visual events. Traffic is one use case; the product is designed around configurable rules rather than a single incident category.
 
-This is project setup only. The home page is a placeholder. Database, authentication,
-video processing, AI providers, and notifications are not configured.
+## Product direction and current status
+
+The hackathon demos target a **prerecorded car crash** and a **person falling in real time**, safely staged with a consenting participant. Both should use the same response flow:
+
+Configure a rule → observe footage → verify a candidate → open an incident → call the owner → acknowledge and stop escalation.
+
+**Current source status:** the repository contains the application scaffold and agent harness. The home page is a placeholder. Incident monitoring, AI assessment, evidence storage, notifications, authentication, and MCP are planned, not implemented in this snapshot.
+
+Read the [PRD](PRD.md) for agreed behavior, demo outcomes, priorities, and open decisions. It is the source of truth for product direction. This README owns development setup and repository orientation.
 
 ## Develop
 
-Use Node.js 24, pinned in `.node-version`, and pnpm 10.33.4.
+The pnpm workspace contains one full-stack application, `@lookout/app`, in `apps/app`. It uses TanStack Start, React, TypeScript, and Cloudflare Workers, with Tailwind CSS and shadcn/ui using Base UI.
+
+Use Node.js **24.18.0**, pinned in [.node-version](.node-version), and pnpm **10.33.4**, pinned in [package.json](package.json).
 
 ```sh
 pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:3000`. The Cloudflare Vite plugin runs the server in the local
-Workers runtime. No Cloudflare account is needed for local development.
+The development command selects port 3000. Open `http://localhost:3000` once the server reports it is ready. The Vite configuration includes Cloudflare's local Workers integration.
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm check` | Check formatting, lint application code, and generate route types before TypeScript checking. |
+| `pnpm build` | Build the application. |
+| `pnpm preview` | Preview the build on port 3000. |
+| `pnpm format` | Apply formatting. |
+| `pnpm lint:fix` | Apply available lint fixes. |
+| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset. |
+
+There is no application test script yet. Generated route files and vendored agent tooling are excluded from the application formatting/lint scope. See [package scripts](package.json), [app scripts](apps/app/package.json), and [formatter configuration](.oxfmtrc.json) for exact behavior.
+
+## Cloudflare deployment
+
+The Worker configuration is in [apps/app/wrangler.jsonc](apps/app/wrangler.jsonc). Confirm the account and intended Worker before deploying.
 
 ```sh
-pnpm check
-pnpm build
-pnpm preview
-```
-
-`pnpm check` runs formatting, linting, and TypeScript checks. Use `pnpm format` and
-`pnpm lint:fix` to apply fixes. The generated route tree is excluded from formatting
-and linting. Vendored agent tooling is outside the application checks.
-
-Add UI components inside the app package:
-
-```sh
-pnpm --filter @lookout/app ui add button
-```
-
-The app's `components.json` selects the Base UI preset. Components stay in the app
-until another package needs to share them. Add future workspace packages under
-`packages/` and reference them with `workspace:*`.
-
-## Cloudflare Workers
-
-Check the deployment bundle without uploading:
-
-```sh
+# Build and validate the deployment bundle without uploading it.
 pnpm --filter @lookout/app deploy:check
-```
 
-When ready to deploy, authenticate and deploy from the app package:
-
-```sh
+# Authenticate, then build and deploy when deployment is authorized.
 pnpm --filter @lookout/app exec wrangler login
 pnpm --filter @lookout/app deploy
 ```
 
-Set the Worker name in `apps/app/wrangler.jsonc`. Add bindings there when services
-are selected, then run `pnpm --filter @lookout/app cf-typegen` to refresh their types.
-Store local secrets in `apps/app/.dev.vars`, which Git ignores. Use Wrangler secrets
-for production values.
+Add service bindings to the Worker configuration as services are selected. Run `pnpm --filter @lookout/app cf-typegen` after changing bindings. Local secrets belong in `apps/app/.dev.vars`, which Git ignores; use Wrangler secrets for production values. Do not commit credentials.
 
-## Agent tooling
+These commands are defined in the repository. Their runtime behavior and deployment have not been re-tested as part of this documentation revision.
 
-A repository-owned, Codex-first pstack harness copied from [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude) at `df9bc05b818e2457ac23d3343e96e4ff284dd9e9`.
+## Working together
 
-Open this repository in a fresh Codex session to load `AGENTS.md` and discover its 67 skills. Use `$poteto-mode` for workflow routing, `$architect` for design, `$tdd` for test-driven implementation, or `$setup-pstack` for local model preferences. You can also ask Codex to read the corresponding `.agents/skills/<name>/SKILL.md` directly if the host has not refreshed skill discovery.
+The hackathon has a seven-hour total build window. Favor the complete demo flow and focused verification. Follow [AGENTS.md](AGENTS.md) for the current branch, PR, review, and merge policy; it is authoritative for delivery rules.
 
-## Customize
+The team uses a repository-owned agent harness to support development. The planned product agent and MCP integration serve Lookout users; they are distinct from the tools used to build Lookout.
 
-- `AGENTS.md` controls automatic routing and repository policy.
-- `.agents/skills/` contains the editable workflows, principles, playbooks, references, and helper scripts.
-- `.agents/skills/poteto-mode/references/codex-tools.md` adapts inherited instructions to native Codex and T3.
-- `.agents/pstack-models.md` controls local model preferences; defaults inherit the session.
-- `.agents/roles/` contains reusable agent briefs, not registered plugin agents.
-- `vendor/pstack/` preserves licenses, notices, the source revision, and original file hashes.
+- [.agents/skills](.agents/skills) contains local workflows and helper tools.
+- [Runtime contract](.agents/skills/poteto-mode/references/codex-tools.md) adapts the harness to Codex and T3.
+- [Model settings](.agents/pstack-models.md) define local delegation preferences.
+- [scripts/check-harness.py](scripts/check-harness.py) validates harness structure. Run `python3 scripts/check-harness.py` when changing the harness.
 
-This is an ordinary copy, with no submodule, plugin registration, session hooks, global configuration changes, or automatic updates. Upstream multi-runtime references remain for provenance and customization. The local runtime contract takes precedence over them. Update by comparing against the recorded revision and merging selected changes; blindly recopying upstream would overwrite local edits.
+The harness was copied from [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude/tree/df9bc05b818e2457ac23d3343e96e4ff284dd9e9). It is maintained directly in this repository, without a plugin installation or global configuration changes. Preserve the MIT [license](vendor/pstack/LICENSE), component licenses, and attribution in [vendor/pstack](vendor/pstack). Declare reused tooling separately from product work built during the hackathon.
 
-## Execution policy
+## Keeping these docs current
 
-The main agent implements all project changes, including tests, configuration, documentation, and fixes. Subagents are optional for bounded research, review, or verification when useful. Prefer direct work and one focused helper over automatic panels. Helpers return findings; the main agent applies changes. This policy overrides the inherited delegated-build instructions in every skill and playbook, including arena and autopilot.
-
-## Validation and dependencies
-
-Run `python3 scripts/check-harness.py`. Reading skills requires no package installation. Individual helpers may require Node.js, Bun, GitHub CLI, or formal-verification tools; inspect the relevant skill before using them. The bundled watcher dependencies have not been installed. T3 PR monitoring uses host watch tools instead.
-
-The import is structurally checked, not an end-to-end certification of every workflow. Start a new Codex session and invoke `$poteto-mode` to check discovery in your host.
-
-The copied pstack material is MIT-licensed; see `vendor/pstack/LICENSE`, the component licenses, and preserved notices. Those notices retain original upstream paths, which map from `plugins/pstack/skills/` to `.agents/skills/` and from `plugins/pstack/agents/` to `.agents/roles/` here.
+The Lookout team maintains this README and the [PRD](PRD.md). Update setup instructions and current status when scripts or implemented behavior change. Update the PRD when the team changes a product decision. Keep planned features labeled until the corresponding behavior has been verified.
