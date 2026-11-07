@@ -64,6 +64,8 @@ Inbox and incident detail use the shared 30 px page-title role with level-one he
 
 ## Decisions and sources
 
+The current PR follows the user-approved HTML UI study and the instruction to keep trigger descriptions plain. The inbox uses compact divided rows and text status labels. Incident detail gives evidence two thirds of the desktop grid and separates response with an amber top rule, reducing nested cards while preserving ownership, dismissal, escalation and human-review semantics. Source: [UI implementation](../../../apps/app/src/components/incidents/workspace.tsx). Existing integration journeys remain regression coverage; manual browser evidence is recorded in the PR.
+
 Kenneth requested button consistency and action icons. [Incident controls](../../../apps/app/src/components/incidents/workspace.tsx) use F-APP-SHELL Button sizing and explicit icons. Response transitions, version checks, and permissions remain unchanged.
 
 The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.

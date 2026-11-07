@@ -54,6 +54,8 @@ The trigger workspace uses the shared 30 px page-title role and a level-one head
 
 ## Verification
 
+The register regression in [UI integration tests](../../../apps/app/tests/integration/rules.test.tsx) checks unchanged custom wording, exclusions, no phrase emphasis, and editor access. The [browser layout check](../../../tests/e2e/trigger-cards.spec.ts) checks full-width rows, unequal descriptions, focus restoration and mobile overflow.
+
 [Card layout browser coverage](../../../tests/e2e/trigger-cards.spec.ts) checks unequal description lengths, equal desktop card and action positions, natural mobile heights, overflow, and editor focus return. Run `pnpm exec playwright test tests/e2e/trigger-cards.spec.ts` against the production build. Manual QA evidence belongs in the PR.
 
 [Device route integration tests](../../../apps/app/tests/integration/device.test.tsx) cover three-second duration delivery with four and eight enabled rules on one source, second-stage review, one incident report per event, and duration resets after genuine capture gaps or uncertain/unavailable assessments. The rule schema and configuration endpoints are unchanged by [issue #102](https://github.com/KenEzekiel/lookout-ai/issues/102).
@@ -77,6 +79,8 @@ Dropdown panels open outside the trigger with a six-pixel gap and matching width
 The Sources, assessment help, inline source creation, and timing sections use the shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel.tsx). The trigger sits four pixels inside the frame and has its own rounded inset focus ring in both states, keeping the entire highlight away from the clipping boundary. Full-width keyboard-operable buttons expose expansion state and preserve mounted form values while collapsed. Router integration coverage checks keyboard activation and draft preservation. This replaces native disclosure triangles at Ken’s request.
 
 ## Decisions and sources
+
+The current PR follows the user-approved HTML UI study and the instruction to keep trigger descriptions plain. Triggers now use a single full-width register instead of the two-column card grid. Descriptions keep their original text, exclusions, uniform weight and color; no inferred phrases or generated sentence fragments are highlighted. Metadata remains visible and Edit/Disable retain their existing actions. This intentionally replaces the equal-height card layout. Source: [UI implementation](../../../apps/app/src/components/rules/editor.tsx). Existing integration journeys remain regression coverage; manual browser evidence is recorded in the PR.
 
 The current PR addresses the user's screenshot of uneven trigger cards. The [workspace grid](../../../apps/app/src/components/rules/workspace.tsx) stretches each row, and [summary cards](../../../apps/app/src/components/rules/editor.tsx) use a flex column with automatic space above actions. No fixed height or truncation is introduced. Configuration, authentication, and downstream rule contracts remain unchanged.
 
