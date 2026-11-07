@@ -45,8 +45,19 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
-  const [soundLoading, setSoundLoading] = useState(false);
-  const [sound, setSound] = useState<"off" | "on" | "blocked">("off");
+  const soundStorageKey = `${storageKey}:sound`;
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      return localStorage.getItem(soundStorageKey) === "on";
+    } catch {
+      return false;
+    }
+  });
+  const [soundAttempt, setSoundAttempt] = useState(0);
+  const [sound, setSound] = useState<"off" | "loading" | "on" | "blocked">(
+    soundEnabled ? "loading" : "off",
+  );
+  const soundLoading = sound === "loading";
   const [context, setContext] = useState<AudioContext | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const stopPlayback = useRef(() => {});
@@ -83,12 +94,46 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       window.removeEventListener("focus", refresh);
     };
   }, [refresh]);
-  useEffect(
-    () => () => {
-      if (context && context.state !== "closed") void context.close();
-    },
-    [context],
-  );
+  useEffect(() => {
+    if (!soundEnabled) return;
+    let disposed = false;
+    let audio: AudioContext | undefined;
+    async function prepare() {
+      try {
+        audio = new AudioContext();
+        setContext(audio);
+        void audio.resume().catch(() => {});
+        const response = await fetch("/sounds/incident-alert.wav");
+        if (!response.ok) throw new Error("Alert sound unavailable");
+        const clip = await audio.decodeAudioData(await response.arrayBuffer());
+        if (disposed) return;
+        setBuffer(clip);
+        const updateState = () => setSound(audio?.state === "running" ? "on" : "blocked");
+        audio.onstatechange = updateState;
+        updateState();
+      } catch {
+        if (!disposed) setSound("blocked");
+      }
+    }
+    void prepare();
+    return () => {
+      disposed = true;
+      if (audio) {
+        audio.onstatechange = null;
+        if (audio.state !== "closed") void audio.close();
+      }
+    };
+  }, [soundEnabled, soundAttempt]);
+  function changeSound(enabled: boolean) {
+    setSoundEnabled(enabled);
+    setSound(enabled ? "loading" : "off");
+    setBuffer(null);
+    try {
+      localStorage.setItem(soundStorageKey, enabled ? "on" : "off");
+    } catch {
+      setNotice("Sound preference changed for this screen. Browser storage is unavailable.");
+    }
+  }
   const incoming = incidents.filter(
     (incident) => incident.status === "open" && !silenced.has(incidentAlertKey(incident)),
   );
@@ -96,7 +141,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
   const ringingId = incident ? incidentAlertKey(incident) : undefined;
   useEffect(() => {
     const audio = context;
-    if (sound !== "on" || !audio || !buffer) return;
+    if (!soundEnabled || sound !== "on" || !audio || !buffer) return;
     const ring = () => {
       stopPlayback.current();
       if (audio.state !== "running") {
@@ -111,7 +156,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
       clearInterval(timer);
       stopPlayback.current();
     };
-  }, [ringingId, sound, context, buffer]);
+  }, [ringingId, soundEnabled, sound, context, buffer]);
   function silence(id: string) {
     const next = new Set(silenced).add(id);
     try {
@@ -122,36 +167,6 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
     }
     setSilenced(next);
     setActionError("");
-  }
-  async function testSound() {
-    if (soundLoading) return;
-    setSoundLoading(true);
-    try {
-      const audio = context ?? new AudioContext();
-      setContext(audio);
-      await audio.resume();
-      if (audio.state !== "running") throw new Error("Playback unavailable");
-      let clip = buffer;
-      if (!clip) {
-        const response = await fetch("/sounds/incident-alert.wav");
-        if (!response.ok) throw new Error("Alert sound unavailable");
-        clip = await audio.decodeAudioData(await response.arrayBuffer());
-      }
-      if (!active.current) {
-        await audio.close();
-        return;
-      }
-      setBuffer(clip);
-      if (!ringingId || sound === "on") {
-        stopPlayback.current();
-        stopPlayback.current = playAlarm(audio, clip);
-      }
-      setSound("on");
-    } catch {
-      if (active.current) setSound("blocked");
-    } finally {
-      if (active.current) setSoundLoading(false);
-    }
   }
   async function acknowledge() {
     if (!incident || pending) return;
@@ -183,17 +198,25 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
   const soundControls = (
     <div className="flex flex-wrap items-center gap-2">
       <Button
-        icon={Volume2}
+        icon={soundEnabled ? VolumeX : Volume2}
         size="sm"
         variant="outline"
         loading={soundLoading}
-        onClick={() => void testSound()}
+        onClick={() => changeSound(!soundEnabled)}
       >
-        {soundLoading ? "Loading sound…" : sound === "on" ? "Test sound" : "Enable sound and test"}
+        {soundLoading ? "Loading sound…" : soundEnabled ? "Turn sound off" : "Enable sound"}
       </Button>
-      {sound === "on" && (
-        <Button icon={VolumeX} size="sm" variant="ghost" onClick={() => setSound("off")}>
-          Turn sound off
+      {sound === "blocked" && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setSound("loading");
+            setBuffer(null);
+            setSoundAttempt((attempt) => attempt + 1);
+          }}
+        >
+          Retry sound
         </Button>
       )}
       {sound === "blocked" && (
@@ -215,7 +238,7 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
             : delivery === "connected"
               ? "Incoming alerts connected"
               : "Incoming alerts unavailable. Reconnecting…"}{" "}
-          {sound === "on" ? "Sound enabled." : "Sound off."}
+          {soundEnabled ? "Sound enabled." : "Sound off."}
         </p>
         <div className="flex flex-wrap gap-2">
           {delivery === "unavailable" && (
@@ -228,32 +251,9 @@ export function IncomingAlerts({ actor }: { actor: Member }) {
               action={refresh}
             />
           )}
-          <Button
-            icon={Volume2}
-            size="sm"
-            variant="outline"
-            loading={soundLoading}
-            onClick={() => void testSound()}
-          >
-            {soundLoading
-              ? "Loading sound…"
-              : sound === "on"
-                ? "Test sound"
-                : "Enable sound and test"}
-          </Button>
-          {sound === "on" && (
-            <Button icon={VolumeX} size="sm" variant="ghost" onClick={() => setSound("off")}>
-              Turn sound off
-            </Button>
-          )}
+          {soundControls}
         </div>
       </div>
-      {sound === "blocked" && (
-        <output className="text-sm text-muted-foreground">
-          Sound playback is unavailable or blocked. Visible alerts still work. Try Enable sound and
-          test again.
-        </output>
-      )}
       <p aria-live="polite" className={notice ? "text-sm" : "sr-only"}>
         {notice}
       </p>
