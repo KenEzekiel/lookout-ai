@@ -1,5 +1,9 @@
 # Lookout AI
 
+Hackathon project with a **seven-hour total implementation budget**. Prioritize a working end-to-end demo and focused verification. The timebox applies to the whole project, not each agent session.
+
+All changes go through PRs targeting `main`. Agents may merge their own completed PRs after relevant checks without waiting for another person’s review. Direct pushes to `main` are no longer the workflow. See [AGENTS.md](AGENTS.md) for the standing delivery policy.
+
 pnpm workspace with one full-stack application in `apps/app`, named `@lookout/app`.
 The app uses TanStack Start, React, TypeScript, and Cloudflare Workers. UI components
 use shadcn/ui with Base UI and Tailwind CSS. Oxfmt formats the project and Oxlint
