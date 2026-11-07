@@ -2,7 +2,7 @@ import type { CaptureSession, EventInterval } from "./capture-session";
 import { z } from "zod";
 import { request } from "./api";
 import { buildEventClip, type EventClip } from "./event-clip";
-import { incidentReportSchema, reportReceiptSchema, type Incident } from "./incidents";
+import { incidentReportSchema } from "./incidents";
 
 type Report = z.infer<typeof incidentReportSchema>;
 type Upload = { clip: EventClip; sessionId: string; eventId: string };
@@ -13,39 +13,66 @@ const evidenceResponseSchema = z.object({
   evidenceExpiresAt: z.number().nullable(),
 });
 
-export async function submitConfirmedEvent(
-  session: CaptureSession,
-  interval: EventInterval,
-  report: Report,
-): Promise<{ incident: Incident; evidenceError: string | null }> {
-  const preserved = session.preserveEventInterval(interval).then(
+export type EvidenceUploadStatus =
+  | { kind: "preparing" }
+  | { kind: "uploading" }
+  | { kind: "ready" }
+  | { kind: "unavailable"; reason: string; retryable: boolean };
+
+export function preserveIncidentEvidence(session: CaptureSession, interval: EventInterval) {
+  return session.preserveEventInterval(interval).then(
     (event) => ({ event }),
     (error: unknown) => ({ error }),
   );
-  const receipt = await request("/api/incidents/reports", reportReceiptSchema, report);
-  const incident = receipt.incident;
-  const result = await preserved;
-  if ("error" in result) {
-    await markUnavailable(incident.id, report, result.error);
-    return { incident, evidenceError: errorMessage(result.error) };
-  }
-  let clip: EventClip;
-  try {
-    clip = await buildEventClip(result.event);
-  } catch (error) {
-    await markUnavailable(incident.id, report, error);
-    return { incident, evidenceError: errorMessage(error) };
-  }
-  retryable.set(incident.id, { clip, sessionId: report.sessionId, eventId: report.eventId });
-  try {
-    await retryEvidenceUpload(incident.id);
-    return { incident, evidenceError: null };
-  } catch (error) {
-    return { incident, evidenceError: errorMessage(error) };
-  }
 }
 
-export async function retryEvidenceUpload(incidentId: string) {
+export async function uploadIncidentEvidence(
+  preserved: ReturnType<typeof preserveIncidentEvidence>,
+  incidentId: string,
+  report: Report,
+  publish: (status: EvidenceUploadStatus) => void,
+): Promise<EvidenceUploadStatus> {
+  publish({ kind: "preparing" });
+  try {
+    const result = await preserved;
+    if ("error" in result) throw result.error;
+    const clip = await buildEventClip(result.event);
+    retryable.set(incidentId, { clip, sessionId: report.sessionId, eventId: report.eventId });
+  } catch (error) {
+    let reason = errorMessage(error);
+    try {
+      await markUnavailable(incidentId, report, error);
+    } catch {
+      reason += " The server could not be notified.";
+    }
+    const status: EvidenceUploadStatus = { kind: "unavailable", reason, retryable: false };
+    publish(status);
+    return status;
+  }
+  return retryIncidentEvidence(incidentId, publish);
+}
+
+export async function retryIncidentEvidence(
+  incidentId: string,
+  publish: (status: EvidenceUploadStatus) => void,
+): Promise<EvidenceUploadStatus> {
+  publish({ kind: "uploading" });
+  let status: EvidenceUploadStatus;
+  try {
+    await retryEvidenceUpload(incidentId);
+    status = { kind: "ready" };
+  } catch (error) {
+    status = {
+      kind: "unavailable",
+      reason: errorMessage(error),
+      retryable: retryable.has(incidentId),
+    };
+  }
+  publish(status);
+  return status;
+}
+
+async function retryEvidenceUpload(incidentId: string) {
   const upload = retryable.get(incidentId);
   if (!upload) throw new Error("This device no longer has the preserved clip to retry.");
   const started = await request(

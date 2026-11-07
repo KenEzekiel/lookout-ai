@@ -54,6 +54,8 @@ The shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel
 
 ## Verification
 
+The route integration assertion for the selected landing example waits for its existing entrance animation to make the content visible. This removes a timing race found when integrating the evidence-upload fix; product behavior is unchanged.
+
 Browser QA at 390 × 844 confirmed changing shader pixels, reduced-motion unmounting and restoration, and a visible static mark with WebGL disabled, without page errors. The access integration suite checks the retained home link and static mark. QA media remains outside version control; PR attachment publication remains pending.
 
 The [access integration tests](../../../apps/app/tests/integration/access.test.tsx) verify the header action from Team for both member roles, cancellation, activation retry, and the operator pairing journey. Production-build Chromium QA verified owner entry from Devices, Team, Triggers, and Incidents, keyboard activation and dismissal, and both roles reaching restricted device mode. The main-branch integration recheck preserved the browser-card shortcut. Header, owner-dialog, and operator-pairing checks passed at 1280, 390, and 320 pixels. The implementation PR records the isolated runtime, one mocked activation failure, and screenshots.

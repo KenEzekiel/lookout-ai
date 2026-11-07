@@ -3,6 +3,12 @@ import { request } from "./api";
 import { createAssessmentClient, type AssessmentResult } from "./assessment";
 import { type CaptureSession, type FrameSample } from "./capture-session";
 import { captureSessionSchema, reportReceiptSchema } from "./incidents";
+import {
+  preserveIncidentEvidence,
+  uploadIncidentEvidence,
+  retryIncidentEvidence,
+  type EvidenceUploadStatus,
+} from "./incident-evidence";
 import { type Rule } from "./rules";
 import { type HealthReport } from "./device-health";
 
@@ -33,7 +39,11 @@ type RuleState = {
   event:
     | { kind: "armed" }
     | { kind: "observing" | "candidate"; window: EventWindow }
-    | { kind: "reporting"; window: EventWindow }
+    | {
+        kind: "reporting";
+        window: EventWindow;
+        preserved: ReturnType<typeof preserveIncidentEvidence>;
+      }
     | { kind: "held"; window: EventWindow };
 };
 export type MonitoringStatus = {
@@ -52,7 +62,13 @@ export type MonitoringStatus = {
     latestAssessment: AssessmentObservation | null;
     review: RuleState["review"];
   }[];
-  latest: { eventTime: number; from: number; to: number; incidentId: string } | null;
+  latest: {
+    eventTime: number;
+    from: number;
+    to: number;
+    incidentId: string;
+    evidence: EvidenceUploadStatus;
+  } | null;
 };
 
 export class DeviceMonitoring {
@@ -145,6 +161,20 @@ export class DeviceMonitoring {
     clearTimeout(this.timer);
     if (this.session) this.endSession(this.session.id);
     this.states = [];
+  }
+
+  retryEvidence() {
+    const latest = this.latest;
+    if (latest?.evidence.kind !== "unavailable" || !latest.evidence.retryable) return;
+    void retryIncidentEvidence(latest.incidentId, (status) =>
+      this.evidenceChanged(latest.incidentId, status),
+    );
+  }
+
+  private evidenceChanged(incidentId: string, evidence: EvidenceUploadStatus) {
+    if (this.latest?.incidentId !== incidentId) return;
+    this.latest = { ...this.latest, evidence };
+    this.emit();
   }
 
   private invalidate() {
@@ -449,7 +479,15 @@ export class DeviceMonitoring {
       this.requestFailed = false;
       this.delayed = false;
       if (result.outcome === "positive") {
-        state.event = { kind: "reporting", window };
+        state.event = {
+          kind: "reporting",
+          window,
+          preserved: preserveIncidentEvidence(this.capture, {
+            epoch: this.epoch,
+            sourceTimeMs:
+              this.capture.getSnapshot().source === "camera" ? window.eventTime : window.from,
+          }),
+        };
         state.notice = "Candidate confirmed. Reporting incident…";
         this.emit();
         await this.report(state, signal, revision);
@@ -466,18 +504,22 @@ export class DeviceMonitoring {
 
   private async report(state: RuleState, signal: AbortSignal, revision: number) {
     if (state.event.kind !== "reporting" || !this.session) return;
-    const window = state.event.window;
+    const { window, preserved } = state.event;
+    const report = {
+      sessionId: this.session.id,
+      eventId: window.id,
+      ruleId: state.rule.id,
+      ruleVersion: state.rule.version,
+      eventTime: window.eventTime,
+    };
     const { incident } = await request(
       "/api/incidents/reports",
       reportReceiptSchema,
-      {
-        sessionId: this.session.id,
-        eventId: window.id,
-        ruleId: state.rule.id,
-        ruleVersion: state.rule.version,
-        eventTime: window.eventTime,
-      },
+      report,
       signal,
+    );
+    void uploadIncidentEvidence(preserved, incident.id, report, (status) =>
+      this.evidenceChanged(incident.id, status),
     );
     if (!this.current(revision)) return;
     state.event = { kind: "held", window };
@@ -487,6 +529,7 @@ export class DeviceMonitoring {
       from: window.from,
       to: window.to,
       incidentId: incident.id,
+      evidence: { kind: "preparing" },
     };
     this.emit("Incident reported. Monitoring continues without repeating the initial alert.");
   }
