@@ -20,7 +20,7 @@ The member screens for Devices, Team, Triggers, inbox, and detail include the al
 
 The client reads on mount, every five seconds, and on browser focus or online events. It presents one incident at a time with the waiting count. Repeated delivery of the same ID does not mount another alert or restart its sound. Silence IDs use session storage keyed by workspace and user, survive navigation/reload, and never write shared incident state. If browser storage is unavailable, silence lasts only while the screen remains mounted. Acknowledged and terminal incidents disappear on the next successful read, stopping sound in every connected recipient client on the next successful poll, with network/render delay and browser timer throttling affecting end-to-end latency.
 
-Failed delivery hides stale response controls, stops sound, shows reconnection status, and offers Retry alerts. Acknowledgment sends the last-read version to F-INCIDENT-RESPONSE and refreshes after a failed or conflicting command. An older in-flight delivery cannot restore a locally acknowledged alert. No delivery receipt is persisted; `notificationStatus: not-sent` remains the background-notification placeholder and does not describe whether this browser rendered the alert. F-ALERT-PUSH and F-ALERT-ESCALATE can reuse incident identity, recipient snapshots, status and version; they remain unimplemented.
+Failed delivery hides stale response controls, stops sound, shows reconnection status, and offers Retry alerts. Acknowledgment sends the last-read version to F-INCIDENT-RESPONSE and refreshes after a failed or conflicting command. An older in-flight delivery cannot restore a locally acknowledged alert. No in-app delivery receipt is persisted. F-ALERT-PUSH now records independent background attempts and publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`; none describes whether this browser rendered the alert. Push reuses incident identity, recipient snapshots, status and version. F-ALERT-ESCALATE remains unimplemented.
 
 ## Implementation
 
@@ -50,4 +50,4 @@ The incoming-alert implementation's synthesis decision is recipient-filtered pol
 
 ## Open questions
 
-The delivery window is bounded to 100 open eligible incidents and has no pagination. Sound opt-in resets when the shared workspace layout unmounts or the page reloads. Push, escalation scheduling, native calls, background guarantees, and persisted per-client delivery receipts are outside this slice.
+The delivery window is bounded to 100 open eligible incidents and has no pagination. Sound opt-in resets when the shared workspace layout unmounts or the page reloads. F-ALERT-PUSH owns the separate best-effort background path. Escalation scheduling, native calls, background guarantees, and persisted in-app delivery receipts remain outside this slice.

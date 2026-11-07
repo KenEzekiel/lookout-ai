@@ -6,6 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ActionForm, Field } from "@/components/access/forms";
@@ -22,7 +23,9 @@ export function RuleWorkspace() {
   const editorTrigger = useRef<HTMLButtonElement | null>(null);
   const [configuration, setConfiguration] = useState<OperatorConfiguration>();
   const [editor, setEditor] = useState<
-    { kind: "closed" } | { kind: "new" } | { kind: "edit"; rule: Rule }
+    | { kind: "closed" }
+    | { kind: "new"; open: boolean }
+    | { kind: "edit"; rule: Rule; open: boolean }
   >({ kind: "closed" });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -45,6 +48,9 @@ export function RuleWorkspace() {
       active = false;
     };
   }, []);
+  function closeEditor() {
+    setEditor((current) => (current.kind === "closed" ? current : { ...current, open: false }));
+  }
   function saved(rule: Rule) {
     setConfiguration(
       (current) =>
@@ -55,7 +61,7 @@ export function RuleWorkspace() {
             : [...current.rules, rule],
         },
     );
-    setEditor({ kind: "closed" });
+    closeEditor();
     setNotice(
       `${rule.definition.name} saved. ${rule.enabled ? "Enabled" : "Disabled"} at version ${rule.version}.`,
     );
@@ -75,7 +81,7 @@ export function RuleWorkspace() {
             disabled={!configuration}
             onClick={(event) => {
               editorTrigger.current = event.currentTarget;
-              setEditor({ kind: "new" });
+              setEditor({ kind: "new", open: true });
               setNotice("");
             }}
           >
@@ -98,8 +104,9 @@ export function RuleWorkspace() {
             open={configuration.sources.length === 0}
             className="rounded-xl border border-border bg-card p-6"
           >
-            <summary className="cursor-pointer font-medium">
+            <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
               Sources ({configuration.sources.length})
+              <ChevronDown aria-hidden="true" className="size-4" data-slot="disclosure-chevron" />
             </summary>
             <p className="my-4 text-sm text-muted-foreground">
               Name a source for its trigger settings. Capture station uses its own camera or video
@@ -158,8 +165,11 @@ export function RuleWorkspace() {
           )}
           {editor.kind !== "closed" && (
             <Dialog
-              open
+              open={editor.open}
               onOpenChange={(open) => {
+                if (!open) closeEditor();
+              }}
+              onOpenChangeComplete={(open) => {
                 if (!open) setEditor({ kind: "closed" });
               }}
             >
@@ -183,7 +193,7 @@ export function RuleWorkspace() {
                     )
                   }
                   onSaved={saved}
-                  onCancel={() => setEditor({ kind: "closed" })}
+                  onCancel={closeEditor}
                 />
               </DialogContent>
             </Dialog>
@@ -196,7 +206,7 @@ export function RuleWorkspace() {
                 configuration={configuration}
                 onEdit={(trigger) => {
                   editorTrigger.current = trigger;
-                  setEditor({ kind: "edit", rule });
+                  setEditor({ kind: "edit", rule, open: true });
                   setNotice("");
                 }}
                 onDisabled={saved}

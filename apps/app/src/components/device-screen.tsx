@@ -201,7 +201,10 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                 <h2 className="text-sm font-semibold text-foreground">Capture controls</h2>
               </div>
               <div className="mt-6 flex items-center justify-between gap-3">
-                <strong className="text-[19px] font-semibold tracking-[-0.025em]">
+                <strong
+                  key={statusTitle}
+                  className="motion-feedback text-[19px] font-semibold tracking-[-0.025em]"
+                >
                   {statusTitle}
                 </strong>
                 <Badge
@@ -256,7 +259,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                 </Select>
               </div>
               {sourceChoice === "file" && (
-                <div className="mt-4 flex flex-col gap-2">
+                <div className="motion-reveal mt-4 flex flex-col gap-2">
                   <label className="text-xs text-muted-foreground" htmlFor="video-file">
                     Video file
                   </label>
