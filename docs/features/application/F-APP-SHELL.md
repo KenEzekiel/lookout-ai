@@ -6,7 +6,7 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
-The shared header mark now layers Paper Liquid Metal over the original Horizon SVG using a local [mask](../../../apps/app/public/horizon-mask.svg). The wordmark, accessible name, footprint, and favicon stay unchanged. The shader loads only on the client, unmounts for reduced motion or hidden documents, and leaves the static SVG visible while loading or when WebGL cannot render. This decision follows Ken's request to animate the logo with Paper shaders.
+The shared header mark renders the static Horizon SVG in the theme's signal color. It does not load a shader or create a WebGL canvas. The wordmark, accessible name, footprint, and favicon stay unchanged. This replaces the animated Paper Liquid Metal treatment following Ken's request to remove shaders from the in-app logo. The static mark requires no asynchronous loading state.
 
 Action buttons share a 40-pixel minimum height, 16-pixel icons, and consistent spacing. Compact header, row, and alert-preference actions use the explicit 36-pixel size. Inline text actions keep their compact layout. Labels wrap on narrow screens; icons supplement visible labels and remain hidden from assistive technology.
 
@@ -56,7 +56,7 @@ The shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel
 
 The route integration assertion for the selected landing example waits for its existing entrance animation to make the content visible. This removes a timing race found when integrating the evidence-upload fix; product behavior is unchanged.
 
-Browser QA at 390 × 844 confirmed changing shader pixels, reduced-motion unmounting and restoration, and a visible static mark with WebGL disabled, without page errors. The access integration suite checks the retained home link and static mark. QA media remains outside version control; PR attachment publication remains pending.
+The access integration suite checks the retained home link, visible static mark, and absence of a shader canvas. Production-build browser QA at 1280 × 800 and 390 × 844 confirmed the static blue SVG and wordmark, retained home-link accessible name and destination, and no canvas or shader asset requests. Reduced-motion emulation and keyboard navigation were not exercised. QA media remains outside version control.
 
 The [access integration tests](../../../apps/app/tests/integration/access.test.tsx) verify the header action from Team for both member roles, cancellation, activation retry, and the operator pairing journey. Production-build Chromium QA verified owner entry from Devices, Team, Triggers, and Incidents, keyboard activation and dismissal, and both roles reaching restricted device mode. The main-branch integration recheck preserved the browser-card shortcut. Header, owner-dialog, and operator-pairing checks passed at 1280, 390, and 320 pixels. The implementation PR records the isolated runtime, one mocked activation failure, and screenshots.
 

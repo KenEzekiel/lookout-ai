@@ -555,4 +555,5 @@ test("visitor header preserves the Lookout home link and static mark", async () 
   const home = screen.getByRole("link", { name: "Lookout home" });
   expect(within(home).getByLabelText("Lookout")).toBeVisible();
   expect(home.querySelector("svg")).toBeInTheDocument();
+  expect(home.querySelector("canvas")).not.toBeInTheDocument();
 });
