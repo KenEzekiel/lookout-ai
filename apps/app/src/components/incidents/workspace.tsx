@@ -349,10 +349,21 @@ export function IncidentDetail({ id }: { id: string }) {
                     }[incident.notificationStatus]
                   }
                 </p>
-                {incident.status === "open" && (
+                {incident.followUp.kind === "scheduled" ? (
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Configured follow-up delay {incident.rule.definition.escalationDelaySeconds}{" "}
-                    seconds. No follow-up is scheduled.
+                    One in-app follow-up due <EventTime at={incident.followUp.dueAt} />. Acknowledge
+                    to cancel it.
+                  </p>
+                ) : incident.followUp.kind === "attempted" ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    In-app follow-up attempted <EventTime at={incident.followUp.attemptedAt} />.
+                    This does not confirm anyone saw it.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {incident.followUp.kind === "cancelled"
+                      ? "Pending follow-up cancelled by the incident response."
+                      : "No follow-up was scheduled for this incident."}
                   </p>
                 )}
               </section>
@@ -371,7 +382,9 @@ export function IncidentDetail({ id }: { id: string }) {
                             ? "Acknowledged by"
                             : entry.kind === "dismissed"
                               ? "Dismissed by"
-                              : "Resolved by"}{" "}
+                              : entry.kind === "follow-up-attempted"
+                                ? "In-app follow-up attempted by"
+                                : "Resolved by"}{" "}
                         {entry.actorName}
                       </p>
                       <p className="mt-1 text-muted-foreground">

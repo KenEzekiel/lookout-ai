@@ -26,7 +26,7 @@ The existing incident report path calls [the push service](../../../apps/app/src
 
 The request awaits provider attempts with a five-second fetch timeout per endpoint. Each encrypted RFC 8291 message uses VAPID authentication and a 60-second TTL. Provider 404 or 410 removes the subscription; other errors retain it for later incidents and record failure. A response or sign-out stops new eligible claims, but cannot retract an in-flight provider request. A crash after claiming can lose the attempt and leave an attempting receipt. There is no queue or retry scheduler in this slice.
 
-F-INCIDENT-RESPONSE publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`. At least one provider acceptance takes precedence over pending or failed attempts. Accepted means provider acceptance, not display on a device. A failed aggregate includes expired subscriptions. In-app visibility and replay readiness remain separate. F-ALERT-ESCALATE is still unimplemented and must not reuse the initial-attempt claim as an escalation receipt.
+F-INCIDENT-RESPONSE publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`. At least one provider acceptance takes precedence over pending or failed attempts. Accepted means provider acceptance, not display on a device. A failed aggregate includes expired subscriptions. In-app visibility and replay readiness remain separate. F-ALERT-ESCALATE now provides one durable in-app follow-up with its own attempt timestamp. It preserves this initial push path and does not reuse the initial-attempt claim or send a second background push.
 
 ## Implementation
 

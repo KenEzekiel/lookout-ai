@@ -2,6 +2,8 @@
 
 Describe the problem and resulting behavior.
 
+If this PR completes a tracked issue, add `Closes #N` with the issue number. Add a separate closing reference for each completed issue. Use `Related to #N` for partial work. Omit this line when no issue is associated with the work.
+
 ## Feature impact
 
 List affected `F-` codes and link their records in `docs/features/`. For no Lookout feature impact, explain why.
