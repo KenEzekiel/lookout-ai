@@ -1,42 +1,40 @@
-# Lookout AI — Product direction
+# Lookout AI product direction
 
-Status: evolving direction, based on the team brief and Ken's interview on 7 November 2026.
+**Let us be on the lookout, so you don’t have to.**
 
-This document gives builders enough context to make good decisions together. It captures the product intent and agreed behavior, not a fixed implementation contract. Examples, technical preferences, and open choices are labeled accordingly. Evolve it as the team learns; preserve the reasons behind changes rather than treating the first design as permanent.
-
-The visual system and monitor-screen interactions live in [DESIGN.md](DESIGN.md). This PRD remains the source for agreed product behavior.
-
-## The idea
-
-**Define what matters in a visual feed. Lookout turns it into an incident someone owns.**
+Cameras record. People still have to keep watch.
 
 This PRD helps the Lookout team make product decisions during the hackathon and afterward. It captures the brief and interview decisions agreed on 7 November 2026. It describes intended behavior, not implementation status; see the [README](README.md) for the current source and development setup.
 
 Treat it as an evolving direction. Preserve the user outcomes while refining the implementation. Examples and technical preferences below are not fixed architecture or delivery commitments.
 
+Latest agreed revision: save video on alert and replay it from the server; real phone calls are optional. See the [experience design](docs/architecture/design.md) for desktop/mobile alerts and the video flow.
+
+The visual system and monitor-screen interactions live in [DESIGN.md](DESIGN.md). This PRD remains the source for agreed product behavior.
+
 ## Why this product
 
 Cameras provide visibility, but someone still has to notice an event, decide whether it matters, collect evidence, reach the right person, and follow up. Fatigue and divided attention can delay that response.
 
-Lookout connects those steps. Users define visual events in their own terms and receive actionable incidents without continuously watching every feed. The product combines configurable monitoring with ownership, phone notification, acknowledgment, and escalation: PagerDuty for visual events.
+Lookout connects those steps. Users define visual events in their own terms and receive actionable incidents without continuously watching every feed. The product combines configurable monitoring with ownership, client notification, acknowledgment, and escalation: PagerDuty for visual events.
 
 Potential users include camera owners, caregivers, shop and site operators, and teams monitoring multiple locations. Traffic is one application. We have not selected a commercial beachhead or validated demand across these audiences.
 
 ## The experience
 
-| Step           | What happens                                                                             | Why it matters                                                    |
-| -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Configure      | Select a source, start from a template or write a trigger, and choose response settings. | The user defines what matters in their setting.                   |
-| Observe        | Assess timestamped visual observations against the rule.                                 | Monitoring reduces the need for continuous attention.             |
-| Verify         | Review a candidate with supporting evidence; gather more observations when uncertain.    | An ambiguous frame should not immediately produce a call.         |
-| Open or update | Create an incident or add evidence to the same ongoing incident.                         | Recipients get context without repeated alerts for one event.     |
-| Notify         | Automatically call the owner after verification.                                         | The system actively reaches someone.                              |
-| Respond        | Inspect evidence, acknowledge, dismiss, or resolve through the dashboard.                | A person owns the response and outcome.                           |
-| Escalate       | Execute one configured follow-up step if nobody acknowledges.                            | Sending a notification is not treated as completing the response. |
+| Step | What happens | Why it matters |
+| --- | --- | --- |
+| Configure | Select a source, start from a template or write a trigger, and choose response settings. | The user defines what matters in their setting. |
+| Observe | Assess timestamped visual observations against the rule. | Monitoring reduces the need for continuous attention. |
+| Verify | Review a candidate with supporting evidence; gather more observations when uncertain. | An ambiguous frame should not immediately produce an alert. |
+| Open or update | Create an incident or add evidence to the same ongoing incident. | Recipients get context without repeated alerts for one event. |
+| Notify | Notify the owner after verification through an in-app alert or supported web push. | The system actively reaches someone. |
+| Respond | Inspect evidence, acknowledge, dismiss, or resolve through the dashboard. | A person owns the response and outcome. |
+| Escalate | Execute one configured follow-up step if nobody acknowledges. | Sending a notification is not treated as completing the response. |
 
 ## Two agreed demos
 
-**Prerecorded car crash.** Play permitted footage through the monitoring pipeline. Show the candidate event, verification, an incident with evidence, and a real call to the configured demo recipient. Label the input as replayed footage; run the assessment and response on it during the demonstration.
+**Prerecorded car crash.** Play permitted footage through the monitoring pipeline. Show the candidate event, verification, an incident with evidence, and an alert to the configured demo recipient. Label the input as replayed footage; run the assessment and response on it during the demonstration.
 
 **Person falling in real time.** Use a live camera and a safely staged fall by a consenting participant. Demonstrate the same verification, incident, and notification flow. Avoid an actual injury; the product provides evidence for a human response, not medical assessment.
 
@@ -50,34 +48,34 @@ Offer starter templates and a blank custom trigger. Combine a plain-language des
 
 For example, “alert when this exit stays blocked for 10 seconds” illustrates an explicit condition. It does not set a delay for detecting crashes or falls. Broad configurability is the direction; universal camera compatibility and reliable detection of every conceivable event are not promises.
 
-### Verification precedes automatic calling
+### Verification precedes automatic alerting
 
-An initial visual assessment flags a candidate. A second model reviews supporting evidence before requesting a call. The product agent can gather more observations and use incident history to create or update the appropriate incident.
+An initial visual assessment flags a candidate. A second model reviews supporting evidence before requesting an alert. The product agent can gather more observations and use incident history to create or update the appropriate incident.
 
 Two models can make the same mistake. Assess the usefulness of verification through observed false alerts and missed events, rather than treating model agreement as proof. Successive frames and counterevidence can help. Models, thresholds, observation windows, and the precise handling of uncertainty remain open.
 
 ### Incidents carry ownership across observations
 
-| Action or situation                       | Agreed meaning                                                                                            |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Repeated observations of an ongoing event | Update the existing open incident and add evidence; do not repeatedly create incidents and initial calls. |
-| Acknowledge                               | “I'm handling it.” Record ownership and stop further paging for this incident.                            |
-| Dismiss                                   | “This alert was incorrect.” Preserve the feedback.                                                        |
-| Resolve                                   | “The incident has been handled.” A person closes the response.                                            |
-| Scene clears                              | Record the new evidence. The owner still resolves the incident.                                           |
-| Nobody acknowledges                       | Run one configured escalation step.                                                                       |
+| Action or situation | Agreed meaning |
+| --- | --- |
+| Repeated observations of an ongoing event | Update the existing open incident and add evidence; do not repeatedly create incidents and initial alerts. |
+| Acknowledge | “I'm handling it.” Record ownership and stop further paging for this incident. |
+| Dismiss | “This alert was incorrect.” Preserve the feedback. |
+| Resolve | “The incident has been handled.” A person closes the response. |
+| Scene clears | Record the new evidence. The owner still resolves the incident. |
+| Nobody acknowledges | Run one configured escalation step. |
 
 Acknowledgment does not mean resolution. Control labels and implementation states can evolve while preserving these meanings. The initial recipient is the owner; broader responder rosters and on-call schedules can come later.
 
 ### Evidence supports the response
 
-An incident explains what was observed, which source it came from, when it happened, and why it matched the rule. Retain short visual evidence snippets for later inspection. The dashboard presents evidence, owner, status, and an incident timeline.
+An incident explains what was observed, which source it came from, when it happened, and why it matched the rule. Keep video locally during monitoring. On a confirmed alert, upload the event clip to private server storage for later replay, including footage around the event where available. Sampled frames still travel to server-side AI assessment. Notify immediately while the clip is being prepared or uploaded; show its availability explicitly. The dashboard presents evidence, owner, status, and an incident timeline.
 
 Retention duration is undecided. Use permitted footage and agreed recipients. Emergency-service dispatch and identifying people are outside the current scope.
 
 ## Priorities and AI-native direction
 
-**Core experience:** the two visual inputs, configurable rules, candidate verification, incidents with evidence, real phone alerts, dashboard response controls, and one configurable escalation step. The lifecycle above defines how these pieces work together.
+**Core experience:** the two visual inputs, configurable rules, candidate verification, incidents with evidence, client alerts, dashboard response controls, and one configurable escalation step. The lifecycle above defines how these pieces work together.
 
 **Supporting direction:** record operator feedback and add notification integrations such as Slack or Telegram. Recording feedback does not yet mean automatic learning or retraining.
 
@@ -93,26 +91,26 @@ The team's development harness is a separate part of the story. Agents in the re
 - Prefer OpenAI Decisions for initial structured visual assessment if it fits, with a vision-capable model fallback. The second-stage model is undecided.
 - Periodically sample visual observations. One frame per second was an initial idea, not a fixed sampling rate or inference frequency.
 - Decide where capture and sampling run, how frames upload, and how live sources remain available. Client-side uploading is a known design question.
-- Choose evidence retention, phone provider, call interaction, escalation destination, model access, storage, and deployment details as implementation becomes concrete.
+- Choose evidence retention, notification behavior, escalation destination, model access, storage, and deployment details as implementation becomes concrete.
 
-A two-way conversational phone agent has not been agreed as a requirement. The required outcome is a real notification followed by an accountable response. This document does not prescribe schemas, endpoint contracts, module boundaries, or a fixed task split.
+Real telephone calls are optional. The agreed direction is a responsive desktop/mobile client with an in-app simulated incoming-alert experience and supported web push. The required outcome is a notification followed by an accountable response. This document does not prescribe schemas, endpoint contracts, module boundaries, or a fixed task split.
 
 ## Evidence of success
 
 Lookout aims to reduce continuous monitoring and shorten the path from a visible event to an accountable response. Verify these outcomes rather than claiming them from the design alone.
 
-| Check         | Observable result                                                                                               |
-| ------------- | --------------------------------------------------------------------------------------------------------------- |
-| Both demos    | The prerecorded crash and staged live fall each produce an incident through the monitoring pipeline.            |
-| Configuration | Each scenario has its own visible source and rule within the same product flow.                                 |
-| Notification  | The intended recipient receives a real call and can inspect the corresponding evidence.                         |
-| Ownership     | Acknowledgment updates the incident and stops subsequent paging.                                                |
-| Escalation    | An unacknowledged incident triggers its configured follow-up step.                                              |
-| Continuity    | Repeated observations enrich one ongoing incident without repeated initial calls.                               |
-| Disposition   | Dismissal and resolution remain distinct; scene clearing adds evidence without silently resolving the incident. |
-| Alert quality | Exercise harmless and ambiguous footage as well as positive cases, recording false alerts and misses.           |
+| Check | Observable result |
+| --- | --- |
+| Both demos | The prerecorded crash and staged live fall each produce an incident through the monitoring pipeline. |
+| Configuration | Each scenario has its own visible source and rule within the same product flow. |
+| Notification | The intended recipient receives an alert and can inspect the corresponding evidence. |
+| Ownership | Acknowledgment updates the incident and stops subsequent paging. |
+| Escalation | An unacknowledged incident triggers its configured follow-up step. |
+| Continuity | Repeated observations enrich one ongoing incident without repeated initial alerts. |
+| Disposition | Dismissal and resolution remain distinct; scene clearing adds evidence without silently resolving the incident. |
+| Alert quality | Exercise harmless and ambiguous footage as well as positive cases, recording false alerts and misses. |
 
-Measure event-to-call and event-to-acknowledgment time where possible. Report observed results with the sample size. No accuracy, latency, or cost targets have been agreed, and the demo alone cannot establish production reliability.
+Measure event-to-alert and event-to-acknowledgment time where possible. Report observed results with the sample size. No accuracy, latency, or cost targets have been agreed, and the demo alone cannot establish production reliability.
 
 ## Hackathon context and boundaries
 
