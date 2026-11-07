@@ -299,6 +299,13 @@ function monitoringApi({
           : { kind: "review", outcome, explanation: "Reviewed supplied footage." },
       );
     }),
+    http.post("/api/incidents/evidence-unavailable/:id", () =>
+      HttpResponse.json({
+        evidenceStatus: "unavailable",
+        evidenceReason: "No footage",
+        evidenceExpiresAt: null,
+      }),
+    ),
     http.post("/api/incidents/reports", async ({ request }) => {
       const report = (await request.json()) as Report;
       reports.push(report);
@@ -356,6 +363,7 @@ test("a confirmed candidate reports one stable event, retries delivery and does 
   await screen.findByText(/request unavailable/, {}, { timeout: 4000 });
   video.currentTime = 1;
   await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+  expect(screen.getByText("Preparing incident video…")).toBeVisible();
   expect(api.reports).toHaveLength(2);
   expect(api.reports[1]).toEqual(api.reports[0]);
   expect(api.reports[0]?.eventTime).toBeLessThanOrEqual(Date.now());
@@ -548,4 +556,54 @@ test("seeking invalidates late review and starts a fresh capture session", async
   await waitFor(() => expect(screen.getByText("Capture run").parentElement).toHaveTextContent("2"));
   expect(api.reports).toHaveLength(0);
   await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+});
+
+test("unplayable incident footage reports unavailable without losing the incident or stopping monitoring", async () => {
+  const api = monitoringApi();
+  const unavailable: unknown[] = [];
+  server.use(
+    http.get("/api/config/device", () =>
+      HttpResponse.json({
+        sources: [{ ...configuredSource, kind: "replay" }],
+        rules: [monitoringRule],
+      }),
+    ),
+    http.post("/api/incidents/evidence-unavailable/:id", async ({ request }) => {
+      unavailable.push(await request.json());
+      return HttpResponse.json({
+        evidenceStatus: "unavailable",
+        evidenceReason: "Invalid media",
+        evidenceExpiresAt: null,
+      });
+    }),
+  );
+  await renderDevice();
+  await userEvent.click(screen.getByLabelText("Assigned source"));
+  await userEvent.click(await screen.findByRole("option", { name: "Living room" }));
+  await userEvent.click(screen.getByLabelText("Source type"));
+  await userEvent.click(await screen.findByRole("option", { name: "Local video" }));
+  await userEvent.upload(
+    screen.getByLabelText("Video file"),
+    new File(["invalid media"], "fall.mp4", { type: "video/mp4" }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Start" }));
+  await screen.findByText(/Incident video unavailable/, {}, { timeout: 4000 });
+  expect(screen.getByText("Latest incident reported")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Retry video upload" })).not.toBeInTheDocument();
+  expect(unavailable).toEqual([
+    expect.objectContaining({
+      sessionId: api.sessionId,
+      eventId: api.reports[0]?.eventId,
+      reason: expect.any(String),
+    }),
+  ]);
+  const video = screen.getByLabelText("Source video") as HTMLVideoElement;
+  video.currentTime = 2;
+  await screen.findByText(
+    "Event still present. Initial alert will not repeat.",
+    {},
+    { timeout: 4000 },
+  );
+  expect(api.reports).toHaveLength(1);
 });

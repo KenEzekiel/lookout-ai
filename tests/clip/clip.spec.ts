@@ -112,29 +112,52 @@ test("a late camera event preserves lead-in across recorder segments", async ({ 
   expect(result.oldEpochError).toContain("inactive capture run");
 });
 
-test("a synthetic report receipt uploads only its preserved clip to the same incident", async ({
+test("a reviewed camera event uploads its clip while monitoring continues and retries the same bytes", async ({
   page,
 }) => {
+  test.setTimeout(45_000);
+  await page.context().grantPermissions(["camera"]);
+  let reports = 0;
+  let assessments = 0;
+  await page.route("**/api/incidents/sessions", (route) =>
+    route.fulfill({
+      json: {
+        id: "capture-one",
+        sourceId: "source-one",
+        startedAt: Date.now(),
+        expiresAt: Date.now() + 3600000,
+      },
+    }),
+  );
+  await page.route("**/api/incidents/sessions/end", (route) => route.fulfill({ json: {} }));
+  await page.route("**/api/assessment", (route) => {
+    assessments += 1;
+    return route.fulfill({
+      json: route.request().postData()?.includes('"stage":"review"')
+        ? { kind: "review", outcome: "positive", explanation: "Confirmed" }
+        : { kind: "assessment", matchProbability: 0.9, unclearProbability: 0.1 },
+    });
+  });
   const uploads: { bytes: Buffer; duration: string | undefined; session: string | undefined }[] =
     [];
   await page.route("**/api/incidents/reports", async (route) => {
+    reports += 1;
     await route.fulfill({
       json: {
         incident: {
+          ...route.request().postDataJSON(),
           id: "incident-one",
           deviceId: "camera-one",
           sessionId: "capture-one",
-          eventId: "event-one",
-          eventTime: Date.now(),
           receivedAt: Date.now(),
-          source: { id: "source-one", name: "Test video", kind: "replay" },
+          source: { id: "source-one", name: "Test camera", kind: "camera" },
           rule: {
             id: "rule-one",
             sourceId: "source-one",
             version: 1,
             enabled: true,
             definition: {
-              name: "Synthetic event",
+              name: "Fall",
               condition: { kind: "template", template: "fall" },
               durationSeconds: null,
               severity: "critical",
@@ -169,6 +192,10 @@ test("a synthetic report receipt uploads only its preserved clip to the same inc
       duration: route.request().headers()["x-clip-duration-ms"],
       session: route.request().headers()["x-lookout-session"],
     });
+    if (uploads.length === 1) {
+      await route.fulfill({ status: 503, json: { message: "Upload interrupted" } });
+      return;
+    }
     await route.fulfill({
       json: {
         evidenceStatus: "ready",
@@ -182,58 +209,72 @@ test("a synthetic report receipt uploads only its preserved clip to the same inc
     const { CaptureSession } = (await import(
       new URL("/src/lib/capture-session.ts", location.href).href
     )) as typeof import("../../apps/app/src/lib/capture-session");
-    const { submitConfirmedEvent } = (await import(
-      new URL("/src/lib/incident-evidence.ts", location.href).href
-    )) as typeof import("../../apps/app/src/lib/incident-evidence");
-    const canvas = document.createElement("canvas");
-    canvas.width = 320;
-    canvas.height = 180;
-    const context = canvas.getContext("2d")!;
-    let frame = 0;
-    const timer = window.setInterval(() => {
-      context.fillStyle = frame++ % 2 ? "red" : "blue";
-      context.fillRect(0, 0, 320, 180);
-    }, 100);
-    const recorder = new MediaRecorder(canvas.captureStream(10));
-    const chunks: Blob[] = [];
-    recorder.ondataavailable = (event) => chunks.push(event.data);
-    const stopped = new Promise<void>((resolve) => {
-      recorder.onstop = () => resolve();
-    });
-    recorder.start(300);
-    await new Promise((resolve) => window.setTimeout(resolve, 2200));
-    recorder.stop();
-    await stopped;
-    window.clearInterval(timer);
-    const file = new File(chunks, "source.webm", { type: recorder.mimeType });
+    const { DeviceMonitoring } = (await import(
+      new URL("/src/lib/device-monitoring.ts", location.href).href
+    )) as typeof import("../../apps/app/src/lib/device-monitoring");
     const video = document.createElement("video");
     document.body.append(video);
     const session = new CaptureSession(video, () => {}, {
       deviceId: "camera-one",
       workspaceId: "workspace-one",
     });
-    await session.startFile(file);
-    const submitted = await submitConfirmedEvent(
-      session,
-      { epoch: session.getSnapshot().epoch, sourceTimeMs: 1000 },
-      {
-        sessionId: "capture-one",
-        eventId: "event-one",
-        ruleId: "rule-one",
-        ruleVersion: 1,
-        eventTime: Date.now(),
-      },
-    );
+    await session.startCamera();
+    const statuses: string[] = [];
+    const completed = new Promise<void>((resolve, reject) => {
+      const controller = new DeviceMonitoring(
+        session,
+        "source-one",
+        session.getSnapshot().epoch,
+        (status) => {
+          if (!status.latest) return;
+          const evidence = status.latest.evidence;
+          statuses.push(evidence.kind);
+          if (evidence.kind === "unavailable") {
+            if (!evidence.retryable) {
+              controller.dispose();
+              reject(new Error(evidence.reason));
+              return;
+            }
+            controller.retryEvidence();
+          }
+          if (evidence.kind === "ready") {
+            controller.dispose();
+            resolve();
+          }
+        },
+      );
+      controller.configure([
+        {
+          id: "rule-one",
+          sourceId: "source-one",
+          version: 1,
+          enabled: true,
+          definition: {
+            name: "Fall",
+            condition: { kind: "template", template: "fall" },
+            durationSeconds: null,
+            severity: "critical",
+            escalationLevels: [
+              { recipientIds: ["operator-one"], acknowledgmentTimeoutSeconds: null },
+            ],
+          },
+        },
+      ]);
+    });
+    await completed;
     session.dispose();
     video.remove();
-    return { id: submitted.incident.id, error: submitted.evidenceError };
+    return statuses;
   });
-  expect(result.id).toBe("incident-one");
-  expect(result.error).toBeNull();
-  expect(uploads).toHaveLength(1);
+  expect(result).toContain("preparing");
+  expect(result).toContain("uploading");
+  expect(result).toContain("unavailable");
+  expect(result).toContain("ready");
+  expect(reports).toBe(1);
+  expect(assessments).toBeGreaterThan(2);
+  expect(uploads).toHaveLength(2);
+  expect(uploads[0]!.bytes.equals(uploads[1]!.bytes)).toBe(true);
   expect(uploads[0]!.session).toBe("capture-one");
-  expect(Number(uploads[0]!.duration)).toBeGreaterThan(1500);
-  expect(Number(uploads[0]!.duration)).toBeLessThan(3000);
+  expect(Number(uploads[0]!.duration)).toBeGreaterThan(5000);
   expect(uploads[0]!.bytes.subarray(4, 8).toString()).toBe("ftyp");
-  expect(uploads[0]!.bytes.length).toBeGreaterThan(12);
 });

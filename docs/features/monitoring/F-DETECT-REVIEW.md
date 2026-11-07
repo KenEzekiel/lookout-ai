@@ -18,7 +18,7 @@ A confirmed candidate keeps one UUID and approximate event time through report r
 
 On `/device`, choose **Assigned source**, select the compatible camera or local video, and press **Start**. **Stop**, source replacement, capture failure, hidden-tab capture shutdown, and seek invalidate pending results. Pausing playback suspends inference and retains event identity. **Refresh assigned rules** requests the current configuration; automatic polling runs every five seconds.
 
-The panel displays applied rule names and versions, assessment and review outcomes, configuration failures, delayed requests, and the latest reported event's approximate time and source interval. Clip upload is explicitly unavailable. Operator health reporting remains F-DEVICE-HEALTH.
+The panel displays applied rule names and versions, assessment and review outcomes, configuration failures, delayed requests, and the latest reported event's approximate time and source interval. The latest incident shows preparing, uploading, ready, or unavailable evidence feedback and offers Retry video upload when its encoded clip remains available. Operator health reporting remains F-DEVICE-HEALTH.
 
 ## Wiring and compatibility
 
@@ -30,7 +30,7 @@ The loop starts `/api/incidents/sessions` for the selected source and ends the s
 
 Each iteration selects the latest eight chronological capture samples and starts no work queue. Rules are scheduled round-robin with at least 1.5 seconds between iterations; a candidate can be assessed and reviewed within one iteration. A request chain has a twenty-second deadline and displays degradation after five seconds. Capture retains thirty samples, each candidate retains at most eight, and the relay client retains at most sixty-four cached receipts. More than eight enabled rules produces an explicit capacity error instead of silently omitting rules. These are demo limits, not validated detection-performance settings.
 
-Event time is the wall-clock capture time of the first candidate-window frame, labeled approximate. The device retains source `from`/`to` separately from inference and receipt time. The current report API persists event time only; interval enrichment remains incomplete. F-EVIDENCE-REPLAY now supplies [submitConfirmedEvent](../../../apps/app/src/lib/incident-evidence.ts) and clip extraction, but this controller does not call that handoff yet. Its existing combined report-and-upload promise does not expose the immediate receipt or cancellation needed by this loop. Connecting it requires a coordinated handoff change; this draft keeps that gap explicit rather than replacing the evidence owner. Restarts and seeks deliberately begin a new capture identity; cross-run duplicate recognition is not implemented.
+Event time is the wall-clock capture time of the first candidate-window frame, labeled approximate. The device retains source `from`/`to` separately from inference and receipt time. The current report API persists event time only; interval enrichment remains incomplete. F-EVIDENCE-REPLAY supplies [preservation and upload](../../../apps/app/src/lib/incident-evidence.ts). Positive review pins footage at the first candidate frame's source time before reporting. The reporting state retains that promise across report retries. Once a receipt arrives, clip preparation and upload run independently of the assessment loop, using the same incident, session, and event identity. Already accepted incidents finish their preserved upload even if capture stops; stale results do not update a replacement controller. Upload retries reuse encoded bytes without reporting another incident. Restarts and seeks deliberately begin a new capture identity; cross-run duplicate recognition is not implemented.
 
 ## Implementation
 
@@ -46,10 +46,12 @@ Required before claiming implemented: permitted fall, harmless, and crash footag
 
 ## Decisions and sources
 
+The current PR fixes incident videos never uploading by connecting confirmed reviews to the existing evidence owner. Reporting remains cancellable and independent of video preparation. Evidence status is separate from detection state.
+
 [Issue #21](https://github.com/KenEzekiel/lookout-ai/issues/21), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), [fall evidence](../../../experiments/decisions-falls/README.md), and [crash evidence](../../../experiments/decisions-crashes/README.md).
 
 This PR's synthesis decision is one controller per configured source/capture epoch, with explicit armed, duration-observing, candidate, reporting, and held event states. React owns controls and renders controller status; capture, relay, and persistence retain their existing owners. This keeps retry identity and cancellation out of rendering and prevents independent polling effects from issuing concurrent assessment requests. The conservative clear thresholds and sampling policy are implementation defaults requiring live evaluation. The 0.70 candidate threshold follows the experiments; it is not a general accuracy guarantee. Repeated-positive gating is intentionally absent because it missed baseline falls.
 
 ## Open questions
 
-Live model quality, latency, real camera/mobile operation, and production deployment remain unverified. Short footage that ends before remote review completes cancels the result with capture shutdown; live verification must record this limitation. The one-fps capture policy differs from the experiments' two-fps input and has not been calibrated. Event intervals are local and approximate until evidence/incident enrichment is connected. No automatic retry across page reload, cross-run duplicate recognition, clip upload, or remote health heartbeat is claimed.
+Live model quality, latency, real camera/mobile operation, and production deployment remain unverified. Short footage that ends before remote review completes cancels the result with capture shutdown; live verification must record this limitation. The one-fps capture policy differs from the experiments' two-fps input and has not been calibrated. Event intervals are local and approximate until evidence/incident enrichment is connected. No automatic retry across page reload, cross-run duplicate recognition, or remote health heartbeat is claimed. The device retry action covers the latest incident while its controller remains active.
