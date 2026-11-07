@@ -6,7 +6,7 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
-Visitors open Lookout AI to sign in or register. Authenticated people see onboarding or workspace access controls. Devices see their restricted authorization status and a link to local capture. Unknown routes still show Not Found. This is not yet a monitoring dashboard.
+Visitors open Lookout to sign in or register. Access and capture headers share the approved Horizon SVG mark; the document uses its matching favicon. Workspace members navigate between Devices (default) and Team using a URL search parameter, with reload and browser history support. Forms and lists adapt to narrow screens. Authenticated people see onboarding or workspace access controls. Devices see their restricted authorization status and a link to local capture. Unknown routes still show Not Found. This is not yet a monitoring dashboard.
 
 ## Entry points
 
@@ -18,13 +18,17 @@ The shell uses the completed account/session portion of F-AUTH-ACCESS through sa
 
 ## Implementation
 
-[Home route](../../../apps/app/src/routes/index.tsx), [capture route](../../../apps/app/src/routes/device.tsx), [root route](../../../apps/app/src/routes/__root.tsx), [router](../../../apps/app/src/router.tsx), and [access UI](../../../apps/app/src/components/access/app.tsx).
+[Home route](../../../apps/app/src/routes/index.tsx), [capture route](../../../apps/app/src/routes/device.tsx), [root route](../../../apps/app/src/routes/__root.tsx), [router](../../../apps/app/src/router.tsx), [access UI](../../../apps/app/src/components/access/app.tsx), [brand](../../../apps/app/src/components/access/brand.tsx), and [favicon](../../../apps/app/public/favicon.svg).
 
 ## Verification
+
+The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-end checks. Interactive production-build QA exercised signup, workspace creation, invitation-based joining, invalid-code recovery, pairing, keyboard focus, cancellation, revocation, capture entry, and same-browser switching at desktop and narrow widths. [Screenshots and observations](../../qa/horizon-access/README.md) record the changed journeys.
 
 [Route integration tests](../../../apps/app/tests/integration/app.test.tsx) cover the visible home heading and unknown-route fallback. [Capture UI tests](../../../apps/app/tests/integration/device.test.tsx) cover paired-device entry and visitor denial. Run `pnpm test`. [Access browser journeys](../../../tests/e2e/access.spec.ts) exercise entry, joining, and monitoring-mode navigation against the built app.
 
 ## Decisions and sources
+
+The user approved the Horizon cobalt/graphite identity and focused access-screen mockup in the implementation conversation. This PR implements that direction while preserving the newly merged capture route. The shared identity belongs to the access shell and is reused by the capture header.
 
 [Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 

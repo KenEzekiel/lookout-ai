@@ -1,23 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { type Principal, principalSchema } from "@/lib/access";
 import { mutate, request, message } from "@/lib/api";
-import { Account } from "./account";
 import { DeviceScreen } from "@/components/device-screen";
+import { Account } from "./account";
+import { Brand } from "./brand";
 import { Onboarding } from "./onboarding";
 import { Workspace } from "./workspace";
 import { Monitor, PairBrowser } from "./monitor";
-import { ActionForm } from "./forms";
+import { ActionForm, Panel } from "./forms";
 
 export function AccessApp({
   pairing = false,
   capture = false,
   invitation,
+  view = "devices",
 }: {
   pairing?: boolean;
   capture?: boolean;
   invitation?: string;
+  view?: "devices" | "team";
 }) {
+  const navigate = useNavigate();
   const [actor, setActor] = useState<Principal>();
   const [error, setError] = useState("");
   const refresh = useCallback(async () => {
@@ -50,62 +54,141 @@ export function AccessApp({
   if (capture && actor?.kind === "device" && !error) {
     return <DeviceScreen deviceId={actor.deviceId} workspaceId={actor.workspaceId} />;
   }
+  const signedIn = actor?.kind === "member" || actor?.kind === "unassigned-user";
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-5 py-8 md:px-8 md:py-12">
-      <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Lookout AI</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {actor?.kind === "member" ? actor.workspaceName : "Workspace & device access"}
-          </p>
+    <div className="min-h-dvh">
+      <a
+        href="#main-content"
+        className="sr-only fixed top-2 left-2 z-50 rounded bg-background px-4 py-2 focus:not-sr-only"
+      >
+        Skip to content
+      </a>
+      <header className="border-b border-border">
+        <div className="mx-auto flex min-h-20 max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4 sm:px-8 sm:py-0">
+          <Link
+            to="/"
+            aria-label="Lookout home"
+            className="shrink-0 rounded focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <Brand />
+          </Link>
+          {actor?.kind === "member" && (
+            <span
+              className="hidden max-w-48 truncate border-l border-border pl-6 text-sm text-muted-foreground sm:block"
+              title={actor.workspaceName}
+            >
+              {actor.workspaceName}
+            </span>
+          )}
+          {actor?.kind === "member" && !pairing && (
+            <nav
+              aria-label="Workspace"
+              className="order-last flex w-full gap-6 sm:order-none sm:ml-2 sm:w-auto sm:self-stretch"
+            >
+              <Link
+                to="/"
+                search={{ view: "devices" }}
+                aria-current={view === "devices" ? "page" : undefined}
+                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${view === "devices" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
+              >
+                Devices
+              </Link>
+              <Link
+                to="/"
+                search={{ view: "team" }}
+                aria-current={view === "team" ? "page" : undefined}
+                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${view === "team" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
+              >
+                Team
+              </Link>
+            </nav>
+          )}
+          <div className="ml-auto flex items-center gap-3">
+            {actor?.kind === "device" && (
+              <Link to="/device" className="text-sm text-signal">
+                Capture station
+              </Link>
+            )}
+            {signedIn && (
+              <>
+                <span
+                  className="hidden size-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground sm:flex"
+                  aria-label={`Signed in as ${actor.name}`}
+                  title={actor.name}
+                >
+                  {actor.name.slice(0, 2).toUpperCase()}
+                </span>
+                <ActionForm
+                  submit="Sign out"
+                  pendingLabel="Signing out…"
+                  compact
+                  variant="ghost"
+                  action={async () => {
+                    await mutate("/api/auth/sign-out");
+                    await refresh();
+                  }}
+                />
+              </>
+            )}
+            {pairing && !signedIn && actor?.kind !== "device" && (
+              <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
+                Sign in instead
+              </Link>
+            )}
+          </div>
         </div>
-        <nav aria-label="Account" className="flex flex-wrap items-center gap-4 text-sm">
-          <Link to="/" className="underline underline-offset-4">
-            Workspace
-          </Link>
-          <Link to="/monitor" className="underline underline-offset-4">
-            Pair a monitoring browser
-          </Link>
-          {actor?.kind === "device" && (
-            <Link to="/device" className="underline underline-offset-4">
-              Capture station
-            </Link>
-          )}
-          {actor && (actor.kind === "member" || actor.kind === "unassigned-user") && (
-            <ActionForm
-              submit="Sign out"
-              action={async () => {
-                await mutate("/api/auth/sign-out");
-                await refresh();
-              }}
-            />
-          )}
-        </nav>
       </header>
-      {error ? (
-        <div className="mx-auto grid max-w-lg gap-5">
-          <p role="alert">{error}</p>
-          <ActionForm
-            submit="Return to sign in"
-            action={async () => {
-              await mutate("/api/access/devices/leave");
-              window.location.assign("/");
+      <main id="main-content" className="mx-auto max-w-6xl px-5 sm:px-8">
+        {error ? (
+          <Panel title="We couldn’t open your workspace">
+            <p role="alert" className="mb-6 text-sm leading-relaxed text-destructive">
+              {error}
+            </p>
+            <div className="grid gap-3">
+              <ActionForm submit="Try again" pendingLabel="Trying again…" action={refresh} />
+              <ActionForm
+                submit="Return to sign in"
+                pendingLabel="Returning to sign in…"
+                variant="secondary"
+                action={async () => {
+                  await mutate("/api/access/devices/leave");
+                  window.location.assign("/");
+                }}
+              />
+            </div>
+          </Panel>
+        ) : !actor ? (
+          <output className="block py-16 text-center text-sm text-muted-foreground">
+            Opening your workspace…
+          </output>
+        ) : actor.kind === "device" ? (
+          <Monitor actor={actor} />
+        ) : pairing ? (
+          <PairBrowser signedIn={signedIn} onPaired={refresh} />
+        ) : actor.kind === "visitor" ? (
+          <Account invitation={invitation} onSignedIn={refresh} />
+        ) : actor.kind === "unassigned-user" ? (
+          <Onboarding
+            invitation={invitation}
+            onJoined={async () => {
+              await refresh();
+              await navigate({ to: "/", search: { view: "devices" }, replace: true });
             }}
           />
-        </div>
-      ) : !actor ? (
-        <output>Loading workspace…</output>
-      ) : actor.kind === "device" ? (
-        <Monitor actor={actor} />
-      ) : pairing ? (
-        <PairBrowser onPaired={refresh} />
-      ) : actor.kind === "visitor" ? (
-        <Account onSignedIn={refresh} />
-      ) : actor.kind === "unassigned-user" ? (
-        <Onboarding invitation={invitation} onJoined={refresh} />
-      ) : (
-        <Workspace key={actor.workspaceId + actor.role} actor={actor} onChanged={refresh} />
-      )}
-    </main>
+        ) : (
+          <>
+            <p className="mt-5 break-words text-sm text-muted-foreground sm:hidden">
+              {actor.workspaceName}
+            </p>
+            <Workspace
+              key={actor.workspaceId + actor.role}
+              actor={actor}
+              view={view}
+              onChanged={refresh}
+            />
+          </>
+        )}
+      </main>
+    </div>
   );
 }

@@ -10,7 +10,7 @@ A paired operational device selects a browser camera or local video, starts and 
 
 ## Entry points
 
-Open `/device` from the paired-device home screen. The operator client can close while a separate active capture device continues.
+Open `/device` using **Open capture station** from the paired-device home screen. The capture header reuses the approved Horizon identity from the access shell. The operator client can close while a separate active capture device continues.
 
 ## Wiring and compatibility
 
