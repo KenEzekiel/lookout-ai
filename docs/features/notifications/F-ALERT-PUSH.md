@@ -6,6 +6,7 @@ Depends on: F-AUTH-ACCESS, F-ALERT-INAPP
 
 ## Behavior
 
+Background alert settings use the shared accordion panel with a full-width keyboard-operable button and exposed expansion state, replacing the native disclosure triangle at Ken’s request.
 Background-alert enable and disable actions use the F-APP-SHELL compact button size and decorative bell icons. Pending updates retain their visible progress label and a busy icon.
 
 Background-alert setup uses the shared labeled loading status, and enable/disable actions use a busy button. The disclosure and existing permission guidance remain available.
