@@ -1,34 +1,33 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { Link, linkOptions, Navigate, useNavigate } from "@tanstack/react-router";
 import { type Principal, principalSchema } from "@/lib/access";
 import { mutate, request, message } from "@/lib/api";
-import { RuleWorkspace } from "@/components/rules/workspace";
-import { IncidentDetail, IncidentInbox } from "@/components/incidents/workspace";
 import { IncomingAlerts } from "@/components/incidents/incoming-alerts";
 import { DeviceScreen } from "@/components/device-screen";
 import { Account } from "./account";
 import { Brand } from "./brand";
 import { Onboarding } from "./onboarding";
-import { Workspace } from "./workspace";
+import { WorkspaceContext } from "./workspace-context";
 import { Monitor, PairBrowser } from "./monitor";
 import { ActionForm, Panel } from "./forms";
+
+const workspaceLinks = linkOptions([
+  { to: "/devices", label: "Devices" },
+  { to: "/team", label: "Team" },
+  { to: "/incidents", label: "Incidents" },
+  { to: "/triggers", label: "Triggers" },
+]);
 
 export function AccessApp({
   pairing = false,
   capture = false,
-  triggers = false,
-  incidents = false,
-  incidentId,
   invitation,
-  view = "devices",
+  children,
 }: {
   pairing?: boolean;
   capture?: boolean;
-  triggers?: boolean;
-  incidents?: boolean;
-  incidentId?: string;
   invitation?: string;
-  view?: "devices" | "team";
+  children?: ReactNode;
 }) {
   const navigate = useNavigate();
   const [actor, setActor] = useState<Principal>();
@@ -94,36 +93,17 @@ export function AccessApp({
               aria-label="Workspace"
               className="order-last flex w-full gap-6 sm:order-none sm:ml-2 sm:w-auto sm:self-stretch"
             >
-              <Link
-                to="/"
-                search={{ view: "devices" }}
-                aria-current={!triggers && !incidents && view === "devices" ? "page" : undefined}
-                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${!triggers && !incidents && view === "devices" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
-              >
-                Devices
-              </Link>
-              <Link
-                to="/"
-                search={{ view: "team" }}
-                aria-current={!triggers && !incidents && view === "team" ? "page" : undefined}
-                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${!triggers && !incidents && view === "team" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
-              >
-                Team
-              </Link>
-              <Link
-                to="/incidents"
-                aria-current={incidents ? "page" : undefined}
-                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${incidents ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
-              >
-                Incidents
-              </Link>
-              <Link
-                to="/triggers"
-                aria-current={triggers ? "page" : undefined}
-                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${triggers ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
-              >
-                Triggers
-              </Link>
+              {workspaceLinks.map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  activeProps={{ className: "border-primary text-foreground" }}
+                  inactiveProps={{ className: "border-transparent text-muted-foreground" }}
+                  className="inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full"
+                >
+                  {label}
+                </Link>
+              ))}
             </nav>
           )}
           <div className="ml-auto flex items-center gap-3">
@@ -198,33 +178,16 @@ export function AccessApp({
             invitation={invitation}
             onJoined={async () => {
               await refresh();
-              await navigate({ to: "/", search: { view: "devices" }, replace: true });
+              await navigate({ to: "/devices", replace: true });
             }}
           />
-        ) : incidents ? (
-          <section className="py-8 sm:py-12">
-            {incidentId ? (
-              <IncidentDetail key={actor.workspaceId + incidentId} id={incidentId} />
-            ) : (
-              <IncidentInbox key={actor.workspaceId} />
-            )}
-          </section>
-        ) : triggers ? (
-          <section className="py-8 sm:py-12">
-            <RuleWorkspace key={actor.workspaceId} />
-          </section>
         ) : (
-          <>
-            <p className="mt-5 break-words text-sm text-muted-foreground sm:hidden">
-              {actor.workspaceName}
-            </p>
-            <Workspace
-              key={actor.workspaceId + actor.role}
-              actor={actor}
-              view={view}
-              onChanged={refresh}
-            />
-          </>
+          <WorkspaceContext
+            key={actor.workspaceId + actor.userId + actor.role}
+            value={{ actor, onChanged: refresh }}
+          >
+            {children ?? <Navigate to="/devices" replace />}
+          </WorkspaceContext>
         )}
       </main>
     </div>

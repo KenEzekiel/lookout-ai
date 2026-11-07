@@ -10,12 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorkspaceRouteImport } from './routes/_workspace'
 import { Route as DeviceRouteImport } from './routes/device'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as MonitorRouteImport } from './routes/monitor'
-import { Route as TriggersRouteImport } from './routes/triggers'
-import { Route as IncidentsIndexRouteImport } from './routes/incidents.index'
-import { Route as IncidentsIncidentIdRouteImport } from './routes/incidents.$incidentId'
+import { Route as WorkspaceDevicesRouteImport } from './routes/_workspace.devices'
+import { Route as WorkspaceTeamRouteImport } from './routes/_workspace.team'
+import { Route as WorkspaceTriggersRouteImport } from './routes/_workspace.triggers'
+import { Route as WorkspaceIncidentsIndexRouteImport } from './routes/_workspace.incidents.index'
+import { Route as WorkspaceIncidentsIncidentIdRouteImport } from './routes/_workspace.incidents.$incidentId'
 import { Route as ApiAccessSplatRouteImport } from './routes/api/access/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiConfigSplatRouteImport } from './routes/api/config/$'
@@ -25,6 +28,10 @@ import { Route as ApiPeerSplatRouteImport } from './routes/api/peer/$'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/_workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeviceRoute = DeviceRouteImport.update({
@@ -42,21 +49,32 @@ const MonitorRoute = MonitorRouteImport.update({
   path: '/monitor',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TriggersRoute = TriggersRouteImport.update({
+const WorkspaceDevicesRoute = WorkspaceDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceTeamRoute = WorkspaceTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceTriggersRoute = WorkspaceTriggersRouteImport.update({
   id: '/triggers',
   path: '/triggers',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => WorkspaceRoute,
 } as any)
-const IncidentsIndexRoute = IncidentsIndexRouteImport.update({
+const WorkspaceIncidentsIndexRoute = WorkspaceIncidentsIndexRouteImport.update({
   id: '/incidents/',
   path: '/incidents/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => WorkspaceRoute,
 } as any)
-const IncidentsIncidentIdRoute = IncidentsIncidentIdRouteImport.update({
-  id: '/incidents/$incidentId',
-  path: '/incidents/$incidentId',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const WorkspaceIncidentsIncidentIdRoute =
+  WorkspaceIncidentsIncidentIdRouteImport.update({
+    id: '/incidents/$incidentId',
+    path: '/incidents/$incidentId',
+    getParentRoute: () => WorkspaceRoute,
+  } as any)
 const ApiAccessSplatRoute = ApiAccessSplatRouteImport.update({
   id: '/api/access/$',
   path: '/api/access/$',
@@ -88,43 +106,50 @@ export interface FileRoutesByFullPath {
   '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
-  '/triggers': typeof TriggersRoute
-  '/incidents/$incidentId': typeof IncidentsIncidentIdRoute
-  '/incidents/': typeof IncidentsIndexRoute
+  '/devices': typeof WorkspaceDevicesRoute
+  '/team': typeof WorkspaceTeamRoute
+  '/triggers': typeof WorkspaceTriggersRoute
+  '/incidents/$incidentId': typeof WorkspaceIncidentsIncidentIdRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
   '/api/peer/$': typeof ApiPeerSplatRoute
+  '/incidents/': typeof WorkspaceIncidentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
-  '/triggers': typeof TriggersRoute
-  '/incidents/$incidentId': typeof IncidentsIncidentIdRoute
-  '/incidents': typeof IncidentsIndexRoute
+  '/devices': typeof WorkspaceDevicesRoute
+  '/team': typeof WorkspaceTeamRoute
+  '/triggers': typeof WorkspaceTriggersRoute
+  '/incidents/$incidentId': typeof WorkspaceIncidentsIncidentIdRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
   '/api/peer/$': typeof ApiPeerSplatRoute
+  '/incidents': typeof WorkspaceIncidentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_workspace': typeof WorkspaceRouteWithChildren
   '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
-  '/triggers': typeof TriggersRoute
-  '/incidents/$incidentId': typeof IncidentsIncidentIdRoute
-  '/incidents/': typeof IncidentsIndexRoute
+  '/_workspace/devices': typeof WorkspaceDevicesRoute
+  '/_workspace/team': typeof WorkspaceTeamRoute
+  '/_workspace/triggers': typeof WorkspaceTriggersRoute
+  '/_workspace/incidents/$incidentId': typeof WorkspaceIncidentsIncidentIdRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
   '/api/peer/$': typeof ApiPeerSplatRoute
+  '/_workspace/incidents/': typeof WorkspaceIncidentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,52 +158,57 @@ export interface FileRouteTypes {
     | '/device'
     | '/join'
     | '/monitor'
+    | '/devices'
+    | '/team'
     | '/triggers'
     | '/incidents/$incidentId'
-    | '/incidents/'
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
     | '/api/incidents/$'
     | '/api/peer/$'
+    | '/incidents/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/device'
     | '/join'
     | '/monitor'
+    | '/devices'
+    | '/team'
     | '/triggers'
     | '/incidents/$incidentId'
-    | '/incidents'
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
     | '/api/incidents/$'
     | '/api/peer/$'
+    | '/incidents'
   id:
     | '__root__'
     | '/'
+    | '/_workspace'
     | '/device'
     | '/join'
     | '/monitor'
-    | '/triggers'
-    | '/incidents/$incidentId'
-    | '/incidents/'
+    | '/_workspace/devices'
+    | '/_workspace/team'
+    | '/_workspace/triggers'
+    | '/_workspace/incidents/$incidentId'
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
     | '/api/incidents/$'
     | '/api/peer/$'
+    | '/_workspace/incidents/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  WorkspaceRoute: typeof WorkspaceRouteWithChildren
   DeviceRoute: typeof DeviceRoute
   JoinRoute: typeof JoinRoute
   MonitorRoute: typeof MonitorRoute
-  TriggersRoute: typeof TriggersRoute
-  IncidentsIncidentIdRoute: typeof IncidentsIncidentIdRoute
-  IncidentsIndexRoute: typeof IncidentsIndexRoute
   ApiAccessSplatRoute: typeof ApiAccessSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiConfigSplatRoute: typeof ApiConfigSplatRoute
@@ -193,6 +223,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_workspace': {
+      id: '/_workspace'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof WorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/device': {
@@ -216,26 +253,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonitorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/triggers': {
-      id: '/triggers'
+    '/_workspace/devices': {
+      id: '/_workspace/devices'
+      path: '/devices'
+      fullPath: '/devices'
+      preLoaderRoute: typeof WorkspaceDevicesRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/_workspace/team': {
+      id: '/_workspace/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof WorkspaceTeamRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/_workspace/triggers': {
+      id: '/_workspace/triggers'
       path: '/triggers'
       fullPath: '/triggers'
-      preLoaderRoute: typeof TriggersRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof WorkspaceTriggersRouteImport
+      parentRoute: typeof WorkspaceRoute
     }
-    '/incidents/': {
-      id: '/incidents/'
+    '/_workspace/incidents/': {
+      id: '/_workspace/incidents/'
       path: '/incidents'
       fullPath: '/incidents/'
-      preLoaderRoute: typeof IncidentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof WorkspaceIncidentsIndexRouteImport
+      parentRoute: typeof WorkspaceRoute
     }
-    '/incidents/$incidentId': {
-      id: '/incidents/$incidentId'
+    '/_workspace/incidents/$incidentId': {
+      id: '/_workspace/incidents/$incidentId'
       path: '/incidents/$incidentId'
       fullPath: '/incidents/$incidentId'
-      preLoaderRoute: typeof IncidentsIncidentIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof WorkspaceIncidentsIncidentIdRouteImport
+      parentRoute: typeof WorkspaceRoute
     }
     '/api/access/$': {
       id: '/api/access/$'
@@ -275,14 +326,32 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface WorkspaceRouteChildren {
+  WorkspaceDevicesRoute: typeof WorkspaceDevicesRoute
+  WorkspaceTeamRoute: typeof WorkspaceTeamRoute
+  WorkspaceTriggersRoute: typeof WorkspaceTriggersRoute
+  WorkspaceIncidentsIncidentIdRoute: typeof WorkspaceIncidentsIncidentIdRoute
+  WorkspaceIncidentsIndexRoute: typeof WorkspaceIncidentsIndexRoute
+}
+
+const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceDevicesRoute: WorkspaceDevicesRoute,
+  WorkspaceTeamRoute: WorkspaceTeamRoute,
+  WorkspaceTriggersRoute: WorkspaceTriggersRoute,
+  WorkspaceIncidentsIncidentIdRoute: WorkspaceIncidentsIncidentIdRoute,
+  WorkspaceIncidentsIndexRoute: WorkspaceIncidentsIndexRoute,
+}
+
+const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
+  WorkspaceRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  WorkspaceRoute: WorkspaceRouteWithChildren,
   DeviceRoute: DeviceRoute,
   JoinRoute: JoinRoute,
   MonitorRoute: MonitorRoute,
-  TriggersRoute: TriggersRoute,
-  IncidentsIncidentIdRoute: IncidentsIncidentIdRoute,
-  IncidentsIndexRoute: IncidentsIndexRoute,
   ApiAccessSplatRoute: ApiAccessSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiConfigSplatRoute: ApiConfigSplatRoute,

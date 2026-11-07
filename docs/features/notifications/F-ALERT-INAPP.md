@@ -8,7 +8,7 @@ Depends on: F-INCIDENT-RESPONSE
 
 An open operator client shows a prominent incoming alert for an open incident naming that member in its snapshotted recipients. It shows the trigger summary, source, event time, severity, and pending evidence before a clip exists. Open incident navigates to detail and silences locally. Silence here hides only that incident in the current browser tab. Neither action acknowledges it. Acknowledge alert uses the existing versioned command and records shared ownership.
 
-Sound starts off. Enable sound and test requests browser playback and plays an original 1.2-second, three-pulse incident alarm with sharp alternating 960/720 Hz tones and restrained harmonics. While enabled, the current incoming incident repeats the alarm every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the mounted screen and must be enabled again after navigation or reload. No background delivery, continuous ringtone, or OS sound bypass is promised.
+Sound starts off. Enable sound and test requests browser playback and plays an original 1.2-second, three-pulse incident alarm with sharp alternating 960/720 Hz tones and restrained harmonics. While enabled, the current incoming incident repeats the alarm every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the shared workspace layout. It survives navigation between Devices, Team, Triggers, inbox, and detail, and must be enabled again after leaving that layout or reloading. No background delivery, continuous ringtone, or OS sound bypass is promised.
 
 ## Entry points
 
@@ -40,6 +40,8 @@ The [sound browser integration tests](../../../tests/e2e/alert-sound.spec.ts) ex
 
 ## Decisions and sources
 
+The current routing PR moves member dashboard pages under one persistent layout at Arsa’s request. Incoming alerts stay in that layout, preserving connection and sound state across child-route navigation. Polling cadence, recipient checks, local silence, and acknowledgment semantics remain unchanged.
+
 [Issue #23](https://github.com/KenEzekiel/lookout-ai/issues/23), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 
 The incoming-alert implementation's synthesis decision is recipient-filtered polling over the existing incident service. The inbox and commands already use polling and version checks, so a second event transport or durable delivery framework would add another ownership path. A focused incoming view keeps context and controls readable without interrupting keyboard focus. Local silence belongs to the browser session, while acknowledgment belongs to shared incident state.
@@ -48,4 +50,4 @@ The incoming-alert implementation's synthesis decision is recipient-filtered pol
 
 ## Open questions
 
-The delivery window is bounded to 100 open eligible incidents and has no pagination. Sound opt-in resets on screen remount. Push, escalation scheduling, native calls, background guarantees, and persisted per-client delivery receipts are outside this slice.
+The delivery window is bounded to 100 open eligible incidents and has no pagination. Sound opt-in resets when the shared workspace layout unmounts or the page reloads. Push, escalation scheduling, native calls, background guarantees, and persisted per-client delivery receipts are outside this slice.

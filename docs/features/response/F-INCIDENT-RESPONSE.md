@@ -38,7 +38,7 @@ The idempotency key is device, session, event ID, and rule ID. The producer must
 
 [Incident service](../../../apps/app/src/server/incidents.ts), [route adapter](../../../apps/app/src/routes/api/incidents/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [real migration](../../../apps/app/migrations/0003_incident_response.sql) implement persistence, authorization, deduplication, sessions, and versioned responses.
 
-[Inbox and detail screens](../../../apps/app/src/components/incidents/workspace.tsx), [inbox route](../../../apps/app/src/routes/incidents.index.tsx), [detail route](../../../apps/app/src/routes/incidents.$incidentId.tsx), and [access gate](../../../apps/app/src/components/access/app.tsx) implement operator handling. Status remains partial because assessment submission, capture lifecycle integration, observation enrichment, evidence, and notification consumers are not connected.
+[Inbox and detail screens](../../../apps/app/src/components/incidents/workspace.tsx), [inbox route](../../../apps/app/src/routes/_workspace.incidents.index.tsx), [detail route](../../../apps/app/src/routes/_workspace.incidents.$incidentId.tsx), and [access gate](../../../apps/app/src/components/access/app.tsx) implement operator handling. Status remains partial because assessment submission, capture lifecycle integration, observation enrichment, evidence, and notification consumers are not connected.
 
 ## Verification
 
