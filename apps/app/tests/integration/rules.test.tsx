@@ -102,7 +102,8 @@ test("operators define incidents with exclusions, edit and disable them, then re
   await user.click(screen.getByRole("button", { name: "New trigger" }));
   expect(screen.getByLabelText("Alex (owner)")).toBeChecked();
   expect(screen.queryByLabelText("Start from")).not.toBeInTheDocument();
-  await user.type(screen.getByLabelText("Incident name"), "Possible fall");
+  await user.click(screen.getByLabelText("Incident name"));
+  await user.paste("Possible fall");
   await user.click(screen.getByLabelText("What should count?"));
   await user.paste("A person falls to the floor.");
   await user.click(screen.getByRole("button", { name: "Save enabled" }));
@@ -110,7 +111,8 @@ test("operators define incidents with exclusions, edit and disable them, then re
     "Enabled · Version 1",
   );
   await user.click(screen.getByRole("button", { name: "New trigger" }));
-  await user.type(screen.getByLabelText("Incident name"), "Possible crash");
+  await user.click(screen.getByLabelText("Incident name"));
+  await user.paste("Possible crash");
   await user.click(screen.getByLabelText("What should count?"));
   await user.paste("Two vehicles visibly collide.");
   await user.click(screen.getByLabelText("Source", { exact: true }));
@@ -121,7 +123,8 @@ test("operators define incidents with exclusions, edit and disable them, then re
   );
   await user.click(screen.getByRole("button", { name: "New trigger" }));
 
-  await user.type(screen.getByLabelText("Incident name"), "Blocked exit");
+  await user.click(screen.getByLabelText("Incident name"));
+  await user.paste("Blocked exit");
   await user.click(screen.getByLabelText("What should count?"));
   await user.paste("A vehicle blocks the marked emergency exit.");
   await user.click(screen.getByLabelText("What should not count? (optional)"));
@@ -154,7 +157,9 @@ test("operators define incidents with exclusions, edit and disable them, then re
 
 test("recipient validation and stale-save errors preserve the draft and allow recovery", async () => {
   const user = await open();
-  await user.click(await screen.findByRole("button", { name: "New trigger" }));
+  const newTrigger = await screen.findByRole("button", { name: "New trigger" });
+  await waitFor(() => expect(newTrigger).toBeEnabled());
+  await user.click(newTrigger);
   await user.type(screen.getByLabelText("Incident name"), "Possible fall");
   await user.type(screen.getByLabelText("What should count?"), "A person falls to the floor.");
   await user.click(screen.getByLabelText("Alex (owner)"));
