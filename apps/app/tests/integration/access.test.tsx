@@ -328,3 +328,11 @@ test("operators can open and close live view, retry unsupported browsers, and ca
   expect(screen.queryByLabelText("Live device video")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Live view of Lobby" })).toBeVisible();
 });
+
+test("visitor header preserves the Lookout home link and static mark", async () => {
+  await open();
+  expect(await screen.findByRole("button", { name: "Sign in" })).toBeVisible();
+  const home = screen.getByRole("link", { name: "Lookout home" });
+  expect(within(home).getByLabelText("Lookout")).toBeVisible();
+  expect(home.querySelector("svg")).toBeInTheDocument();
+});

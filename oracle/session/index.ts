@@ -16,6 +16,8 @@ import {
   keyOf,
   type Limits,
   type Outcome,
+  type OutputFile,
+  outputFileSchema,
   type ShutdownMode,
 } from "./domain.js";
 
@@ -36,6 +38,7 @@ const deliverySchema = z.object({
   id: z.string(),
   kind: z.enum(["ack", "progress", "result", "stop"]),
   text: z.string(),
+  files: z.array(outputFileSchema).optional(),
   state: z.enum(["attempting", "sent", "uncertain"]),
 });
 const documentSchema = z.object({
@@ -64,7 +67,12 @@ export interface SessionStore {
   interrupt(mode?: ShutdownMode): Promise<void>;
   complete(input: Incoming, outcome: Outcome, status?: EventState): Promise<void>;
   mutation(input: Incoming, path: string, operation: () => Promise<void>): Promise<void>;
-  delivery(address: Address, kind: DeliveryKind, text: string): Promise<string>;
+  delivery(
+    address: Address,
+    kind: DeliveryKind,
+    text: string,
+    files?: OutputFile[],
+  ): Promise<string>;
   settle(address: Address, id: string, state: "sent" | "uncertain"): Promise<void>;
   snapshot(address: Address): Readonly<Document> | undefined;
   linkThread(address: Address, threadId: string, previousThreadId?: string | null): Promise<void>;
@@ -303,12 +311,18 @@ export function createSessionStore(options: {
         await save(document);
       });
     },
-    delivery: (address, kind, text) =>
+    delivery: (address, kind, text, files) =>
       transact(async () => {
         const document = copy(address);
         const id = randomUUID();
         document.deliveries = document.deliveries.slice(-15);
-        document.deliveries.push({ id, kind, text, state: "attempting" });
+        document.deliveries.push({
+          id,
+          kind,
+          text,
+          ...(files?.length ? { files } : {}),
+          state: "attempting",
+        });
         await save(document);
         return id;
       }),

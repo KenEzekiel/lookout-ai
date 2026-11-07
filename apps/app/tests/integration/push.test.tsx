@@ -196,7 +196,13 @@ test("a server without VAPID configuration explains why setup is unavailable", a
 
 test("iOS browsers explain Home Screen setup before requesting notification permission", async () => {
   platform(navigator, "userAgent", "iPhone Safari");
-  platform(window, "matchMedia", () => ({ matches: false }));
+  const media = new EventTarget();
+  platform(window, "matchMedia", (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: media.addEventListener.bind(media),
+    removeEventListener: media.removeEventListener.bind(media),
+  }));
   await open();
   expect(await screen.findByText(/use Safari to add Lookout to your Home Screen/)).toBeVisible();
   expect(requested).toBe(0);
