@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { server } from "../support/server";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test } from "vitest";
 import { getRouter } from "../../src/router";
@@ -90,7 +90,9 @@ test("the landing page introduces Lookout and opens the existing access flow", a
     "aria-expanded",
     "true",
   );
-  expect(screen.getByText("Notice a possible vehicle collision")).toBeVisible();
+  await waitFor(() =>
+    expect(screen.getByText("Notice a possible vehicle collision")).toBeVisible(),
+  );
   await userEvent.setup().click(screen.getByRole("button", { name: /See the context/ }));
   expect(screen.getByRole("button", { name: /See the context/ })).toHaveAttribute(
     "aria-expanded",
