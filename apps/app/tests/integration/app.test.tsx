@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { server } from "../support/server";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test } from "vitest";
 import { getRouter } from "../../src/router";
@@ -38,7 +38,7 @@ test("dashboard navigation keeps the workspace shell and access connection mount
       HttpResponse.json({ sources: [], rules: [], recipients: [] }),
     ),
   );
-  const router = await open("/");
+  const router = await open("/devices");
   const user = userEvent.setup();
   await screen.findByRole("heading", { name: "Devices" });
   const header = screen.getByRole("banner");
@@ -68,9 +68,42 @@ test("dashboard navigation keeps the workspace shell and access connection mount
   expect(principalReads).toBe(1);
 });
 
-test("the home route displays the application", async () => {
+test("the landing page introduces Lookout and opens the existing access flow", async () => {
   server.use(http.get("/api/access/principal", () => HttpResponse.json({ kind: "visitor" })));
   const router = await open("/");
+  expect(
+    screen.getByRole("heading", { name: /Be there for the moments that matter/ }),
+  ).toBeVisible();
+  expect(screen.getByText("Replayed example")).toBeVisible();
+  expect(screen.getByRole("link", { name: "Pitch deck" })).toHaveAttribute(
+    "href",
+    "/pitch-deck.html",
+  );
+  expect(screen.getByRole("link", { name: "See how it works" })).toHaveAttribute(
+    "href",
+    "#how-it-works",
+  );
+  await userEvent.setup().click(screen.getByRole("link", { name: "See how it works" }));
+  expect(router.state.location.pathname).toBe("/");
+  await userEvent.setup().click(screen.getByRole("button", { name: /Define what matters/ }));
+  expect(screen.getByRole("button", { name: /Define what matters/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await waitFor(() =>
+    expect(screen.getByText("Notice a possible vehicle collision")).toBeVisible(),
+  );
+  await userEvent.setup().click(screen.getByRole("button", { name: /See the context/ }));
+  expect(screen.getByRole("button", { name: /See the context/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  expect(
+    within(screen.getByRole("region", { name: "Selected Lookout example" })).getByText(
+      "Possible crash",
+    ),
+  ).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("link", { name: "Get started" }));
   expect(router.state.location.pathname).toBe("/devices");
   expect(await screen.findByRole("heading", { name: "Welcome back" })).toBeVisible();
 });

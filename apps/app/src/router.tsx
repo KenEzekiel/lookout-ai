@@ -6,7 +6,7 @@ import { routeTree } from "./routeTree.gen";
 export function getRouter() {
   return createRouter({
     routeTree,
-    scrollRestoration: true,
+    scrollRestoration: ({ location }) => location.pathname !== "/" || !location.hash,
     defaultPendingComponent: PageLoading,
     defaultPendingMs: 200,
     defaultPendingMinMs: 0,
