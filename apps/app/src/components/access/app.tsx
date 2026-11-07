@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { Link, linkOptions, Navigate, useNavigate } from "@tanstack/react-router";
+import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { type Principal, principalSchema } from "@/lib/access";
 import { mutate, request, message } from "@/lib/api";
 import { IncomingAlerts } from "@/components/incidents/incoming-alerts";
@@ -12,12 +12,7 @@ import { WorkspaceContext } from "./workspace-context";
 import { Monitor, PairBrowser } from "./monitor";
 import { ActionForm, Panel } from "./forms";
 
-const workspaceLinks = linkOptions([
-  { to: "/devices", label: "Devices" },
-  { to: "/team", label: "Team" },
-  { to: "/incidents", label: "Incidents" },
-  { to: "/triggers", label: "Triggers" },
-]);
+import { WorkspaceNavigation } from "./workspace-navigation";
 
 export function AccessApp({
   pairing = false,
@@ -89,24 +84,7 @@ export function AccessApp({
               {actor.workspaceName}
             </span>
           )}
-          {actor?.kind === "member" && !pairing && (
-            <nav
-              aria-label="Workspace"
-              className="order-last flex w-full gap-6 sm:order-none sm:ml-2 sm:w-auto sm:self-stretch"
-            >
-              {workspaceLinks.map(({ to, label }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  activeProps={{ className: "border-primary text-foreground" }}
-                  inactiveProps={{ className: "border-transparent text-muted-foreground" }}
-                  className="inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full"
-                >
-                  {label}
-                </Link>
-              ))}
-            </nav>
-          )}
+          {actor?.kind === "member" && !pairing && <WorkspaceNavigation />}
           <div className="ml-auto flex items-center gap-3">
             {actor?.kind === "device" && (
               <Link to="/device" className="text-sm text-signal">
