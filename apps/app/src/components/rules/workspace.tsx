@@ -1,4 +1,5 @@
 import { Plus, RotateCw } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading";
 import {
   Select,
   SelectContent,
@@ -102,7 +103,7 @@ export function RuleWorkspace() {
           {error}
         </p>
       )}
-      {!configuration && !error && <output>Loading triggers…</output>}
+      {!configuration && !error && <LoadingState label="Loading triggers…" layout="cards" />}
       {notice && (
         <output className="rounded-md border border-border bg-card p-4 text-sm">{notice}</output>
       )}

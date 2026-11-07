@@ -9,6 +9,8 @@ Depends on: F-AUTH-ACCESS, F-ALERT-INAPP
 Background alert settings use the shared accordion panel with a full-width keyboard-operable button and exposed expansion state, replacing the native disclosure triangle at Ken’s request.
 Background-alert enable and disable actions use the F-APP-SHELL compact button size and decorative bell icons. Pending updates retain their visible progress label and a busy icon.
 
+Background-alert setup uses the shared labeled loading status, and enable/disable actions use a busy button. The disclosure and existing permission guidance remain available.
+
 An operator explicitly enables background alerts for their signed-in browser session. Setup explains blocked permission, unsupported or insecure browsers, missing server configuration, and the iPhone or iPad Home Screen prerequisite. Turning alerts off removes the server subscription before unsubscribing the browser. Signing out ends delivery for that session. Membership removal deletes that operator's workspace subscriptions.
 
 A notification contains only a generic Lookout title, generic sign-in guidance, and an incident ID. Clicking it focuses and navigates an existing same-origin window or opens the corresponding incident page. It never acknowledges the incident. The existing access gate and member-authorized detail endpoint protect evidence and context after navigation. Already dispatched notifications can remain after sign-out or a response, but contain no incident details.
@@ -41,6 +43,8 @@ Implementation and local integration coverage are present. Physical desktop back
 
 ## Verification
 
+[Loading journey integration tests](../../../apps/app/tests/integration/loading.test.tsx) cover delayed access, lists, configuration, navigation away, submission failure, and refresh retention. [Incident integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover pending responses and replay loading, buffering, failure, and retry. Existing feature tests remain the regression checks for this consumer. Browser observations and evidence for the current change belong in its PR.
+
 [Complete-screen integration tests](../../../apps/app/tests/integration/push.test.tsx) exercise explicit enable and disable, dismissed permission, registration failure and retry, blocked permission, unsupported browser, missing server configuration, and iOS Home Screen guidance. Browser platform interfaces and HTTP services are boundary fixtures; real UI components and routing remain in use.
 
 [Production-Worker integration tests](../../../apps/app/tests/api/push.test.ts) use isolated D1 with every real migration, including the independent peer-view migration. They cover session ownership, visitor and device denial, endpoint validation, recipient and workspace isolation, custom incident definitions with exclusions, real VAPID encryption with independent decryption, report deduplication, terminal provider errors, transient provider failure, sign-out, expiry, and membership removal. The external push service alone is mocked. The published service-worker script also runs with browser-platform fixtures to verify minimal notifications and matching protected navigation without acknowledgment.
@@ -50,6 +54,8 @@ Manual browser QA and its exact mocks, tested build and media belong in the PR. 
 ## Decisions and sources
 
 Kenneth requested consistent button sizing and clearer action icons. [Background-alert controls](../../../apps/app/src/components/incidents/push-setup.tsx) use the shared Button size and icon contract. Permission consent and delivery behavior remain unchanged; existing complete-screen tests cover enable, disable, failure, and retry.
+
+The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.
 
 [Issue #24](https://github.com/KenEzekiel/lookout-ai/issues/24), [experience design](../../architecture/design.md#operator-notifications), and [visual design](../../../DESIGN.md). This PR introduces the subscription and attempt contracts above.
 
