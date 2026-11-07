@@ -34,19 +34,19 @@ An outline over the video is optional evidence annotation. Draw one only when th
 
 These are proposed tokens for implementation. Check their real combinations in the browser before treating them as final.
 
-| Role | Candidate | Use |
-| --- | --- | --- |
-| Canvas | `#1A1A1D` | Outer app background. |
-| Surface | `#262629` | Incident panel and evidence cards. |
-| Raised surface | `#303035` | Hovered and selected controls. |
-| Primary text | `#F6F5F7` | Titles, actions, and key values. |
-| Secondary text | `#C5C4CA` | Descriptions. |
-| Muted text | `#AEB2BC` | Timestamps and supporting metadata. |
-| Action blue | `#2563EB` | Filled primary buttons with white text. |
-| Signal blue | `#3B82F6` | Active navigation and the playhead. |
+| Role           | Candidate | Use                                              |
+| -------------- | --------- | ------------------------------------------------ |
+| Canvas         | `#1A1A1D` | Outer app background.                            |
+| Surface        | `#262629` | Incident panel and evidence cards.               |
+| Raised surface | `#303035` | Hovered and selected controls.                   |
+| Primary text   | `#F6F5F7` | Titles, actions, and key values.                 |
+| Secondary text | `#C5C4CA` | Descriptions.                                    |
+| Muted text     | `#AEB2BC` | Timestamps and supporting metadata.              |
+| Action blue    | `#2563EB` | Filled primary buttons with white text.          |
+| Signal blue    | `#3B82F6` | Active navigation and the playhead.              |
 | Incident amber | `#F3AA43` | Incident point, annotation, and attention state. |
-| Critical red | `#F17870` | Critical severity and failed actions. |
-| Resolved green | `#5FD0A1` | Confirmed completion and healthy monitoring. |
+| Critical red   | `#F17870` | Critical severity and failed actions.            |
+| Resolved green | `#5FD0A1` | Confirmed completion and healthy monitoring.     |
 
 Use several shades of graphite for depth. Opacity can quiet a decorative overlay, but should not make text faint. Target at least 4.5:1 contrast for normal text and 3:1 for meaningful controls and markers. Test against the actual rendered background, including overlays on video. Pair color with text or a shape so live, selected, critical, and completed states remain clear without color perception. See [WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
@@ -56,13 +56,13 @@ A subtle warm charcoal gradient may soften the outer canvas. Keep video controls
 
 Use Geist Variable, which the app already imports, as the primary font. Do not use Instrument Serif. Keep the wordmark lowercase. Use the following scale as a starting point, then adjust it against real content.
 
-| Use | Size and line height | Treatment |
-| --- | --- | --- |
-| Main screen title | 30 to 36 px, 1.1 to 1.2 | Semibold, slightly tight tracking. |
-| Incident title | 28 to 34 px, 1.15 to 1.25 | Semibold and plain language. |
-| Panel heading | 20 to 24 px, 1.2 to 1.3 | Semibold. |
-| Body and actions | 15 to 16 px, 1.4 to 1.5 | Regular or medium. |
-| Metadata | 13 to 14 px, 1.35 to 1.45 | Muted, never faint. |
+| Use               | Size and line height      | Treatment                          |
+| ----------------- | ------------------------- | ---------------------------------- |
+| Main screen title | 30 to 36 px, 1.1 to 1.2   | Semibold, slightly tight tracking. |
+| Incident title    | 28 to 34 px, 1.15 to 1.25 | Semibold and plain language.       |
+| Panel heading     | 20 to 24 px, 1.2 to 1.3   | Semibold.                          |
+| Body and actions  | 15 to 16 px, 1.4 to 1.5   | Regular or medium.                 |
+| Metadata          | 13 to 14 px, 1.35 to 1.45 | Muted, never faint.                |
 
 Use negative letter spacing only on large headings, around `-0.01em` to `-0.025em` after visual review. Keep body text open. Use tabular numerals for clocks and durations so updating values do not shift. Use monospace only for technical identifiers when it helps. Avoid italics, all-caps subtitles, and eyebrow labels above titles. A period in a title is a deliberate tone choice, not a default.
 
@@ -80,16 +80,16 @@ Use space and surface shade before adding dividers or borders. A border belongs 
 
 Use shadcn/ui components when they provide useful interaction and accessibility behavior, then style them with Lookout tokens. The app already configures the `base-nova` style, Base UI, CSS-variable theming, and Lucide icons. Generated components are local code that can be adjusted. See [shadcn/ui configuration](https://ui.shadcn.com/docs/components-json) and [theming](https://ui.shadcn.com/docs/theming).
 
-| Need | Component approach |
-| --- | --- |
-| Acknowledge, dismiss, resolve, new trigger | Button variants with a clear primary action. |
-| Incident status | A small Badge or custom chip with sentence-case text. |
-| Camera or place selection | Select or Popover, based on list length and search needs. |
-| Evidence inspection | Dialog with the larger snippet and observation details. |
-| Trigger setup | Form controls in a Dialog for a short rule, or a full page for more conditions. |
-| Incident point details | Tooltip on hover and focus, with a separate accessible activation target. |
-| Long incident history | ScrollArea only when the content overflows. |
-| Video seeking | An accessible range control with explicit event markers. |
+| Need                                       | Component approach                                                              |
+| ------------------------------------------ | ------------------------------------------------------------------------------- |
+| Acknowledge, dismiss, resolve, new trigger | Button variants with a clear primary action.                                    |
+| Incident status                            | A small Badge or custom chip with sentence-case text.                           |
+| Camera or place selection                  | Select or Popover, based on list length and search needs.                       |
+| Evidence inspection                        | Dialog with the larger snippet and observation details.                         |
+| Trigger setup                              | Form controls in a Dialog for a short rule, or a full page for more conditions. |
+| Incident point details                     | Tooltip on hover and focus, with a separate accessible activation target.       |
+| Long incident history                      | ScrollArea only when the content overflows.                                     |
+| Video seeking                              | An accessible range control with explicit event markers.                        |
 
 Trigger setup must make the rule's source, observable event, severity, recipient, and escalation delay visible. Offer starter templates and a blank custom trigger. Show a duration condition when persistence matters, without imposing one on crashes or falls. Let users review who will be called before they turn a rule on.
 
@@ -101,7 +101,7 @@ Prefer "Possible fall in living room" to "Anomaly detected." Say "Calling owner,
 
 ## Motion
 
-Use motion to explain a change, not to make the dashboard busy. The requested library is Motion for React, the current package for what many developers still call Framer Motion. It is not installed in the app. The official [installation guide](https://motion.dev/docs/react-installation) uses the `motion` package and imports from `motion/react`.
+Use motion to explain a change, not to make the dashboard busy. The app now installs Motion for React, the current package for what many developers still call Framer Motion. Its root provider respects the user's reduced-motion setting. The official [installation guide](https://motion.dev/docs/react-installation) uses the `motion` package and imports from `motion/react`.
 
 - Button and control feedback can settle in about 120 to 160 ms.
 - A panel change or new incident card can fade and move a few pixels over about 180 to 240 ms.
@@ -114,11 +114,11 @@ Respect reduced-motion preferences. Motion for React provides `MotionConfig redu
 
 ## Tailwind and implementation map
 
-The app uses Tailwind CSS 4. Its semantic shadcn variables live in `apps/app/src/styles.css`. Put the chosen palette, radii, fonts, and state colors there. Map them through CSS variables and Tailwind's `@theme inline` so utilities and local components share one set of tokens. [Tailwind theme variables](https://tailwindcss.com/docs/theme) describe that mechanism. Avoid scattered one-off hex values in JSX.
+The app uses Tailwind CSS 4. Its semantic shadcn variables live in `apps/app/src/styles.css`. The dark theme now maps the proposed palette, radius, and incident-state colors through CSS variables and Tailwind's `@theme inline`. [Tailwind theme variables](https://tailwindcss.com/docs/theme) describe that mechanism. Keep future color decisions there instead of scattering one-off hex values through JSX.
 
-The app's `apps/app/components.json` selects `base-nova`, CSS variables, and Lucide. Add only the shadcn/ui components the first working screen needs. Build the video player, temporal incident markers, and evidence strip as product components. Introduce Motion when an actual interaction needs it. Adding the package belongs to UI implementation, not this document change.
+The app's `apps/app/components.json` selects `base-nova`, CSS variables, and Lucide. Button, Badge, Select, Dialog, and Tooltip are installed as local shadcn/ui components. Add further components only when a working screen needs them. Build the video player, temporal incident markers, and evidence strip as product components. Use Motion for actual state transitions rather than animating every container.
 
-The current `apps/app/src/routes/index.tsx` remains a placeholder. This document does not install Motion or wire video, incidents, and calls. It records the target so implementation can be reviewed against one source.
+The current `apps/app/src/routes/index.tsx` remains a placeholder. The design setup does not wire video, incidents, or calls. This document records the target so implementation can be reviewed against one source.
 
 ## Preferences to preserve
 
