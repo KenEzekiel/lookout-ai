@@ -31,7 +31,8 @@ test("requests, history, progress and replies preserve names, paths and credenti
   let policy = "Operating rules at /home/example/operating.md";
   const client = {
     launch: async () => ({ threadId: "thread", projectId: "project", runId: null }),
-    send: async ({ message }) => {
+    send: async ({ message, modelSelection }) => {
+      assert.deepEqual(modelSelection, { instanceId: "instance", model: "model" });
       prompts.push(message);
       return { threadId: "thread", runId: "run", delivery: "started" };
     },

@@ -17,6 +17,11 @@ Oxlint, and Oxfmt tooling and shared lockfile. From the repository root, run
 `pnpm oracle` to start the dispatcher and `pnpm check` to verify the monorepo.
 Tests use fake T3 and Slack adapters and a local HTTP fixture.
 
+Oracle always requests high reasoning effort for the configured T3 model. It pins
+high effort on new threads and reapplies it before every coding turn, including
+saved conversations. If T3 cannot acknowledge the setting, Oracle does not send the
+coding request.
+
 Run the service from `.worktree/oracle` on its own branch. Set `ORACLE_WORKSPACE`
 in that checkout's `oracle/.env` to the absolute worktree path. T3 binds new
 threads to that existing worktree. Saved conversations from the main checkout

@@ -26,6 +26,7 @@ const terminal = new Set([
   "rolled_back",
 ]);
 const launchResult = z.object({ threadId: id, projectId: id, runId: id.nullable() });
+const configureResult = z.object({ sequence: z.number().int().nonnegative() });
 const sendResult = z.object({
   threadId: id,
   runId: id,
@@ -87,6 +88,7 @@ const envelope = z.object({
 });
 
 export type T3Transport = { call(name: string, input: object): Promise<unknown> };
+type ModelSelection = { instanceId: string; model: string };
 export type T3Thread = z.infer<typeof readResult>["thread"];
 export type T3Finish =
   | { kind: "completed"; reply: string | null }
@@ -218,7 +220,7 @@ export class T3Client {
     title: string;
     message?: string;
     requestId: string;
-    modelSelection: { instanceId: string; model: string };
+    modelSelection: ModelSelection;
     workspace: string;
   }): Promise<z.infer<typeof launchResult>> {
     return launchResult.parse(
@@ -226,7 +228,10 @@ export class T3Client {
         projectId: input.projectId,
         title: input.title,
         ...(input.message === undefined ? {} : { message: input.message }),
-        modelSelection: input.modelSelection,
+        modelSelection: {
+          ...input.modelSelection,
+          options: [{ id: "reasoningEffort", value: "high" }],
+        },
         clientRequestId: input.requestId,
         workspaceStrategy: { type: "existing_worktree", worktreePath: input.workspace },
       }),
@@ -237,7 +242,17 @@ export class T3Client {
     threadId: string;
     message: string;
     requestId: string;
+    modelSelection: ModelSelection;
   }): Promise<z.infer<typeof sendResult>> {
+    configureResult.parse(
+      await this.transport.call("t3_thread_configure", {
+        threadId: input.threadId,
+        modelSelection: {
+          ...input.modelSelection,
+          options: [{ id: "reasoningEffort", value: "high" }],
+        },
+      }),
+    );
     return sendResult.parse(
       await this.transport.call("t3_thread_send", {
         threadId: input.threadId,
