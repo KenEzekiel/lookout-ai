@@ -4,16 +4,16 @@ A high-level reference for dividing the work. The [experience design](design.md)
 
 ## Main components
 
-| Component | Responsibility | Interaction |
-| --- | --- | --- |
-| Capture client | Open a local video or live camera, keep recent footage locally, sample frames, show monitoring health. | Sends observations to monitoring; receives requests to preserve event clips. |
-| Monitoring and AI | Evaluate frames against configured rules, review candidate events, request more evidence when uncertain. | Sends confirmed events to incident management and clip requests to the capture client. |
-| Incident management | Own incident identity, evidence status, owner, timeline and escalation. | Provides the same state and response actions to every device and future MCP client. |
-| Clip saving and replay | Accept alert-triggered uploads, store clips privately and make them available to authorized viewers. | Receives the event interval from capture; marks replay ready only after storage succeeds. |
-| Notification delivery | Notify subscribed responder devices and track notification attempts. | Uses in-app delivery when connected and web push where supported. |
-| Responsive responder UI | Show incoming alerts, incident details, replay and acknowledgment/dismissal/resolution controls. | Runs on desktop, Android and iOS; reads and updates server-owned incidents. |
-| Rule configuration | Templates, custom descriptions, conditions, source and response settings. | Supplies rules to monitoring and escalation. |
-| MCP, P2 | Let external agents inspect and acknowledge incidents. | Reuses the same authorized incident actions. |
+| Component               | Responsibility                                                                                           | Interaction                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Capture client          | Open a local video or live camera, keep recent footage locally, sample frames, show monitoring health.   | Sends observations to monitoring; receives requests to preserve event clips.              |
+| Monitoring and AI       | Evaluate frames against configured rules, review candidate events, request more evidence when uncertain. | Sends confirmed events to incident management and clip requests to the capture client.    |
+| Incident management     | Own incident identity, evidence status, owner, timeline and escalation.                                  | Provides the same state and response actions to every device and future MCP client.       |
+| Clip saving and replay  | Accept alert-triggered uploads, store clips privately and make them available to authorized viewers.     | Receives the event interval from capture; marks replay ready only after storage succeeds. |
+| Notification delivery   | Notify subscribed responder devices and track notification attempts.                                     | Uses in-app delivery when connected and web push where supported.                         |
+| Responsive responder UI | Show incoming alerts, incident details, replay and acknowledgment/dismissal/resolution controls.         | Runs on desktop, Android and iOS; reads and updates server-owned incidents.               |
+| Rule configuration      | Templates, custom descriptions, conditions, source and response settings.                                | Supplies rules to monitoring and escalation.                                              |
+| MCP, P2                 | Let external agents inspect and acknowledge incidents.                                                   | Reuses the same authorized incident actions.                                              |
 
 ## What moves between components
 
@@ -44,13 +44,13 @@ Exact deployment layout, APIs, database tables, codecs, buffer duration, clip du
 
 ## Work the team can divide
 
-| Work area | What it delivers | Coordination point |
-| --- | --- | --- |
+| Work area                | What it delivers                                                                        | Coordination point                                          |
+| ------------------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | Capture and local buffer | Local file/live camera input, sampled observations and alert-triggered clip extraction. | Agree source timing and clip-request shape with monitoring. |
-| Monitoring and incidents | Rule evaluation, confirmation, incident lifecycle and escalation. | Own shared incident identity and transitions. |
-| Evidence and replay | Private upload, visible save status and replay on other devices. | Agree a playable format with capture and responder UI. |
-| Responder experience | Responsive dashboard, simulated incoming-alert screen, PWA/push setup and actions. | Consume shared incident state and evidence status. |
-| Integration | Both demo flows, cross-device acknowledgment and failure cases. | Join the components and verify on actual target devices. |
+| Monitoring and incidents | Rule evaluation, confirmation, incident lifecycle and escalation.                       | Own shared incident identity and transitions.               |
+| Evidence and replay      | Private upload, visible save status and replay on other devices.                        | Agree a playable format with capture and responder UI.      |
+| Responder experience     | Responsive dashboard, simulated incoming-alert screen, PWA/push setup and actions.      | Consume shared incident state and evidence status.          |
+| Integration              | Both demo flows, cross-device acknowledgment and failure cases.                         | Join the components and verify on actual target devices.    |
 
 ## What to verify
 

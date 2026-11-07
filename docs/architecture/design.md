@@ -72,12 +72,12 @@ Repeated observations update the same incident. Clip retries attach to that inci
 
 Recommend one responsive web app with PWA support.
 
-| Situation | Experience |
-| --- | --- |
-| App open on desktop, Android or iOS | Prominent incoming-alert screen with incident summary, optional enabled sound, Open incident and Acknowledge actions. |
-| App in background on a supported desktop or Android browser | Web push notification; tapping it opens the incident. Availability depends on permission, browser and OS settings. |
-| iPhone or iPad in background | Web push through a Home Screen web app on supported iOS/iPadOS versions, with permission requested after a user action. |
-| Push unavailable or denied | Show the limitation during setup. Keep in-app alerts and the incident inbox available while connected. |
+| Situation                                                   | Experience                                                                                                              |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| App open on desktop, Android or iOS                         | Prominent incoming-alert screen with incident summary, optional enabled sound, Open incident and Acknowledge actions.   |
+| App in background on a supported desktop or Android browser | Web push notification; tapping it opens the incident. Availability depends on permission, browser and OS settings.      |
+| iPhone or iPad in background                                | Web push through a Home Screen web app on supported iOS/iPadOS versions, with permission requested after a user action. |
+| Push unavailable or denied                                  | Show the limitation during setup. Keep in-app alerts and the incident inbox available while connected.                  |
 
 The simulated call is Lookout's in-app alert presentation, not a telephone or VoIP call. Do not promise a full-screen system call UI, continuous ringtone, silent-mode bypass, or guaranteed lock-screen delivery from a website. A push opens the incident; it does not automatically acknowledge it. Closing the alert UI only silences that device, while Acknowledge changes incident ownership and stops subsequent escalation.
 

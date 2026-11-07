@@ -314,7 +314,6 @@ export class T3Client {
         if (!waited.timedOut && terminal.has(waited.status) && thread.activeRunId === null) return;
       } catch (error) {
         if (error instanceof T3UnsafeToReleaseError) throw error;
-        // The writer lease stays held until the server proves that the turn stopped.
       }
       if (Date.now() >= deadline) throw new T3UnsafeToReleaseError();
       await delay(Math.min(this.retryDelayMs, deadline - Date.now()));

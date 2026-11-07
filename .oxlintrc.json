@@ -1,6 +1,31 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "react", "unicorn", "oxc", "jsx-a11y"],
-  "categories": { "correctness": "error" },
-  "ignorePatterns": ["**/dist/**", "**/routeTree.gen.ts", "**/worker-configuration.d.ts"]
+  "plugins": ["typescript", "react", "unicorn", "oxc", "jsx-a11y", "vitest"],
+  "categories": {
+    "correctness": "error"
+  },
+  "ignorePatterns": ["**/dist/**", "**/routeTree.gen.ts", "**/worker-configuration.d.ts"],
+  "rules": {
+    "vitest/no-focused-tests": "error",
+    "vitest/no-disabled-tests": "error"
+  },
+  "overrides": [
+    {
+      "files": ["apps/app/tests/**/*.ts", "apps/app/tests/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "vitest",
+                "importNames": ["vi", "vitest"],
+                "message": "Use MSW HTTP handlers instead of mocking internal modules, hooks, or components."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

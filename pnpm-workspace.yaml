@@ -5,3 +5,7 @@ packages:
 onlyBuiltDependencies:
   - esbuild
   - workerd
+packageExtensions:
+  dependency-cruiser@18.7.2:
+    dependencies:
+      typescript: 6.0.3
