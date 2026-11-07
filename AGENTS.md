@@ -14,7 +14,7 @@ This policy supersedes inherited pstack requirements for independent shipping re
 
 ## Agent workflow
 
-For work spanning multiple files, architecture decisions, unknown bug causes, or performance investigations, read `.agents/skills/poteto-mode/SKILL.md` and route to the relevant workflow. Handle small, obvious tasks directly. A specific skill request goes directly to `.agents/skills/<name>/SKILL.md`.
+At the start of every session, read `.agents/skills/poteto-mode/references/codex-tools.md` and `.agents/skills/poteto-mode/SKILL.md`. Apply poteto-mode throughout the session and route tasks to the relevant workflow. Keep small, obvious tasks lightweight. A specific skill request goes directly to `.agents/skills/<name>/SKILL.md`.
 
 Before using any pstack workflow, read `.agents/skills/poteto-mode/references/codex-tools.md`. This local runtime contract supersedes inherited Claude/plugin instructions. Read `.agents/pstack-models.md` before delegating. Direct user requests and host instructions take precedence over all harness guidance.
 
