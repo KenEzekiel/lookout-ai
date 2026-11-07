@@ -4,9 +4,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { promisify } from "node:util";
-import { BoundaryError } from "../session/domain.js";
+import { createOracle } from "../dispatcher/index.js";
+import { createSessionStore } from "../session/index.js";
+import { BoundaryError, defaultLimits } from "../session/domain.js";
 import { createWorkspace } from "../session/workspace.js";
-import { deferred, directory } from "./helpers.js";
+import { deferred, directory, input, testNow } from "./helpers.js";
 
 const execute = promisify(execFile);
 const workspaceFor = (root: string) => createWorkspace({ root, verifyMain: async () => true });
@@ -189,3 +191,61 @@ test("a concurrent fetch cannot substitute an unverified commit after the CI che
   assert.equal(await git(worktree, "rev-parse", "HEAD"), verifiedCommit);
   assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "first update\n");
 });
+
+test(
+  "the original Slack request survives unavailable CI checks and runs after verified Git sync",
+  { timeout: 5_000 },
+  async (t) => {
+    const { primary, worktree, advance } = await fixture(t);
+    let verified = false;
+    const workspace = createWorkspace({
+      root: worktree,
+      verifyMain: async () => {
+        if (!verified) throw new Error("GitHub temporarily unavailable");
+        return true;
+      },
+    });
+    const sessions = createSessionStore({
+      directory: await directory(t),
+      limits: defaultLimits,
+      now: () => testNow,
+    });
+    const finished = deferred<void>();
+    let coding = 0;
+    const messages: string[] = [];
+    const oracle = await createOracle({
+      sessions,
+      limits: defaultLimits,
+      now: () => testNow,
+      retryIntervalMs: 10,
+      runner: {
+        run: async () =>
+          workspace.run(async () => {
+            assert.equal(
+              await git(worktree, "rev-parse", "HEAD"),
+              await git(primary, "rev-parse", "HEAD"),
+            );
+            coding++;
+            return { kind: "reply", text: "Completed after verified sync" };
+          }),
+      },
+      publish: async (_, text) => {
+        messages.push(text);
+        if (text === "Completed after verified sync") finished.resolve();
+      },
+    });
+    t.after(() => oracle.close());
+    await advance("CI-gated update\n");
+    const request = input("Answer the original Slack request");
+    await oracle.receive(request);
+    await oracle.idle();
+    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
+    assert.equal(coding, 0);
+    verified = true;
+    await finished.promise;
+    await oracle.idle();
+    assert.equal(coding, 1);
+    assert.equal(messages.length, 2);
+    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
+  },
+);

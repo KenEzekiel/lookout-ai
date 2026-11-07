@@ -9,8 +9,8 @@ import {
   type ThreadContext,
 } from "../session/domain.js";
 import type { Oracle } from "./index.js";
+import { createProfileDirectory, userIdSchema } from "./profiles.js";
 
-const userIdSchema = z.string().regex(/^[UW][A-Z0-9]+$/);
 export const identitySchema = z.object({
   user_id: userIdSchema,
   team_id: z.string().regex(/^T[A-Z0-9]+$/),
@@ -67,15 +67,6 @@ export function routeSlack(args: {
   });
 }
 
-const memberSchema = z.object({
-  user: z.object({
-    id: userIdSchema,
-    team_id: identitySchema.shape.team_id,
-    is_bot: z.boolean(),
-    deleted: z.boolean(),
-    is_stranger: z.boolean().optional(),
-  }),
-});
 const repliesSchema = z.object({
   messages: z.array(
     z.object({
@@ -92,33 +83,17 @@ export function createSlackTransport(options: {
   identity: Identity;
   call: (method: string, args: Record<string, unknown>) => Promise<unknown>;
   onFault: (code: string) => void;
+  mappings?: () => Promise<unknown>;
 }) {
   const { identity, call, onFault } = options;
-  const members = new Map<string, Promise<boolean>>();
-  const isMember = (actor: string): Promise<boolean> => {
-    let member = members.get(actor);
-    if (!member) {
-      member = (async () => {
-        try {
-          const { user } = memberSchema.parse(await call("users.info", { user: actor }));
-          return (
-            user.id === actor &&
-            user.team_id === identity.team_id &&
-            !user.is_bot &&
-            !user.deleted &&
-            !user.is_stranger
-          );
-        } catch {
-          members.delete(actor);
-          onFault("slack_membership_unavailable");
-          return false;
-        }
-      })();
-      members.set(actor, member);
-    }
-    return member;
-  };
+  const directory = createProfileDirectory({
+    teamId: identity.team_id,
+    call,
+    mappings: options.mappings ?? (async () => undefined),
+    onFault,
+  });
   return {
+    profiles: directory.resolve,
     async receive(args: {
       event: unknown;
       teamId: unknown;
@@ -126,7 +101,7 @@ export function createSlackTransport(options: {
       oracle: Oracle;
     }): Promise<void> {
       const input = routeSlack({ ...args, identity, owns: args.oracle.owns });
-      if (input && (await isMember(input.actor))) await args.oracle.receive(input);
+      if (input && (await directory.isMember(input.actor))) await args.oracle.receive(input);
     },
     async publish(address: Incoming["address"], text: string): Promise<void> {
       await call("chat.postMessage", {
@@ -191,11 +166,13 @@ export async function connectSlack(options: {
   appToken: string;
   expectedIdentity?: Identity;
   onFault: (code: string) => void;
+  mappings: () => Promise<unknown>;
 }): Promise<{
   identity: Identity;
   publish: (address: Incoming["address"], text: string) => Promise<void>;
   setStatus: ReturnType<typeof createSlackTransport>["setStatus"];
   context: ReturnType<typeof createSlackTransport>["context"];
+  profiles: ReturnType<typeof createSlackTransport>["profiles"];
   listen: (oracle: Oracle) => Promise<void>;
   close: () => Promise<void>;
 }> {
@@ -238,6 +215,7 @@ export async function connectSlack(options: {
     identity,
     call: (method, args) => app.client.apiCall(method, args),
     onFault: options.onFault,
+    mappings: options.mappings,
   });
   const receiving = new Set<Promise<void>>();
   let closing: Promise<void> | undefined;
@@ -256,6 +234,7 @@ export async function connectSlack(options: {
     publish: transport.publish,
     setStatus: transport.setStatus,
     context: transport.context,
+    profiles: transport.profiles,
     async listen(oracle) {
       app.event("app_mention", async ({ event, body }) => {
         await receive({ event, teamId: body.team_id, listener: "mention", oracle });

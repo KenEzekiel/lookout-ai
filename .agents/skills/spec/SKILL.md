@@ -23,7 +23,7 @@ For a simple implementation request, plan briefly and continue authorized work. 
 ## Ground the work
 
 1. Establish the desired behavior, observable acceptance criteria, non-goals, and files or surfaces that must remain untouched.
-2. Read the relevant code paths, callers, tests, repository instructions, and existing decisions. Use primary documentation for unfamiliar external behavior. Label current facts, assumptions, and unknowns.
+2. For Lookout product work, load the relevant feature groups and their dependencies and consumers under the [feature compatibility contract](../poteto-mode/references/codex-tools.md#lookout-feature-compatibility). Reuse existing `F-` codes and identify genuinely new capabilities. Read the relevant code paths, callers, tests, repository instructions, and existing decisions. Use primary documentation for unfamiliar external behavior. Label current facts, assumptions, and unknowns.
 3. Check whether an existing module or smaller change already meets the goal. Every proposed abstraction, migration, dependency, and test needs a requirement or demonstrated regression to justify it.
 4. Resolve factual questions from evidence. Ask only about missing decisions that materially affect behavior, scope, safety, or ownership; reuse existing answers and approvals. Use `interview` only when that would help.
 
@@ -41,16 +41,18 @@ Where words conflict with the implementation, show the concrete discrepancy and 
 
 Prefer a narrow behavior that can be exercised end to end through the layers it actually needs. Implementation and its necessary tests belong in the same slice. A backend-only task need not add a UI; a task is not split merely because its title contains "and".
 
+Name required wiring and affected consumer checks in each task. Update feature records only within authorized documentation or implementation scope; a conversation-only plan does not authorize repository edits.
+
 Each task should be understandable by a fresh session, with:
 
 | Field | Content |
 | --- | --- |
 | Outcome | The behavior this task delivers and its requirement reference |
-| Scope | Relevant files or modules, existing pattern, and untouched surfaces |
+| Scope | Affected feature codes, relevant files or modules, existing pattern, and untouched surfaces |
 | Acceptance | Observable success and important invariants |
 | Automated verify | Repository commands plus the result that means pass |
 | Manual verify | Journey or environment checks, such as a UI flow, a deploy, or a vendor console; the agent runs these when tools and authorization permit; `None` when there are none |
-| Blocked by | Only tasks whose outputs are required before this task can work |
+| Blocked by | Required feature contracts and only tasks whose outputs are required before this task can work |
 
 In a `tasks.md`, write each verify item as a checkbox. Ticked boxes are the resume point for a later session.
 

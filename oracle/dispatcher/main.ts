@@ -6,7 +6,7 @@ import { acquireInstanceLock } from "../session/lock.js";
 import { createT3Runner } from "../session/run.js";
 import { connectT3 } from "../session/t3.js";
 import { createWorkspace } from "../session/workspace.js";
-import { loadConfig, loadIdentity, oracleRoot } from "./config.js";
+import { loadConfig, loadIdentity, oracleRoot, readOptionalJson } from "./config.js";
 import { createOracle, type Oracle } from "./index.js";
 import { watchSource } from "./reload.js";
 import { connectSlack } from "./slack.js";
@@ -74,6 +74,7 @@ async function main(): Promise<void> {
     botToken: config.slack.botToken,
     appToken: config.slack.appToken,
     onFault,
+    mappings: () => readOptionalJson(join(oracleRoot, ".local", "profiles.json")),
     ...(identity ? { expectedIdentity: identity } : {}),
   });
   if (!identity) await atomicJson(join(oracleRoot, ".local", "identity.json"), slack.identity);
@@ -87,6 +88,7 @@ async function main(): Promise<void> {
     sessions,
     policy: () => readFile(join(oracleRoot, "session", "operating.md"), "utf8"),
     context: slack.context,
+    profiles: slack.profiles,
     projectId: config.t3.projectId,
     instanceId: config.t3.instanceId,
     model: config.t3.model,
@@ -107,6 +109,7 @@ async function main(): Promise<void> {
   });
   await syncWorkspace();
   await slack.listen(oracle);
+  oracle.retryPending();
   syncTimer = setInterval(() => {
     if (syncing || closing) return;
     syncing = syncWorkspace()

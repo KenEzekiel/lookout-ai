@@ -17,6 +17,11 @@ Oxlint, and Oxfmt tooling and shared lockfile. From the repository root, run
 `pnpm oracle` to start the dispatcher and `pnpm check` to verify the monorepo.
 Tests use fake T3 and Slack adapters and a local HTTP fixture.
 
+Oracle always requests high reasoning effort for the configured T3 model. It pins
+high effort on new threads and reapplies it before every coding turn, including
+saved conversations. If T3 cannot acknowledge the setting, Oracle does not send the
+coding request.
+
 Run the service from `.worktree/oracle` on its own branch. Set `ORACLE_WORKSPACE`
 in that checkout's `oracle/.env` to the absolute worktree path. T3 binds new
 threads to that existing worktree. Saved conversations from the main checkout
@@ -27,6 +32,9 @@ seconds while idle. It applies an update only after the `Verify` workflow succee
 for that exact commit on `main`. CI already runs on pull requests and pushes to
 `main`, including merges. Pending, failed, missing, or unreadable checks leave the
 current checkout in place. Coding requests wait when a newer commit is unverified.
+Oracle saves the original request, acknowledges the wait once, and retries every
+30 seconds. It continues in the same Slack thread after verification succeeds.
+Users do not need to resend. Waiting does not consume the coding turn timeout.
 Logs identify the main commit and whether the checkout is current or waiting for CI.
 
 Sync and complete coding turns share one queue, so Git never updates files during
@@ -66,6 +74,55 @@ and includes bounded context with the current request and saved conversation
 history. A bare mention can refer to the preceding request. Missing history is
 reported to the model so it can ask for context rather than invent it.
 
+## Resolve teammate identities
+
+Slack names come from `users.info` using the existing `users:read` scope. Oracle
+includes profiles for the requester, mentioned users, thread authors, and configured
+teammates, up to 64 identities per turn. Only verified, active human members of the
+connected workspace receive profiles. Profile fields include username, display name,
+and real name, bounded to 200 characters each. Emails and custom profile fields
+are not included. Slack profiles use the same process-local cache as membership
+verification.
+
+Copy `profiles.example.json` to `.local/profiles.json` in the Oracle service
+checkout. Replace the example workspace ID, Slack user IDs, and GitHub logins
+with confirmed identities. The file is ignored by Git. Its shape is:
+
+```json
+{
+  "teamId": "TTEAM1",
+  "users": [{ "slackUserId": "UTEAMMATE1", "githubLogin": "example-teammate" }]
+}
+```
+
+Each Slack ID and GitHub login must appear at most once. The map accepts up to
+64 people and must match the connected workspace. Oracle reads it before every
+turn, so edits take effect without restarting. A missing file means no GitHub
+accounts are mapped. Invalid, unreadable, duplicate, or foreign-workspace maps
+produce an unavailable status without supplying any GitHub associations.
+
+Oracle uses configured GitHub logins for assignments and asks in Slack when a
+login is missing. It never guesses a login from a Slack name or the local GitHub
+CLI account. An explicit Slack answer can resolve the current task. Maintainers
+own durable map edits. A configured association does not grant project permissions.
+
+Ordinary questions use the existing reply protocol and stay in the originating
+Slack thread. The next Slack reply resumes the same conversation. Sensitive
+questions and tool approvals use T3's private input flow. Only a generic notice
+goes to Slack when private input is needed. This routing is an operating instruction
+to the model, not an automatic content classifier. Unexpected backend input gates
+retain the existing generic T3 fallback.
+
+The dispatcher owns profile resolution and membership checks. The session runner
+receives a typed `profiles` object alongside the request and thread context.
+Keeping resolution at this boundary avoids giving the coding agent Slack tokens
+or another message destination. A prompt-only directory would leave names
+unresolved, while matching names or emails automatically would guess account
+ownership. The explicit workspace-scoped map supplies associations for verified
+members without changing transport permissions.
+
+## Slack connection
+
 The Slack app needs `users:read`, `chat:write`, `assistant:write`, `app_mentions:read`,
 and history scopes for the conversations it serves. Enable Socket Mode and subscribe
 to `app_mention`, `message.channels`, `message.groups`, and `message.im` to receive
@@ -89,7 +146,13 @@ automatically poll GitHub or Linear or handle agent-container onboarding.
 An instance started with the previous one-shot launcher needs one restart to
 enter the supervised lifecycle. Future dispatcher updates reload automatically.
 
-Interrupted turns retain context and require a fresh request. Ambiguous Slack sends
+Queued and CI-waiting requests survive service updates and restarts. Requests
+already running when the service stops retain context and require a fresh request.
+Only work that has not started coding is retried automatically. A `stop` request
+cancels both waiting and queued work. Pending requests remain protected from
+age-based pruning and session eviction until they finish or are cancelled.
+
+Ambiguous Slack sends
 are recorded without automatic resending. Cancellation waits for T3 to confirm the
 turn stopped; uncertain cancellation faults the factory and retains its instance
 lock. A stale lock is never stolen automatically.

@@ -11,7 +11,7 @@
     "lint:fix": "pnpm lint --fix",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "check": "pnpm format:check && pnpm lint && pnpm check:comments && pnpm typecheck && pnpm check:deps && pnpm test",
+    "check": "pnpm format:check && pnpm lint && pnpm check:comments && pnpm typecheck && pnpm check:features && pnpm check:deps && pnpm test",
     "check:comments": "node scripts/check-comments.mjs",
     "check:deps": "node scripts/check-dependencies.mjs",
     "verify": "pnpm check && python3 scripts/check-harness.py && pnpm build",
@@ -19,7 +19,9 @@
     "qa:browser": "pnpm build && playwright test",
     "oracle": "pnpm --filter @lookout/oracle start",
     "oracle:service": "node scripts/oracle-service.mjs",
-    "pitchdeck": "pnpm --filter @lookout/pitchdeck dev"
+    "pitchdeck": "pnpm --filter @lookout/pitchdeck dev",
+    "check:features": "python3 scripts/check-features.py && python3 -m unittest discover -s tests/features -p \"test_*.py\"",
+    "features:list": "python3 scripts/check-features.py --list"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",
