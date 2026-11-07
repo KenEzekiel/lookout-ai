@@ -1,6 +1,6 @@
 import { LoadingState } from "@/components/ui/loading";
 import { useEffect, useRef, useState } from "react";
-import { AppWindow, Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
+import { Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
 import { type z } from "zod";
 import { type Member, teamSchema } from "@/lib/access";
 import { request, message } from "@/lib/api";
@@ -9,6 +9,7 @@ import { ActionForm } from "./forms";
 import { Badge } from "@/components/ui/badge";
 import { LiveView } from "@/components/live-view";
 import { DeviceHealthPanel } from "@/components/device-health";
+import { DeviceModeAction } from "./device-mode-action";
 import { WorkspaceActions, type WorkspaceAction } from "./workspace-actions";
 
 export function Workspace({
@@ -87,9 +88,9 @@ export function Workspace({
   }, [actor.workspaceId]);
   const devices = view === "devices";
   return (
-    <section className="py-8 sm:py-12">
+    <section className={devices ? "py-6 sm:py-8" : "py-8 sm:py-12"}>
       <div
-        className={`${devices ? "mb-10" : "mb-8"} flex flex-wrap items-start justify-between gap-5`}
+        className={`${devices ? "mb-6" : "mb-8"} flex flex-wrap items-start justify-between gap-5`}
       >
         <div>
           <h1 className="text-page-title">{devices ? "Devices" : "Team"}</h1>
@@ -121,11 +122,7 @@ export function Workspace({
         </div>
       </div>
       {devices && <DeviceHealthPanel />}
-      <div
-        className={
-          devices && owner ? "grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]" : ""
-        }
-      >
+      <div className={devices && owner ? "grid items-start gap-8" : ""}>
         <section aria-label={devices ? "Paired devices" : "Team members"} className="min-w-0">
           {devices && (
             <div className="mb-5">
@@ -200,15 +197,15 @@ export function Workspace({
                   )}
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl bg-card">
+                <div className="border-y border-border">
                   <ul className="divide-y divide-border">
                     {team.devices.map((device) => (
                       <li
                         key={device.id}
-                        className="flex flex-col gap-4 p-5 sm:p-6 xl:flex-row xl:items-center xl:justify-between"
+                        className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+                          <span className="flex size-8 shrink-0 items-center justify-center text-muted-foreground">
                             <Monitor aria-hidden="true" className="size-5" />
                           </span>
                           <div className="min-w-0">
@@ -234,15 +231,29 @@ export function Workspace({
                             </p>
                           </div>
                         </div>
-                        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:ps-13 xl:ps-0">
+                        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:ps-0">
                           {device.revokedAt === null && (
                             <Button
                               size="sm"
+                              variant="outline"
                               icon={Video}
                               aria-label={`Live view of ${device.name}`}
                               onClick={() => setViewing({ id: device.id, name: device.name })}
                             >
                               Live view
+                            </Button>
+                          )}
+                          {owner && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              icon={RotateCw}
+                              aria-label={`Reconnect ${device.name}`}
+                              onClick={() =>
+                                setAction({ kind: "reconnect", id: device.id, name: device.name })
+                              }
+                            >
+                              Reconnect
                             </Button>
                           )}
                           {owner && device.revokedAt === null ? (
@@ -312,10 +323,10 @@ export function Workspace({
             ))}
         </section>
         {devices && owner && (
-          <section aria-labelledby="this-browser-title" className="min-w-0 rounded-2xl bg-card p-6">
-            <span className="mb-5 flex size-11 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
-              <AppWindow aria-hidden="true" className="size-5" />
-            </span>
+          <section
+            aria-labelledby="this-browser-title"
+            className="min-w-0 border-t border-border pt-6"
+          >
             <h2 id="this-browser-title" className="text-lg font-semibold tracking-tight">
               This browser
             </h2>
@@ -323,16 +334,16 @@ export function Workspace({
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
               Use this browser’s camera or a local video as a capture source.
             </p>
-            <Button
-              variant="secondary"
-              icon={Monitor}
-              className="mt-5 w-full"
-              onClick={() => setAction({ kind: "activate" })}
-            >
-              Use this device instead
-            </Button>
+            <div className="mt-4">
+              <DeviceModeAction
+                actor={actor}
+                onActivated={onChanged}
+                compact={false}
+                label="Use this device instead"
+              />
+            </div>
             <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-              Switching signs you out of workspace management across this browser’s tabs.
+              Your workspace login stays signed in. Returning here keeps this device paired.
             </p>
           </section>
         )}

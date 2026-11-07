@@ -14,9 +14,16 @@ async function register(page: Page, name: string) {
 }
 
 test("owner, operator and monitoring browser complete the access journey", async ({ browser }) => {
-  const ownerContext = await browser.newContext();
-  const operatorContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const deviceContext = await browser.newContext();
+  const ownerContext = await browser.newContext({
+    extraHTTPHeaders: { "cf-connecting-ip": "192.0.2.10" },
+  });
+  const operatorContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    extraHTTPHeaders: { "cf-connecting-ip": "192.0.2.11" },
+  });
+  const deviceContext = await browser.newContext({
+    extraHTTPHeaders: { "cf-connecting-ip": "192.0.2.12" },
+  });
   const owner = await ownerContext.newPage();
   const operator = await operatorContext.newPage();
   const device = await deviceContext.newPage();
@@ -37,7 +44,7 @@ test("owner, operator and monitoring browser complete the access journey", async
     await operator.goto(invitation);
     await register(operator, "Demo operator");
     await operator.getByRole("button", { name: "Join workspace" }).click();
-    await expect(operator.getByRole("heading", { name: "Devices" })).toBeVisible();
+    await expect(operator.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
     await expect(operator).toHaveURL(/\/devices$/);
     await expect(operator.getByRole("button", { name: "Create invitation" })).toHaveCount(0);
     await operator.screenshot({ path: "test-results/operator-mobile.png", fullPage: true });
@@ -53,15 +60,15 @@ test("owner, operator and monitoring browser complete the access journey", async
     await owner.getByLabel("Device name", { exact: true }).fill("Lobby camera");
     await owner.getByLabel("Pairing code").fill(code);
     await owner.getByRole("button", { name: "Connect device" }).click();
-    await expect(device.getByRole("heading", { name: "Device connected" })).toBeVisible();
-    await device.getByRole("link", { name: "Open capture station" }).click();
     await expect(device.getByRole("heading", { name: "Capture station" })).toBeVisible();
-    await device.getByRole("link", { name: "Lookout home" }).click();
+    await device.getByRole("button", { name: "Return to workspace" }).click();
+    await expect(device.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await device.getByRole("link", { name: "Resume Lobby camera" }).click();
     await device.reload();
-    await expect(device.getByRole("heading", { name: "Device connected" })).toBeVisible();
+    await expect(device.getByRole("heading", { name: "Capture station" })).toBeVisible();
     await owner.getByRole("button", { name: "Sign out", exact: true }).click();
     await device.reload();
-    await expect(device.getByRole("heading", { name: "Device connected" })).toBeVisible();
+    await expect(device.getByRole("heading", { name: "Capture station" })).toBeVisible();
     await owner.getByLabel("Email", { exact: true }).fill(email);
     await owner.getByLabel("Password", { exact: true }).fill("demo-password-123");
     await owner.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -89,12 +96,14 @@ test("owner, operator and monitoring browser complete the access journey", async
     await owner.getByRole("link", { name: "Devices", exact: true }).click();
     await owner.getByRole("button", { name: "Switch to device mode" }).click();
     await owner.getByLabel("Device name").fill("Owner laptop");
-    await owner.getByRole("button", { name: "Sign out and set up device" }).click();
-    await expect(owner.getByRole("heading", { name: "Device connected" })).toBeVisible();
+    await owner.getByRole("button", { name: "Set up device" }).click();
+    await expect(owner.getByRole("heading", { name: "Capture station" })).toBeVisible();
     await secondTab.reload();
-    await expect(secondTab.getByRole("heading", { name: "Device connected" })).toBeVisible();
-    await owner.getByRole("button", { name: "Return to sign in" }).click();
-    await expect(owner.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await expect(secondTab.getByRole("button", { name: "Add device" })).toBeVisible();
+    await owner.getByRole("button", { name: "Return to workspace" }).click();
+    await expect(owner.getByRole("heading", { name: "Devices", exact: true })).toBeVisible();
+    await owner.getByRole("button", { name: "Switch to device mode" }).click();
+    await expect(owner.getByRole("heading", { name: "Capture station" })).toBeVisible();
     expect(errors).toEqual([]);
   } finally {
     await ownerContext.close();

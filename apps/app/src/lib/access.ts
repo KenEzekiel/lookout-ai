@@ -15,6 +15,7 @@ export const devicePrincipalSchema = z.object({
   workspaceName: z.string(),
   name: z.string(),
 });
+export const rememberedDeviceSchema = z.object({ device: devicePrincipalSchema.nullable() });
 export const principalSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("visitor") }),
   z.object({ kind: z.literal("unassigned-user"), userId: z.string(), name: z.string() }),

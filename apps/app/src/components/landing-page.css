@@ -332,6 +332,18 @@
   content: "";
 }
 
+.landing-camera-target {
+  position: absolute;
+  z-index: 1;
+  top: 45%;
+  left: 34%;
+  width: 21%;
+  height: 23%;
+  border: 2px solid #f3aa43;
+  border-radius: 0.5rem;
+  pointer-events: none;
+}
+
 .landing-camera-caption {
   position: absolute;
   z-index: 1;

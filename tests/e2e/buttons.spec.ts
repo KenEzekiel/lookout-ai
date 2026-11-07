@@ -71,7 +71,7 @@ for (const width of [1280, 320]) {
     await expectAction(reload, 40);
     await expectAction(create, 40);
     await expectAction(page.getByRole("button", { name: "Sign out", exact: true }), 36);
-    await expectAction(page.getByRole("button", { name: "Enable sound and test" }), 36);
+    await expectAction(page.getByRole("button", { name: "Enable sound" }), 36);
     await expectAction(page.getByRole("button", { name: "Add source", exact: true }), 40);
 
     await reload.click();

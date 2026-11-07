@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { OperatorConfiguration } from "../../apps/app/src/lib/rules";
 
-test("trigger cards align with unequal descriptions and stack on mobile", async ({ page }) => {
+test("trigger rows stay readable with unequal descriptions on desktop and mobile", async ({
+  page,
+}) => {
   const configuration = {
     sources: [{ id: "camera", name: "Test", kind: "camera" }],
     recipients: [{ userId: "owner", name: "Arsa", role: "owner" }],
@@ -51,10 +53,22 @@ test("trigger cards align with unequal descriptions and stack on mobile", async 
     elements.map((element) => {
       const card = element.getBoundingClientRect();
       const action = element.querySelector("button")!.getBoundingClientRect();
-      return { top: card.top, bottom: card.bottom, actionTop: action.top };
+      return {
+        top: card.top,
+        bottom: card.bottom,
+        left: card.left,
+        right: card.right,
+        actionTop: action.top,
+      };
     }),
   );
-  expect(bounds[0]).toEqual(bounds[1]);
+  expect(bounds[1]!.top).toBeGreaterThanOrEqual(bounds[0]!.bottom);
+  expect(bounds[0]!.left).toBe(bounds[1]!.left);
+  expect(bounds[0]!.right).toBe(bounds[1]!.right);
+  for (const row of bounds) {
+    expect(row.actionTop).toBeGreaterThan(row.top);
+    expect(row.actionTop).toBeLessThan(row.bottom);
+  }
   await page.getByRole("button", { name: "Edit Glass Show Up", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -67,7 +81,7 @@ test("trigger cards align with unequal descriptions and stack on mobile", async 
       return { top: rect.top, bottom: rect.bottom, height: rect.height };
     }),
   );
-  expect(mobile[1]!.top).toBeGreaterThan(mobile[0]!.bottom);
+  expect(mobile[1]!.top).toBeGreaterThanOrEqual(mobile[0]!.bottom);
   expect(mobile[1]!.height).toBeGreaterThan(mobile[0]!.height);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });

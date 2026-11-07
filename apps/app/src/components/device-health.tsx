@@ -121,7 +121,7 @@ export function DeviceHealthPanel() {
     return () => clearInterval(timer);
   }, [clock]);
   return (
-    <section className="mb-8 rounded-xl bg-card p-5 sm:p-6" aria-labelledby="device-health-title">
+    <section className="mb-8 border-b border-border pb-6" aria-labelledby="device-health-title">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="device-health-title" className="font-medium">
           Monitoring health

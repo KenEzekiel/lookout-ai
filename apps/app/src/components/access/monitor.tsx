@@ -1,12 +1,13 @@
 import { LoadingState } from "@/components/ui/loading";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Camera, KeyRound, LogIn, Monitor as MonitorIcon, RotateCw } from "lucide-react";
+import { ArrowLeft, Camera, KeyRound, Monitor as MonitorIcon, RotateCw } from "lucide-react";
 import { type z } from "zod";
 import { type DevicePrincipal, pairingSchema, pairingStatusSchema } from "@/lib/access";
 import { type DeviceConfiguration, deviceConfigurationSchema } from "@/lib/rules";
-import { mutate, request, message } from "@/lib/api";
+import { request, message } from "@/lib/api";
 import { buttonVariants } from "@/components/ui/button";
+import { DeviceExitActions } from "./device-exit-actions";
 import { ActionForm, Panel } from "./forms";
 
 export function PairBrowser({
@@ -48,8 +49,7 @@ export function PairBrowser({
       </p>
       {signedIn && (
         <p className="mb-6 rounded-lg bg-card p-4 text-sm leading-relaxed text-muted-foreground">
-          Once approved, this signs you out of workspace management in every tab of this browser.
-          You can sign in again to return.
+          Once approved, capture opens directly. Your workspace login and other tabs stay signed in.
         </p>
       )}
       {pairing && !error && (
@@ -207,16 +207,7 @@ export function Monitor({ actor }: { actor: DevicePrincipal }) {
           />
         </section>
       )}
-      <ActionForm
-        icon={LogIn}
-        submit="Return to sign in"
-        pendingLabel="Returning to sign in…"
-        variant="secondary"
-        action={async () => {
-          await mutate("/api/access/devices/leave");
-          window.location.assign("/");
-        }}
-      />
+      <DeviceExitActions />
     </Panel>
   );
 }

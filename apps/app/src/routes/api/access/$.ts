@@ -13,9 +13,14 @@ async function handle(request: Request) {
     revokeDevice,
     deviceStatus,
     leaveDevice,
+    forgetDevice,
+    rememberedDeviceStatus,
   } = await import("@/server/devices");
   const handlers: Record<string, (request: Request) => Promise<Response>> = {
-    "GET principal": async (request) => json(await principal(request)),
+    "GET principal": async (request) =>
+      new URL(request.url).searchParams.get("mode") === "device"
+        ? deviceStatus(request)
+        : json(await principal(request)),
     "GET team": team,
     "GET team/events": teamEvents,
     "POST workspace": createWorkspace,
@@ -29,6 +34,8 @@ async function handle(request: Request) {
     "POST devices/revoke": revokeDevice,
     "GET devices/status": deviceStatus,
     "POST devices/leave": leaveDevice,
+    "POST devices/forget": forgetDevice,
+    "GET devices/remembered": rememberedDeviceStatus,
   };
 
   return endpoint(request, async () => {

@@ -38,6 +38,8 @@ The current upload fix adds complete-route coverage for evidence preparation and
 
 ## Decisions and sources
 
+The current PR follows the user-approved HTML UI study and the instruction to keep trigger descriptions plain. Ready replay uses the full evidence column without an enclosing padded card. Pending and unavailable evidence retain their reserved area and feedback. Native replay controls and response actions remain unchanged. Source: [UI implementation](../../../apps/app/src/components/incidents/workspace.tsx). Existing integration journeys remain regression coverage; manual browser evidence is recorded in the PR.
+
 The current PR fixes the missing assessment-to-upload connection. [Device monitoring](../../../apps/app/src/lib/device-monitoring.ts) pins footage once on confirmation, preserves it across report retries, and starts upload only after an accepted receipt. The former synthetic-only combined report/upload API is removed. Monitoring does not wait for encoding or upload. Preparation failures are sent to the evidence service; failed uploads retain their bytes for the latest-incident retry action.
 
 The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.

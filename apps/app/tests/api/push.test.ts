@@ -342,6 +342,25 @@ test("provider failure preserves the incident and subscription without duplicate
   ).toBe("failed");
 });
 
+test("opening capture preserves the human session and its push subscription", async () => {
+  const admin = await owner();
+  const { device, report } = await setupIncident(admin);
+  const input = subscription();
+  expect((await admin.request("/api/push/subscribe", input)).status).toBe(200);
+  expect(
+    (await admin.request("/api/access/devices/activate", { name: "Owner capture" })).status,
+  ).toBe(200);
+  expect((await admin.request("/api/access/principal?mode=device")).status).toBe(200);
+  expect(
+    pushSettingsSchema.parse(await (await admin.request("/api/push/settings")).json()).endpoints,
+  ).toEqual([input.endpoint]);
+  const receipt = reportReceiptSchema.parse(
+    await (await device.request("/api/incidents/reports", report)).json(),
+  );
+  expect(sent).toHaveLength(1);
+  expect((await admin.request(`/api/incidents/detail/${receipt.incident.id}`)).status).toBe(200);
+});
+
 test("sign-out stops future push and denies incident retrieval", async () => {
   const admin = await owner();
   const { device, report } = await setupIncident(admin);

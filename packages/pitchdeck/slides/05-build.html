@@ -1,0 +1,63 @@
+<section class="slide slide-build">
+  <div class="slide-inner build-layout">
+    <div class="build-copy">
+      <p class="slide-label">How we build</p>
+      <h2>A request in Slack.<br />A checked change in code.</h2>
+      <div class="build-steps" aria-label="Oracle development workflow">
+        <div>
+          <strong>Ask</strong
+          ><span>We give Oracle a concrete problem or issue in a Slack thread.</span>
+        </div>
+        <div>
+          <strong>Build</strong
+          ><span>It works in a task branch and explains progress in the same thread.</span>
+        </div>
+        <div>
+          <strong>Prove</strong
+          ><span>Tests, browser checks, and CI make the change reviewable.</span>
+        </div>
+      </div>
+      <p class="build-caveat">People review the result and decide whether to merge.</p>
+    </div>
+    <figure class="slack-capture">
+      <div class="slack-capture-shot">
+        <p>Aji shares issue #19</p>
+        <div class="slack-capture-image">
+          <img
+            src="__SLACK_REQUEST_SCREENSHOT__"
+            width="1140"
+            height="420"
+            alt="Real Slack message from Aji asking Oracle to pick up issue 19, with a GitHub preview of the operator incident request."
+          />
+        </div>
+      </div>
+      <div class="slack-capture-shot">
+        <p>Oracle reports the checks</p>
+        <div class="slack-capture-image">
+          <img
+            src="__SLACK_CHECKS_SCREENSHOT__"
+            width="1140"
+            height="500"
+            alt="Real Slack reply from Oracle reporting passing UI and API tests, with browser verification planned before the pull request."
+          />
+        </div>
+      </div>
+      <figcaption>
+        <span>Oracle in #hackathon · 7 Nov 2026</span>
+        <a
+          href="https://private-iex6207.slack.com/archives/C0CFQDWTVCJ/p1794029329391749"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Open the source thread ↗</a
+        >
+      </figcaption>
+    </figure>
+  </div>
+  <aside data-notes hidden>
+    4:15–5:20. This is the development workflow, separate from the Lookout product agent. The
+    visible Slack screenshot comes from the #hackathon thread started by Aji on 7 November 2026
+    about incident inbox issue #19. Oracle checked the issue and prerequisites, implemented in a
+    task branch, and reported passing UI and API checks before browser verification and a PR. The
+    repository keeps human approval for merge. The exact thread is linked on the slide.
+  </aside>
+</section>
