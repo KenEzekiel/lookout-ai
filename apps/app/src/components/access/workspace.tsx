@@ -1,11 +1,12 @@
 import { LoadingState } from "@/components/ui/loading";
 import { useEffect, useState } from "react";
-import { Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
+import { AppWindow, Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
 import { type z } from "zod";
 import { type Member, teamSchema } from "@/lib/access";
 import { request, message } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ActionForm } from "./forms";
+import { Badge } from "@/components/ui/badge";
 import { LiveView } from "@/components/live-view";
 import { WorkspaceActions, type WorkspaceAction } from "./workspace-actions";
 
@@ -60,6 +61,40 @@ export function Workspace({
           </Button>
         )}
       </div>
+      {devices && owner && (
+        <section
+          aria-labelledby="this-browser-title"
+          className="mb-8 flex gap-4 rounded-xl border border-border bg-card p-5 sm:p-6"
+        >
+          <AppWindow className="mt-0.5 hidden size-6 shrink-0 text-muted-foreground sm:block" />
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-3">
+              <h2 id="this-browser-title" className="font-medium">
+                This browser
+              </h2>
+              <Badge variant="outline" className="text-muted-foreground">
+                Workspace management
+              </Badge>
+            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Use this browser’s camera or a local video as a capture source.
+            </p>
+            <div className="mt-5 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                Switching signs you out of workspace management across this browser’s tabs.
+              </p>
+              <Button
+                variant="secondary"
+                icon={Monitor}
+                onClick={() => setAction({ kind: "activate" })}
+              >
+                Use this device instead
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+      {devices && <h2 className="mb-3 font-medium">Connected devices</h2>}
       {viewing && devices && <LiveView device={viewing} onClose={() => setViewing(null)} />}
       {devices && (
         <p className="mb-6 rounded-lg bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
@@ -115,21 +150,21 @@ export function Workspace({
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-border">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 bg-card px-5 py-3 text-xs text-muted-foreground sm:grid-cols-[minmax(0,1fr)_90px_300px]">
-                <span>Device</span>
-                <span>Access</span>
-                <span className="hidden sm:block" />
-              </div>
               <ul className="divide-y divide-border">
                 {team.devices.map((device) => (
                   <li
                     key={device.id}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_90px_300px]"
+                    className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <Monitor className="hidden size-5 shrink-0 text-muted-foreground sm:block" />
                       <div className="min-w-0">
-                        <p className="break-words text-sm font-medium">{device.name}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="break-words text-sm font-medium">{device.name}</p>
+                          <Badge variant="outline" className="text-muted-foreground">
+                            {device.revokedAt === null ? "Paired" : "Access removed"}
+                          </Badge>
+                        </div>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {device.revokedAt === null
                             ? "Authorized for this workspace"
@@ -137,13 +172,9 @@ export function Workspace({
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {device.revokedAt === null ? "Paired" : "Access removed"}
-                    </span>
-                    <div className="col-span-2 flex flex-wrap justify-end gap-2 sm:col-span-1">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                       {device.revokedAt === null && (
                         <Button
-                          variant="secondary"
                           size="sm"
                           icon={Video}
                           aria-label={`Live view of ${device.name}`}
@@ -157,7 +188,7 @@ export function Workspace({
                           variant="ghost"
                           size="sm"
                           icon={Trash2}
-                          className="col-span-2 justify-self-end text-muted-foreground sm:col-span-1"
+                          className="text-muted-foreground"
                           aria-label={`Remove access for ${device.name}`}
                           onClick={() =>
                             setAction({ kind: "revoke-device", id: device.id, name: device.name })
@@ -165,9 +196,7 @@ export function Workspace({
                         >
                           Remove access
                         </Button>
-                      ) : (
-                        <span className="hidden sm:block" />
-                      )}
+                      ) : null}
                     </div>
                   </li>
                 ))}
@@ -215,22 +244,6 @@ export function Workspace({
             ))}
           </ul>
         ))}
-      {devices && owner && (
-        <div className="mt-8">
-          <Button
-            variant="link"
-            size="inline"
-            icon={Monitor}
-            className="text-signal"
-            onClick={() => setAction({ kind: "activate" })}
-          >
-            Use this device instead
-          </Button>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-            Switch this browser from workspace management to device mode.
-          </p>
-        </div>
-      )}
       {action && owner && (
         <WorkspaceActions
           action={action}

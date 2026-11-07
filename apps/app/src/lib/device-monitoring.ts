@@ -1,0 +1,398 @@
+import { z } from "zod";
+import { request } from "./api";
+import { createAssessmentClient } from "./assessment";
+import { type CaptureSession, type FrameSample } from "./capture-session";
+import { captureSessionSchema, reportReceiptSchema } from "./incidents";
+import { type Rule } from "./rules";
+
+type EventWindow = {
+  id: string;
+  eventTime: number;
+  from: number;
+  to: number;
+  frames: FrameSample[];
+};
+type RuleState = {
+  rule: Rule;
+  lastFrame: string | null;
+  clearSince: number | null;
+  positiveSince: number | null;
+  notice: string;
+  event:
+    | { kind: "armed" }
+    | { kind: "observing" | "candidate"; window: EventWindow }
+    | { kind: "reporting"; window: EventWindow }
+    | { kind: "held"; window: EventWindow };
+};
+export type MonitoringStatus = {
+  notice: string;
+  rules: { id: string; name: string; version: number; notice: string }[];
+  latest: { eventTime: number; from: number; to: number; incidentId: string } | null;
+};
+
+export class DeviceMonitoring {
+  private states: RuleState[] = [];
+  private configured = false;
+  private disposed = false;
+  private revision = 0;
+  private abort = new AbortController();
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private session: z.infer<typeof captureSessionSchema> | null = null;
+  private assess = createAssessmentClient();
+  private nextRule = 0;
+  private nextReviewAt = 0;
+  private latest: MonitoringStatus["latest"] = null;
+  private notice = "Waiting for assigned rules.";
+
+  constructor(
+    private capture: CaptureSession,
+    private sourceId: string,
+    private epoch: number,
+    private publish: (status: MonitoringStatus) => void,
+  ) {
+    this.timer = setTimeout(() => void this.tick(), 0);
+  }
+
+  configure(rules: Rule[] | null) {
+    const enabled = rules?.filter((rule) => rule.sourceId === this.sourceId && rule.enabled);
+    const unchanged =
+      this.configured === (rules !== null) &&
+      JSON.stringify(enabled?.map(({ id, version }) => [id, version])) ===
+        JSON.stringify(this.states.map(({ rule }) => [rule.id, rule.version]));
+    if (unchanged) return;
+    this.invalidate();
+    this.configured = rules !== null;
+    for (const state of this.states) {
+      state.positiveSince = null;
+      state.clearSince = null;
+    }
+    if (enabled) {
+      this.states = enabled.map(
+        (rule) =>
+          this.states.find(
+            (state) => state.rule.id === rule.id && state.rule.version === rule.version,
+          ) ?? {
+            rule,
+            lastFrame: null,
+            clearSince: null,
+            positiveSince: null,
+            notice: "Waiting for a fresh observation.",
+            event: { kind: "armed" },
+          },
+      );
+    }
+    this.emit(
+      rules === null
+        ? "Monitoring degraded: configuration unavailable."
+        : "Applying assigned rules.",
+    );
+  }
+
+  captureChanged() {
+    if (this.capture.getSnapshot().state !== "running") {
+      this.invalidate();
+      for (const state of this.states) {
+        state.positiveSince = null;
+        state.clearSince = null;
+      }
+      this.emit("Monitoring paused. Waiting for capture.");
+    }
+  }
+
+  dispose() {
+    this.disposed = true;
+    this.invalidate();
+    clearTimeout(this.timer);
+    if (this.session) this.endSession(this.session.id);
+    this.states = [];
+  }
+
+  private invalidate() {
+    this.revision += 1;
+    this.abort.abort();
+    this.abort = new AbortController();
+  }
+
+  private endSession(id: string) {
+    void request(
+      "/api/incidents/sessions/end",
+      z.unknown(),
+      { id },
+      AbortSignal.timeout(8000),
+    ).catch(() => {});
+  }
+
+  private current(revision: number) {
+    const snapshot = this.capture.getSnapshot();
+    return (
+      !this.disposed &&
+      this.configured &&
+      revision === this.revision &&
+      snapshot.state === "running" &&
+      snapshot.epoch === this.epoch
+    );
+  }
+
+  private emit(notice = this.notice) {
+    this.notice = notice;
+    if (!this.disposed)
+      this.publish({
+        notice,
+        rules: this.states.map(({ rule, notice }) => ({
+          id: rule.id,
+          name: rule.definition.name,
+          version: rule.version,
+          notice,
+        })),
+        latest: this.latest,
+      });
+  }
+
+  private async tick() {
+    const revision = this.revision;
+    let slow: ReturnType<typeof setTimeout> | undefined;
+    try {
+      if (!this.current(revision)) return;
+      if (this.states.length > 8) {
+        this.emit(
+          "Monitoring degraded: this device supports at most eight enabled rules per source.",
+        );
+        return;
+      }
+      if (!this.states.length) {
+        this.emit("Not monitoring: no enabled rules for this source.");
+        return;
+      }
+      if (this.session && this.session.expiresAt <= Date.now()) {
+        this.emit("Monitoring degraded: session expired. Stop and restart capture.");
+        return;
+      }
+      const signal = AbortSignal.any([this.abort.signal, AbortSignal.timeout(20_000)]);
+      slow = setTimeout(() => {
+        if (this.current(revision))
+          this.emit(
+            "Monitoring degraded: assessment is behind capture. New frames replace older pending frames.",
+          );
+      }, 5000);
+      if (!this.session) {
+        this.emit("Starting monitoring session…");
+        const session = await request(
+          "/api/incidents/sessions",
+          captureSessionSchema,
+          { sourceId: this.sourceId },
+          signal,
+        );
+        if (!this.current(revision)) {
+          this.endSession(session.id);
+          return;
+        }
+        this.session = session;
+      }
+      const state = this.states[this.nextRule++ % this.states.length];
+      if (!state) return;
+      if (state.event.kind === "reporting") {
+        await this.report(state, signal, revision);
+        return;
+      }
+      const samples = this.capture
+        .getSamples()
+        .filter(
+          (frame, index, all) =>
+            frame.epoch === this.epoch &&
+            (all.at(-1)?.mediaTimeMs ?? frame.mediaTimeMs) - frame.mediaTimeMs <= 30_000 &&
+            (!all[index - 1] || frame.mediaTimeMs > (all[index - 1]?.mediaTimeMs ?? -1)),
+        )
+        .slice(-8);
+      const first = samples[0];
+      const last = samples.at(-1);
+      if (!first || !last || last.id === state.lastFrame) return;
+      if (Date.now() - last.capturedAt > 5000) {
+        this.emit("Monitoring degraded: waiting for fresh capture frames.");
+        return;
+      }
+      if (state.event.kind === "candidate") {
+        await this.review(state, samples, signal, revision);
+        return;
+      }
+      state.lastFrame = last.id;
+      this.emit("Assessing assigned rules…");
+      const result = await this.assess(
+        {
+          rule: { id: state.rule.id, version: state.rule.version },
+          sourceId: this.sourceId,
+          observation: {
+            stage: "assessment",
+            frames: samples.map(({ id, mediaTimeMs, image }) => ({ id, mediaTimeMs, image })),
+          },
+        },
+        signal,
+      );
+      if (!this.current(revision)) return;
+      if (result.kind !== "assessment") {
+        state.positiveSince = null;
+        state.clearSince = null;
+        state.notice = `Assessment unavailable: ${result.kind === "unavailable" ? result.reason : "invalid_result"}.`;
+        this.emit("Monitoring degraded. Assessment will retry with fresh frames.");
+        return;
+      }
+      if (result.matchProbability >= 0.7) {
+        state.clearSince = null;
+        if (state.event.kind === "held") {
+          state.notice = "Event still present. Initial alert will not repeat.";
+        } else {
+          if (
+            state.event.kind === "observing" &&
+            (state.positiveSince === null || last.mediaTimeMs - state.event.window.to > 5000)
+          ) {
+            state.event = { kind: "armed" };
+            state.positiveSince = null;
+          }
+          if (state.event.kind === "armed") {
+            state.event = {
+              kind: "observing",
+              window: {
+                id: crypto.randomUUID(),
+                eventTime: first.capturedAt,
+                from: first.mediaTimeMs,
+                to: last.mediaTimeMs,
+                frames: samples,
+              },
+            };
+          }
+          state.event.window.frames = samples;
+          state.event.window.to = last.mediaTimeMs;
+          state.positiveSince ??= last.mediaTimeMs;
+          const duration = (state.rule.definition.durationSeconds ?? 0) * 1000;
+          if (last.mediaTimeMs - state.positiveSince >= duration) {
+            state.positiveSince = null;
+            state.event = { kind: "candidate", window: state.event.window };
+            await this.review(state, samples, signal, revision);
+            return;
+          }
+          state.notice = "Candidate observed. Checking the configured duration.";
+        }
+      } else if (result.matchProbability <= 0.2 && result.unclearProbability <= 0.3) {
+        state.positiveSince = null;
+        if (state.event.kind === "armed")
+          state.notice = "Monitoring. No candidate in the latest observation.";
+        else if (first.mediaTimeMs > state.event.window.to) {
+          state.clearSince ??= last.mediaTimeMs;
+          if (last.mediaTimeMs - state.clearSince >= 3000) {
+            state.event = { kind: "armed" };
+            state.clearSince = null;
+            state.notice = "Scene cleared. Armed for a new event.";
+          } else state.notice = "Checking that the scene stays clear before rearming.";
+        } else state.notice = "Waiting for fresh evidence beyond the event window.";
+      } else {
+        state.positiveSince = null;
+        state.clearSince = null;
+        state.notice = "Observation uncertain. Gathering fresh evidence.";
+      }
+      this.emit("Monitoring assigned rules.");
+    } catch {
+      if (this.current(revision)) {
+        for (const state of this.states) {
+          state.positiveSince = null;
+          state.clearSince = null;
+        }
+        this.emit(
+          "Monitoring degraded: request unavailable. Retrying without creating another event.",
+        );
+      }
+    } finally {
+      clearTimeout(slow);
+      if (!this.disposed) this.timer = setTimeout(() => void this.tick(), 1500);
+    }
+  }
+
+  private async review(
+    state: RuleState,
+    samples: FrameSample[],
+    signal: AbortSignal,
+    revision: number,
+  ) {
+    if (state.event.kind !== "candidate") return;
+    if (Date.now() < this.nextReviewAt) {
+      state.notice = "Candidate waiting for the review limit. Gathering fresh evidence.";
+      this.emit("Candidate awaiting review.");
+      return;
+    }
+    const window = state.event.window;
+    const combined = [
+      ...window.frames,
+      ...samples.filter((frame) => frame.mediaTimeMs > (window.frames.at(-1)?.mediaTimeMs ?? -1)),
+    ];
+    const frames =
+      combined.length <= 8 ? combined : [...combined.slice(0, 4), ...combined.slice(-4)];
+    const latest = frames.at(-1);
+    const first = frames[0];
+    if (!first || !latest) return;
+    if (latest.mediaTimeMs - first.mediaTimeMs > 30_000) {
+      state.event = { kind: "held", window };
+      state.notice = "Review inconclusive: evidence window expired. Waiting for scene clear.";
+      this.emit("Monitoring degraded: candidate could not be confirmed.");
+      return;
+    }
+    window.frames = frames;
+    window.to = latest.mediaTimeMs;
+    state.lastFrame = latest.id;
+    this.nextReviewAt = Date.now() + 12_000;
+    state.notice = "Reviewing candidate…";
+    this.emit("Candidate awaiting second-stage review.");
+    const result = await this.assess(
+      {
+        rule: { id: state.rule.id, version: state.rule.version },
+        sourceId: this.sourceId,
+        observation: {
+          stage: "review",
+          frames: frames.map(({ id, mediaTimeMs, image }) => ({ id, mediaTimeMs, image })),
+        },
+      },
+      signal,
+    );
+    if (!this.current(revision)) return;
+    if (result.kind !== "review") {
+      state.notice = `Review unavailable: ${result.kind === "unavailable" ? result.reason : "invalid_result"}. Candidate retained.`;
+      this.emit("Monitoring degraded. Candidate review will retry.");
+    } else if (result.outcome === "positive") {
+      state.event = { kind: "reporting", window };
+      state.notice = "Candidate confirmed. Reporting incident…";
+      this.emit();
+      await this.report(state, signal, revision);
+    } else if (result.outcome === "rejected") {
+      state.event = { kind: "held", window };
+      state.notice = `Candidate rejected. ${result.explanation}`;
+      this.emit("Monitoring. Rejected candidate will not alert; waiting for scene clear.");
+    } else {
+      state.notice = `More evidence needed. ${result.explanation}`;
+      this.emit("Candidate retained. Waiting for fresh evidence before another review.");
+    }
+  }
+
+  private async report(state: RuleState, signal: AbortSignal, revision: number) {
+    if (state.event.kind !== "reporting" || !this.session) return;
+    const window = state.event.window;
+    const { incident } = await request(
+      "/api/incidents/reports",
+      reportReceiptSchema,
+      {
+        sessionId: this.session.id,
+        eventId: window.id,
+        ruleId: state.rule.id,
+        ruleVersion: state.rule.version,
+        eventTime: window.eventTime,
+      },
+      signal,
+    );
+    if (!this.current(revision)) return;
+    state.event = { kind: "held", window };
+    state.notice = "Incident reported. Waiting for scene clear before rearming.";
+    this.latest = {
+      eventTime: window.eventTime,
+      from: window.from,
+      to: window.to,
+      incidentId: incident.id,
+    };
+    this.emit("Incident reported. Monitoring continues without repeating the initial alert.");
+  }
+}

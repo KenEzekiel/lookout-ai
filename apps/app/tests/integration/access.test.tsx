@@ -155,6 +155,7 @@ test("owners can create invitations, approve devices and revoke them", async () 
   await user.type(screen.getByLabelText("Device name"), "Lobby");
   await user.type(screen.getByLabelText("Pairing code"), "654321");
   await user.click(screen.getByRole("button", { name: "Connect device" }));
+  expect(await screen.findByRole("button", { name: "Live view of Lobby" })).toBeVisible();
   await user.click(await screen.findByRole("button", { name: "Remove access for Lobby" }));
   expect(screen.getByRole("dialog")).toHaveTextContent("Remove device access?");
   expect(screen.queryByText("Access removed", { exact: true })).not.toBeInTheDocument();
@@ -162,6 +163,7 @@ test("owners can create invitations, approve devices and revoke them", async () 
     within(screen.getByRole("dialog")).getByRole("button", { name: "Remove access" }),
   );
   expect(await screen.findByText("Access removed", { exact: true })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Live view of Lobby" })).not.toBeInTheDocument();
 });
 
 test("monitoring shows a revoked credential visibly and offers a way back", async () => {
@@ -214,6 +216,10 @@ test("device approval errors preserve fields and a cancelled device switch keeps
     http.get("/api/config/device", () => HttpResponse.json({ sources: [], rules: [] })),
   );
   const user = await open();
+  const browser = await screen.findByRole("region", { name: "This browser" });
+  expect(browser).toHaveTextContent("Workspace management");
+  expect(browser).toHaveTextContent("across this browser’s tabs");
+  expect(within(browser).getByRole("button", { name: "Use this device instead" })).toBeVisible();
   await user.click(await screen.findByRole("button", { name: "Add device" }));
   await user.type(screen.getByLabelText("Device name"), "Lobby");
   await user.type(screen.getByLabelText("Pairing code"), "123456");
@@ -297,6 +303,8 @@ test("operators can open and close live view, retry unsupported browsers, and ca
   );
   const user = await open();
   await user.click(await screen.findByRole("button", { name: "Live view of Lobby" }));
+  expect(screen.queryByRole("region", { name: "This browser" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Remove access for Lobby" })).not.toBeInTheDocument();
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Live viewing is unavailable in this browser.",
   );
