@@ -6,6 +6,8 @@ Depends on: none
 
 ## Behavior
 
+The account-mode prompt centers its label and inline action with an explicit 8-pixel horizontal gap and shared vertical alignment. Both sign-in and registration prompts wrap between the label and action on narrow screens. This spacing fix is introduced by the current PR in [the account screen](../../../apps/app/src/components/access/account.tsx); authentication behavior is unchanged.
+
 Account, onboarding, pairing, invitation, retry, and removal controls use the shared action icons and size variants described by F-APP-SHELL. Live view and Remove access use the same compact size within each device row; dialogs retain visible labels and confirmation boundaries.
 
 People register with email/password and immediately create or join one workspace. Verification email and password recovery are deferred. The creator is its owner. Invitation links and six-digit codes admit one signed-in operator within 15 minutes. Owners remove operators and authorize or revoke devices. Operators do not manage access.
