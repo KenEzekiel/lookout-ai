@@ -37,7 +37,7 @@ test("presents the built HTML deck with bounded navigation and a slide picker", 
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("responded");
   expect(screen.getByRole("button", { name: "Previous slide" }).disabled).toBe(true);
   await user.click(screen.getByRole("button", { name: "Next slide" }));
-  expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Tell Lookout");
+  expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Meet Lookout");
   await user.selectOptions(screen.getByRole("combobox"), "5");
   expect(screen.getByRole("button", { name: "Next slide" }).disabled).toBe(true);
   expect(screen.getByRole("status").textContent).toBe("6 / 6");
@@ -98,7 +98,7 @@ test("audience mode exposes only slides and cannot reveal speaker notes", async 
   const user = userEvent.setup();
   expect(screen.queryByRole("button")).toBeNull();
   expect(screen.queryByRole("complementary")).toBeNull();
-  expect(screen.getByRole("heading").textContent).toContain("Tell Lookout");
+  expect(screen.getByRole("heading").textContent).toContain("Meet Lookout");
   expect(document.querySelectorAll("aside[data-notes]")).toHaveLength(0);
   await user.keyboard("n");
   expect(screen.queryByRole("complementary")).toBeNull();
