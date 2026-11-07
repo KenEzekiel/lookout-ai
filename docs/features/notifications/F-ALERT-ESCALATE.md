@@ -28,7 +28,7 @@ F-ALERT-INAPP uses incident ID for the initial alert and incident ID plus the fo
 
 [Durable alarm and incident insertion](../../../apps/app/src/server/incident-follow-up.ts), [Worker export](../../../apps/app/src/server.ts), and [binding/migration configuration](../../../apps/app/wrangler.jsonc) own scheduling. The Durable Object binding is explicit in both local and production environments because bindings do not inherit across environments. [D1 columns](../../../apps/app/src/server/schema.ts) and [migration](../../../apps/app/migrations/0005_incident_follow_up.sql) store due and attempted times. [Incident reads](../../../apps/app/src/server/incidents.ts) derive cancellation from shared status. [Detail](../../../apps/app/src/components/incidents/workspace.tsx) and [incoming alerts](../../../apps/app/src/components/incidents/incoming-alerts.tsx) consume the state.
 
-Implementation is connected to real device reports, recipient delivery and response commands. Capture and assessment producers remain separate unfinished work; synthetic device reports exercise the same production endpoint.
+Implementation is connected to real device reports, recipient delivery and response commands. F-DETECT-REVIEW now supplies confirmed device reports through the same production endpoint; synthetic reports remain useful for isolated response verification.
 
 ## Verification
 

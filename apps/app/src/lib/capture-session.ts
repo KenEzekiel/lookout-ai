@@ -3,10 +3,11 @@ export type CaptureSource = "camera" | "file" | null;
 export type CaptureIdentity = { deviceId: string; workspaceId: string };
 
 export type FrameSample = CaptureIdentity & {
+  id: string;
   epoch: number;
   capturedAt: number;
   mediaTimeMs: number;
-  imageDataUrl: string;
+  image: Blob;
 };
 
 export type RecentVideo =
@@ -314,12 +315,17 @@ export class CaptureSession {
 
     try {
       context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+      const bytes = Uint8Array.from(
+        atob(this.canvas.toDataURL("image/jpeg", 0.7).split(",")[1] ?? ""),
+        (character) => character.charCodeAt(0),
+      );
       this.samples.push({
+        id: crypto.randomUUID(),
         ...this.identity,
         epoch: this.epoch,
         capturedAt: Date.now(),
         mediaTimeMs: this.video.currentTime * 1000,
-        imageDataUrl: this.canvas.toDataURL("image/jpeg", 0.7),
+        image: new Blob([bytes], { type: "image/jpeg" }),
       });
       if (this.samples.length > maxSamples) this.samples.shift();
       this.publish();

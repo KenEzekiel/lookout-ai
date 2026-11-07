@@ -6,6 +6,7 @@ Depends on: F-AUTH-ACCESS, F-ALERT-INAPP
 
 ## Behavior
 
+Background alert settings use the shared accordion panel with a full-width keyboard-operable button and exposed expansion state, replacing the native disclosure triangle at Ken’s request.
 Background-alert enable and disable actions use the F-APP-SHELL compact button size and decorative bell icons. Pending updates retain their visible progress label and a busy icon.
 
 An operator explicitly enables background alerts for their signed-in browser session. Setup explains blocked permission, unsupported or insecure browsers, missing server configuration, and the iPhone or iPad Home Screen prerequisite. Turning alerts off removes the server subscription before unsubscribing the browser. Signing out ends delivery for that session. Membership removal deletes that operator's workspace subscriptions.

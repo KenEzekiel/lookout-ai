@@ -232,13 +232,11 @@
       transform: scale(0.98);
     }
 
-    [data-slot="select-chevron"],
-    [data-slot="disclosure-chevron"] {
+    [data-slot="select-chevron"] {
       transition: transform var(--motion-enter) var(--motion-ease);
     }
 
-    [data-slot="select-trigger"][aria-expanded="true"] [data-slot="select-chevron"],
-    details[open] [data-slot="disclosure-chevron"] {
+    [data-slot="select-trigger"][aria-expanded="true"] [data-slot="select-chevron"] {
       transform: rotate(180deg);
     }
 
@@ -259,8 +257,7 @@
       transform: scale(0.98);
     }
 
-    .motion-reveal,
-    details[open] > :not(summary) {
+    .motion-reveal {
       animation: reveal-content var(--motion-enter) var(--motion-ease) both;
     }
 

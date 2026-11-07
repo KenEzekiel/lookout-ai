@@ -73,6 +73,8 @@ API integration tests live in `apps/app/tests/api` under `vitest.api.config.ts`.
 
 For each changed behavior, cover its successful result and its important failure or permission boundary.
 Assert observable responses, rendered UI, or persisted state. Avoid snapshots of implementation details.
+The multipart device journey uses a dedicated environment that keeps jsdom for DOM rendering and Node's native Blob, File, FormData, Request, and Response for its native Fetch/MSW transport. Mixing jsdom multipart values with Node streams can abort request bodies before HTTP handlers receive them. [The environment adapter](../apps/app/tests/support/browser-environment.ts) preserves those transport constructors before jsdom setup. The device suite selects it through the `device` environment alias in the Vitest configuration. Vitest environment annotations accept names, not relative paths; a path annotation silently falls back to the default environment. Ordinary form-screen tests keep jsdom FormData because they construct it from an HTML form. When using Volta, run `volta run --node 24.18.0 pnpm verify` and check `pnpm exec node --version` under that same invocation; the pnpm toolchain can otherwise use a different Node version from the shell.
+
 Use asynchronous Testing Library queries to wait for visible results. Do not use fixed sleeps, skipped tests, or focused tests in committed changes.
 
 UI integration tests may mock our backend API and external services at the HTTP boundary with MSW.

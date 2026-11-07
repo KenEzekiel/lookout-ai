@@ -7,7 +7,9 @@ import {
 } from "@/components/ui/select";
 import { Link } from "@tanstack/react-router";
 import { Activity, Camera, Clock3, FileVideo, Play, Square } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { MonitoringControls } from "@/components/device-monitoring";
+import { type DeviceMonitoring } from "@/lib/device-monitoring";
 import { LiveSource } from "@/components/live-source";
 import { Brand } from "@/components/access/brand";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +33,10 @@ const selectClass = cn(
 export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionRef = useRef<CaptureSession | null>(null);
+  const monitoringRef = useRef<DeviceMonitoring | null>(null);
+  const onMonitoringController = useCallback((controller: DeviceMonitoring | null) => {
+    monitoringRef.current = controller;
+  }, []);
   const [snapshot, setSnapshot] = useState<CaptureSnapshot>(initialCaptureSnapshot);
   const [sourceChoice, setSourceChoice] = useState<SourceChoice>("camera");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -41,7 +47,14 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
 
   useEffect(() => {
     if (!videoRef.current) return;
-    const session = new CaptureSession(videoRef.current, setSnapshot, { deviceId, workspaceId });
+    const session = new CaptureSession(
+      videoRef.current,
+      (next) => {
+        monitoringRef.current?.captureChanged();
+        setSnapshot(next);
+      },
+      { deviceId, workspaceId },
+    );
     sessionRef.current = session;
     const stopWhenHidden = () => {
       if (document.hidden) session.stop();
@@ -227,7 +240,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               </div>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                 {running
-                  ? "Recent samples stay on this device. Authorized operators can view the active source. No AI assessment is connected yet."
+                  ? "Authorized operators can view the active source. Choose an assigned source below to enable AI monitoring."
                   : paused
                     ? "Playback is paused. Resume in the video controls or stop capture."
                     : (snapshot.error ?? "Select a source and start capture when it is ready.")}
@@ -296,6 +309,11 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                   </Button>
                 )}
               </div>
+              <MonitoringControls
+                session={sessionRef}
+                snapshot={snapshot}
+                onController={onMonitoringController}
+              />
               {hasError && (
                 <p role="alert" className="mt-3 text-xs text-critical">
                   {snapshot.error}
