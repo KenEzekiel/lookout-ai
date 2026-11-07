@@ -14,6 +14,25 @@ Record relevant automated checks and results.
 
 ### Manual QA
 
-For frontend journeys, include the build tested, runtime, steps, expected and observed results, and mocks or blockers required by `docs/verification.md`. Otherwise, state why manual browser QA does not apply.
+For frontend journeys, use the structure below and follow `docs/verification.md`. Otherwise, state why manual browser QA does not apply. Keep each bullet short and report one check per item.
 
-Embed screenshots from the manual QA run with captions identifying the steps or states and observed results. Add an embedded or linked demo video when screenshots cannot adequately show the behavior. Use attachments or stable URLs accessible to reviewers, and verify that the media renders or opens from this description. Document blocked capture or publication and keep the PR in draft unless the user explicitly waives the gap.
+#### Setup
+
+- Build or commit tested:
+- Runtime, browser, and viewport:
+- Test accounts, services, and mocks:
+
+#### Steps and results
+
+- Action or scenario. Expected result. Observed result.
+- Relevant error or recovery check. Expected result. Observed result.
+
+#### Evidence
+
+- Embed screenshots from the manual QA run with captions identifying the step or state and observed result.
+- Embed or link a demo video when screenshots cannot adequately show the behavior.
+- Use attachments or stable URLs accessible to reviewers. Verify that the media renders or opens from this description.
+
+#### Gaps and blockers
+
+- List unverified behavior and blocked verification, capture, or publication, or state none. Keep the PR in draft for required verification gaps unless the user explicitly waives them.
