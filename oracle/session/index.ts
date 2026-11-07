@@ -32,7 +32,7 @@ const mutationSchema = z.object({
 });
 const deliverySchema = z.object({
   id: z.string(),
-  kind: z.enum(["ack", "result", "stop"]),
+  kind: z.enum(["ack", "progress", "result", "stop"]),
   text: z.string(),
   state: z.enum(["attempting", "sent", "uncertain"]),
 });
@@ -59,7 +59,7 @@ export interface SessionStore {
   interrupt(): Promise<void>;
   complete(input: Incoming, outcome: Outcome, status?: EventState): Promise<void>;
   mutation(input: Incoming, path: string, operation: () => Promise<void>): Promise<void>;
-  delivery(address: Address, kind: "ack" | "result" | "stop", text: string): Promise<string>;
+  delivery(address: Address, kind: "progress" | "result" | "stop", text: string): Promise<string>;
   settle(address: Address, id: string, state: "sent" | "uncertain"): Promise<void>;
   snapshot(address: Address): Readonly<Document> | undefined;
   linkThread(address: Address, threadId: string): Promise<void>;

@@ -1,6 +1,13 @@
 import { App, LogLevel } from "@slack/bolt";
 import { z } from "zod";
-import { addressSchema, BoundaryError, type Incoming, incomingSchema } from "../session/domain.js";
+import {
+  addressSchema,
+  BoundaryError,
+  defaultLimits,
+  type Incoming,
+  incomingSchema,
+  type ThreadContext,
+} from "../session/domain.js";
 import type { Oracle } from "./index.js";
 
 const userIdSchema = z.string().regex(/^[UW][A-Z0-9]+$/);
@@ -15,6 +22,8 @@ const eventSchema = z.object({
   ts: incomingSchema.shape.ts,
   thread_ts: incomingSchema.shape.ts.optional(),
   text: z.string(),
+  team: identitySchema.shape.team_id.optional(),
+  user_team: identitySchema.shape.team_id.optional(),
   channel_type: z.string().optional(),
   bot_id: z.unknown().optional(),
   bot_profile: z.unknown().optional(),
@@ -25,15 +34,17 @@ export function routeSlack(args: {
   event: unknown;
   listener: "mention" | "message";
   identity: Identity;
-  allowedActors: ReadonlySet<string>;
+  teamId: unknown;
   owns: Oracle["owns"];
 }): Incoming | undefined {
   const parsed = eventSchema.safeParse(args.event);
   if (!parsed.success) return;
   const event = parsed.data;
   if (
+    args.teamId !== args.identity.team_id ||
+    (event.team !== undefined && event.team !== args.identity.team_id) ||
+    (event.user_team !== undefined && event.user_team !== args.identity.team_id) ||
     event.user === args.identity.user_id ||
-    !args.allowedActors.has(event.user) ||
     event.bot_id !== undefined ||
     event.bot_profile !== undefined ||
     event.subtype !== undefined
@@ -45,24 +56,146 @@ export function routeSlack(args: {
   if (args.listener === "mention" && !mentioned) return;
   const address = { channel: event.channel, rootTs: event.thread_ts ?? event.ts };
   if (!direct && (!event.thread_ts || !args.owns(address))) return;
+  const text = event.text.split(ownMention).join("").trim();
+  if (!text && !mentioned) return;
   return incomingSchema.parse({
     address,
     ts: event.ts,
     actor: event.user,
-    text: event.text.split(ownMention).join("").trim(),
+    text: text || "Respond to the latest request in this Slack thread.",
     route: direct ? "direct" : "thread",
   });
+}
+
+const memberSchema = z.object({
+  user: z.object({
+    id: userIdSchema,
+    team_id: identitySchema.shape.team_id,
+    is_bot: z.boolean(),
+    deleted: z.boolean(),
+    is_stranger: z.boolean().optional(),
+  }),
+});
+const repliesSchema = z.object({
+  messages: z.array(
+    z.object({
+      ts: incomingSchema.shape.ts,
+      user: userIdSchema.optional(),
+      text: z.string().default(""),
+    }),
+  ),
+  has_more: z.boolean().optional(),
+  response_metadata: z.object({ next_cursor: z.string().optional() }).optional(),
+});
+
+export function createSlackTransport(options: {
+  identity: Identity;
+  call: (method: string, args: Record<string, unknown>) => Promise<unknown>;
+  onFault: (code: string) => void;
+}) {
+  const { identity, call, onFault } = options;
+  const members = new Map<string, Promise<boolean>>();
+  const isMember = (actor: string): Promise<boolean> => {
+    let member = members.get(actor);
+    if (!member) {
+      member = (async () => {
+        try {
+          const { user } = memberSchema.parse(await call("users.info", { user: actor }));
+          return (
+            user.id === actor &&
+            user.team_id === identity.team_id &&
+            !user.is_bot &&
+            !user.deleted &&
+            !user.is_stranger
+          );
+        } catch {
+          members.delete(actor);
+          onFault("slack_membership_unavailable");
+          return false;
+        }
+      })();
+      members.set(actor, member);
+    }
+    return member;
+  };
+  return {
+    async receive(args: {
+      event: unknown;
+      teamId: unknown;
+      listener: "mention" | "message";
+      oracle: Oracle;
+    }): Promise<void> {
+      const input = routeSlack({ ...args, identity, owns: args.oracle.owns });
+      if (input && (await isMember(input.actor))) await args.oracle.receive(input);
+    },
+    async publish(address: Incoming["address"], text: string): Promise<void> {
+      await call("chat.postMessage", {
+        channel: address.channel,
+        thread_ts: address.rootTs,
+        text,
+        unfurl_links: false,
+        unfurl_media: false,
+      });
+    },
+    async setStatus(address: Incoming["address"], status: "processing" | "active"): Promise<void> {
+      await call("agents.sessions.setStatus", {
+        channel_id: address.channel,
+        thread_ts: address.rootTs,
+        status,
+      });
+    },
+    async context(input: Incoming): Promise<ThreadContext> {
+      try {
+        let cursor: string | undefined;
+        const messages: { actor: string; ts: string; text: string }[] = [];
+        let truncated = false;
+        for (let page = 0; page < 5; page++) {
+          const result = repliesSchema.parse(
+            await call("conversations.replies", {
+              channel: input.address.channel,
+              ts: input.address.rootTs,
+              latest: input.ts,
+              inclusive: false,
+              limit: 100,
+              ...(cursor ? { cursor } : {}),
+            }),
+          );
+          for (const message of result.messages) {
+            if (message.user && Number(message.ts) < Number(input.ts))
+              messages.push({ actor: message.user, ts: message.ts, text: message.text });
+          }
+          cursor = result.response_metadata?.next_cursor || undefined;
+          truncated = Boolean(result.has_more || cursor);
+          if (!truncated) break;
+          if (!cursor) throw new BoundaryError("slack_context_incomplete");
+        }
+        messages.sort((a, b) => Number(a.ts) - Number(b.ts));
+        while (
+          messages.length > defaultLimits.maxHistoryTurns ||
+          Buffer.byteLength(JSON.stringify(messages)) > defaultLimits.maxHistoryBytes
+        ) {
+          messages.shift();
+          truncated = true;
+        }
+        return { kind: "available", messages, truncated };
+      } catch {
+        onFault("slack_context_unavailable");
+        return { kind: "unavailable" };
+      }
+    },
+  };
 }
 
 export async function connectSlack(options: {
   botToken: string;
   appToken: string;
-  allowedActors: ReadonlySet<string>;
   expectedIdentity?: Identity;
   onFault: (code: string) => void;
 }): Promise<{
   identity: Identity;
   publish: (address: Incoming["address"], text: string) => Promise<void>;
+  setStatus: ReturnType<typeof createSlackTransport>["setStatus"];
+  context: ReturnType<typeof createSlackTransport>["context"];
   listen: (oracle: Oracle) => Promise<void>;
   close: () => Promise<void>;
 }> {
@@ -70,6 +203,11 @@ export async function connectSlack(options: {
     token: options.botToken,
     appToken: options.appToken,
     socketMode: true,
+    clientOptions: {
+      timeout: 5_000,
+      retryConfig: { retries: 0 },
+      rejectRateLimitedCalls: true,
+    },
     logger: {
       debug() {},
       info() {},
@@ -96,31 +234,22 @@ export async function connectSlack(options: {
   app.error(async () => {
     options.onFault("slack_listener_error");
   });
+  const transport = createSlackTransport({
+    identity,
+    call: (method, args) => app.client.apiCall(method, args),
+    onFault: options.onFault,
+  });
   return {
     identity,
-    async publish(address, text) {
-      await app.client.chat.postMessage({
-        channel: address.channel,
-        thread_ts: address.rootTs,
-        text,
-      });
-    },
+    publish: transport.publish,
+    setStatus: transport.setStatus,
+    context: transport.context,
     async listen(oracle) {
-      const receive = async (event: unknown, listener: "mention" | "message"): Promise<void> => {
-        const input = routeSlack({
-          event,
-          listener,
-          identity,
-          allowedActors: options.allowedActors,
-          owns: oracle.owns,
-        });
-        if (input) await oracle.receive(input);
-      };
-      app.event("app_mention", async ({ event }) => {
-        await receive(event, "mention");
+      app.event("app_mention", async ({ event, body }) => {
+        await transport.receive({ event, teamId: body.team_id, listener: "mention", oracle });
       });
-      app.event("message", async ({ event }) => {
-        await receive(event, "message");
+      app.event("message", async ({ event, body }) => {
+        await transport.receive({ event, teamId: body.team_id, listener: "message", oracle });
       });
       await app.start();
     },

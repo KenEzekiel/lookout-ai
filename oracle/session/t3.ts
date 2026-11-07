@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
+import { progressSchema } from "./domain.js";
 
 const id = z.string().min(1);
 const status = z.enum([
@@ -321,7 +322,13 @@ export class T3Client {
     }
   }
 
-  async finish(input: { threadId: string; runId: string; signal: AbortSignal }): Promise<T3Finish> {
+  async finish(input: {
+    threadId: string;
+    runId: string;
+    signal: AbortSignal;
+    onProgress?: (text: string) => Promise<void>;
+  }): Promise<T3Finish> {
+    const reported = new Set<string>();
     let stopped: Promise<void> | undefined;
     const stop = () => {
       stopped ??= this.stopAndDrain(input);
@@ -337,6 +344,10 @@ export class T3Client {
         input.signal.throwIfAborted();
         const waited = await this.wait({ threadId: input.threadId, runId: input.runId });
         input.signal.throwIfAborted();
+        if (input.onProgress) {
+          await this.progress({ ...input, onProgress: input.onProgress, reported });
+          input.signal.throwIfAborted();
+        }
         if (!waited.timedOut) {
           const resultRun = waited.resultRun ?? waited;
           if (resultRun.status !== "completed" || resultRun.runId === null)
@@ -357,6 +368,49 @@ export class T3Client {
     } finally {
       input.signal.removeEventListener("abort", onAbort);
     }
+  }
+
+  private async progress(input: {
+    threadId: string;
+    runId: string;
+    signal: AbortSignal;
+    onProgress: (text: string) => Promise<void>;
+    reported: Set<string>;
+  }): Promise<void> {
+    let afterPosition: number | undefined;
+    for (let page = 0; page < 50; page++) {
+      const result = await this.readPage({
+        threadId: input.threadId,
+        view: "messages",
+        limit: 100,
+        ...(afterPosition === undefined ? {} : { afterPosition }),
+      });
+      for (const item of result.items) {
+        input.signal.throwIfAborted();
+        if (
+          item.runId !== input.runId ||
+          item.type !== "assistant_message" ||
+          item.textTruncated ||
+          !item.text ||
+          input.reported.has(item.itemId)
+        )
+          continue;
+        let data: unknown;
+        try {
+          data = JSON.parse(item.text);
+        } catch {
+          continue;
+        }
+        const parsed = progressSchema.safeParse(data);
+        if (!parsed.success) continue;
+        input.reported.add(item.itemId);
+        await input.onProgress(parsed.data.text);
+      }
+      if (!result.hasMore || result.nextPosition === null) return;
+      if (result.nextPosition <= (afterPosition ?? -1)) throw new T3Error();
+      afterPosition = result.nextPosition;
+    }
+    throw new T3Error();
   }
 
   private async reply(input: { threadId: string; runId: string }): Promise<string | null> {

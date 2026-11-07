@@ -55,7 +55,6 @@ async function main(): Promise<void> {
   slack = await connectSlack({
     botToken: config.slack.botToken,
     appToken: config.slack.appToken,
-    allowedActors: new Set(config.slack.allowedActors),
     onFault,
     ...(identity ? { expectedIdentity: identity } : {}),
   });
@@ -78,6 +77,7 @@ async function main(): Promise<void> {
     sessions,
     policy,
     disclosure,
+    context: slack.context,
     projectId: config.t3.projectId,
     instanceId: config.t3.instanceId,
     model: config.t3.model,
@@ -86,6 +86,7 @@ async function main(): Promise<void> {
     sessions,
     runner,
     publish: slack.publish,
+    setStatus: slack.setStatus,
     disclosure,
     limits: defaultLimits,
     onFault,

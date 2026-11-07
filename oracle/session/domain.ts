@@ -19,11 +19,22 @@ export const eventId = (input: Incoming): string => `${input.address.channel}:${
 
 export const historySchema = z.object({ role: z.enum(["user", "assistant"]), text: z.string() });
 export type HistoryItem = z.infer<typeof historySchema>;
+export type ThreadContext =
+  | {
+      kind: "available";
+      messages: readonly { actor: string; ts: string; text: string }[];
+      truncated: boolean;
+    }
+  | { kind: "unavailable" };
 export const outcomeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("reply"), text: z.string().min(1).max(6000) }),
   z.object({ kind: z.literal("silent") }),
 ]);
 export type Outcome = z.infer<typeof outcomeSchema>;
+export const progressSchema = z.object({
+  kind: z.literal("progress"),
+  text: z.string().min(1).max(6000),
+});
 export type Admission = "accepted" | "duplicate" | "ignored" | "busy" | "stopped";
 
 export type Limits = typeof defaultLimits;

@@ -100,6 +100,66 @@ test("reads final reply for exact run and joins a truncated message", async () =
   });
 });
 
+test("relays structured progress once per item and never forwards raw commentary", async () => {
+  let waits = 0;
+  const updates = [];
+  const client = new T3Client({
+    async call(name) {
+      if (name === "t3_thread_wait") {
+        waits++;
+        return {
+          threadId,
+          runId,
+          status: waits < 2 ? "running" : "completed",
+          timedOut: waits < 2,
+        };
+      }
+      const messages = [
+        {
+          itemId: "old",
+          runId: "old-run",
+          type: "assistant_message",
+          text: '{"kind":"progress","text":"Old update"}',
+          textTruncated: false,
+        },
+        {
+          itemId: "raw",
+          runId,
+          type: "assistant_message",
+          text: "Private internal commentary",
+          textTruncated: false,
+        },
+        {
+          itemId: "progress",
+          runId,
+          type: "assistant_message",
+          text: '{"kind":"progress","text":"I am tracing the thread handler."}',
+          textTruncated: false,
+        },
+      ];
+      if (waits === 2)
+        messages.push({
+          itemId: "final",
+          runId,
+          type: "assistant_message",
+          text: '{"kind":"reply","text":"Fixed."}',
+          textTruncated: false,
+        });
+      return snapshot(waits < 2 ? runId : null, waits < 2 ? "running" : "completed", messages);
+    },
+  });
+  const result = await client.finish({
+    threadId,
+    runId,
+    signal: new AbortController().signal,
+    onProgress: async (text) => {
+      updates.push(text);
+    },
+  });
+  assert.deepEqual(updates, ["I am tracing the thread handler."]);
+  assert.equal(result.reply, '{"kind":"reply","text":"Fixed."}');
+});
+
 test("an abort resolves only after actual server stop reaches terminal state", async () => {
   const controller = new AbortController();
   controller.abort();

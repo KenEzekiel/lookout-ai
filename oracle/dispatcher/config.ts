@@ -12,10 +12,6 @@ const configSchema = z.object({
   slack: z.object({
     botToken: z.string().regex(/^xoxb-/),
     appToken: z.string().regex(/^xapp-/),
-    allowedActors: z
-      .array(z.string().regex(/^[UW][A-Z0-9]+$/))
-      .min(1)
-      .max(100),
   }),
   t3: z.object({
     endpoint: z.string().url(),
@@ -43,9 +39,6 @@ export async function loadConfig(): Promise<Config> {
     slack: {
       botToken: process.env.SLACK_BOT_TOKEN,
       appToken: process.env.SLACK_APP_TOKEN,
-      allowedActors: process.env.SLACK_ALLOWED_USER_IDS?.split(",")
-        .map((id) => id.trim())
-        .filter(Boolean),
     },
     t3: {
       endpoint: process.env.T3_MCP_ENDPOINT,
