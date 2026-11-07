@@ -98,7 +98,7 @@ Use `run deploy` explicitly because `pnpm deploy` invokes pnpm's own workspace d
 
 `BETTER_AUTH_SECRET` is configured as a Cloudflare Worker secret and is required by the production environment. Preserve it across deployments. For a new environment, generate a random value of at least 32 characters and upload it with `wrangler secret put BETTER_AUTH_SECRET --env production --config wrangler.jsonc` from `apps/app`. Never commit credentials. Local secrets belong in the ignored `apps/app/.dev.vars` file.
 
-This deployment uses Workers and D1 features available on the Free plan. Do not upgrade the account or enable paid services for this demo. Wrangler's OAuth token cannot read billing subscriptions, so the account's existing plan must be checked in the Cloudflare dashboard.
+This deployment uses Workers and D1 features available on the Free plan. Do not upgrade the account or enable paid services for this demo. The account owner confirmed Workers Free on November 7, 2026. Wrangler's OAuth token cannot independently read billing subscriptions.
 
 Deployment verification on November 7, 2026 passed the full `pnpm verify` suite, HTTPS homepage and Chromium rendering checks, and live signup, workspace creation, sign-in, secure-cookie, and sign-out checks. The temporary verification account and workspace were removed afterward.
 
