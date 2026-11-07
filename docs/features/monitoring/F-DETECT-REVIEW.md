@@ -18,6 +18,8 @@ F-RULE-CONFIG now publishes [versioned rule snapshots](../../../apps/app/src/lib
 
 Use the capture session and rule version in reports. Preserve the event interval on confirmation and report before waiting for upload. Repeated observations of an ongoing event update its incident.
 
+F-AI-RELAY provides a [transport contract](../../../apps/app/src/lib/assessment.ts). Decisions returns match and uncertainty probabilities; the device owns thresholds. Review uses GPT-6.1 Terra with medium reasoning and returns `positive`, `rejected`, or `need_more_evidence`. Transport/refusal failures remain `unavailable`, never a negative observation. The endpoint authorizes the stored source and enabled rule version from F-RULE-CONFIG. No assessment loop is wired to this helper yet. Pass the shared rule/version and source references, apply configured duration locally, and preserve capture-epoch and request context to discard late results.
+
 ## Implementation
 
 Not implemented in the current application. Add actual source links when implementation lands.
@@ -32,4 +34,4 @@ Exercise positive, harmless, ambiguous, and provider-failure cases. Verify no al
 
 ## Open questions
 
-Models, thresholds, cadence, observation windows, and uncertainty handling remain open. Agreement between models is not proof of accuracy.
+The user selected GPT-6.1 Terra with medium reasoning for review in the current relay PR. Live access, quality, thresholds, cadence, and uncertainty handling remain unverified. The relay's eight-frame/30-second envelope is an input bound, not a sampling policy. Agreement between models is not proof of accuracy.

@@ -7,9 +7,10 @@
   "observability": {
     "enabled": true,
   },
-  "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+  "secrets": { "required": ["BETTER_AUTH_SECRET", "OPENAI_API_KEY"] },
   "vars": {
     "APP_URL": "http://localhost:3000",
+    "OPENAI_BASE_URL": "https://api.openai.com/v1",
   },
   "d1_databases": [
     {

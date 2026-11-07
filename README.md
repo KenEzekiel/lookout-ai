@@ -100,6 +100,8 @@ The committed D1 database ID is a local-development placeholder. Before an autho
 
 Add other service bindings as services are selected. Run `pnpm --filter @lookout/app cf-typegen` after changing bindings. Local secrets belong in `apps/app/.dev.vars`, which Git ignores; use Wrangler secrets for production values. Do not commit credentials.
 
+The assessment relay uses the Worker secret `OPENAI_API_KEY`. Leave it empty when not using remote inference; authorized assessment requests return `provider_not_configured`. Set it with Wrangler secrets for an authorized deployment. `OPENAI_BASE_URL` defaults to `https://api.openai.com/v1`; the API tests override it with a local HTTP mock and an artificial key. Never point tests at a live provider. The [relay feature record](docs/features/monitoring/F-AI-RELAY.md) documents the typed contract, limits, and remaining device-loop integration.
+
 Local Worker integration and browser journeys exercise the built application. Cloud provisioning and deployment have not been performed for this access slice.
 
 ## Working together

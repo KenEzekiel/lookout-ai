@@ -14,6 +14,7 @@ import { Route as DeviceRouteImport } from './routes/device'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as MonitorRouteImport } from './routes/monitor'
 import { Route as TriggersRouteImport } from './routes/triggers'
+import { Route as ApiAssessmentRouteImport } from './routes/api/assessment'
 import { Route as ApiAccessSplatRouteImport } from './routes/api/access/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiConfigSplatRouteImport } from './routes/api/config/$'
@@ -43,6 +44,11 @@ const TriggersRoute = TriggersRouteImport.update({
   path: '/triggers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAssessmentRoute = ApiAssessmentRouteImport.update({
+  id: '/api/assessment',
+  path: '/api/assessment',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAccessSplatRoute = ApiAccessSplatRouteImport.update({
   id: '/api/access/$',
   path: '/api/access/$',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/triggers': typeof TriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/triggers': typeof TriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/triggers': typeof TriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/monitor'
     | '/triggers'
+    | '/api/assessment'
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/monitor'
     | '/triggers'
+    | '/api/assessment'
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/monitor'
     | '/triggers'
+    | '/api/assessment'
     | '/api/access/$'
     | '/api/auth/$'
     | '/api/config/$'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   JoinRoute: typeof JoinRoute
   MonitorRoute: typeof MonitorRoute
   TriggersRoute: typeof TriggersRoute
+  ApiAssessmentRoute: typeof ApiAssessmentRoute
   ApiAccessSplatRoute: typeof ApiAccessSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiConfigSplatRoute: typeof ApiConfigSplatRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TriggersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/assessment': {
+      id: '/api/assessment'
+      path: '/api/assessment'
+      fullPath: '/api/assessment'
+      preLoaderRoute: typeof ApiAssessmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/access/$': {
       id: '/api/access/$'
       path: '/api/access/$'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinRoute: JoinRoute,
   MonitorRoute: MonitorRoute,
   TriggersRoute: TriggersRoute,
+  ApiAssessmentRoute: ApiAssessmentRoute,
   ApiAccessSplatRoute: ApiAccessSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiConfigSplatRoute: ApiConfigSplatRoute,
