@@ -6,6 +6,8 @@ Depends on: none
 
 ## Behavior
 
+Account, onboarding, pairing, invitation, retry, and removal controls use the shared action icons and size variants described by F-APP-SHELL. Live view and Remove access use the same compact size within each device row; dialogs retain visible labels and confirmation boundaries.
+
 People register with email/password and immediately create or join one workspace. Verification email and password recovery are deferred. The creator is its owner. Invitation links and six-digit codes admit one signed-in operator within 15 minutes. Owners remove operators and authorize or revoke devices. Operators do not manage access.
 
 Monitoring browsers display a five-minute pairing code. The owner approves it in a separate session or switches their current browser directly into restricted device mode. The latter invalidates that browser's human session across tabs. Devices can access every monitoring source in their workspace for this demo, replacing the original per-source assignment requirement. Device credentials survive refresh and restart while browser storage remains. Revocation blocks the next request. Signing out of a separate owner session leaves the device paired.
@@ -39,6 +41,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 [Browser journey](../../../tests/e2e/access.spec.ts) verifies separate owner/operator/device sessions, link registration, refresh, owner sign-out, revocation, member removal, same-browser switching, and recovery. Interactive Playwright QA on the production build also exercised code-based joining, an invalid invitation, keyboard navigation, narrow-screen layout, and cross-tab access changes without internal mocks. The current PR records the tested revision and results. Cloud deployment verification on November 7, 2026 exercised signup, workspace creation, sign-in, secure cookies, and sign-out against the deployed Worker and D1 database. The temporary account and workspace were removed. [Deployment setup](../../../README.md#cloudflare-deployment) records the production origin and commands. Monitoring consumers remain unverified.
 
 ## Decisions and sources
+
+The [access forms](../../../apps/app/src/components/access/forms.tsx), [workspace actions](../../../apps/app/src/components/access/workspace-actions.tsx), and [workspace rows](../../../apps/app/src/components/access/workspace.tsx) inherit shared Button sizing rather than overriding heights. Kenneth requested clearer button icons and consistent sizing. Owner-only controls, confirmation, and request semantics remain unchanged.
 
 This PR implements the user-approved access-flow and copy refinement. API schemas, session semantics, invitation lifetimes, and device privileges remain unchanged. Existing capture and planned consumers continue to use the same principal boundary.
 

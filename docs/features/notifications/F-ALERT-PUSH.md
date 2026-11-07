@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS, F-ALERT-INAPP
 
 ## Behavior
 
+Background-alert enable and disable actions use the F-APP-SHELL compact button size and decorative bell icons. Pending updates retain their visible progress label and a busy icon.
+
 An operator explicitly enables background alerts for their signed-in browser session. Setup explains blocked permission, unsupported or insecure browsers, missing server configuration, and the iPhone or iPad Home Screen prerequisite. Turning alerts off removes the server subscription before unsubscribing the browser. Signing out ends delivery for that session. Membership removal deletes that operator's workspace subscriptions.
 
 A notification contains only a generic Lookout title, generic sign-in guidance, and an incident ID. Clicking it focuses and navigates an existing same-origin window or opens the corresponding incident page. It never acknowledges the incident. The existing access gate and member-authorized detail endpoint protect evidence and context after navigation. Already dispatched notifications can remain after sign-out or a response, but contain no incident details.
@@ -45,6 +47,8 @@ Implementation and local integration coverage are present. Physical desktop back
 Manual browser QA and its exact mocks, tested build and media belong in the PR. Actual OS notification delivery, foreground and background operation on target desktop, Android and iOS devices, Home Screen installation, and denied-permission recovery remain required target-device checks. Emulation and CI do not establish those results.
 
 ## Decisions and sources
+
+Kenneth requested consistent button sizing and clearer action icons. [Background-alert controls](../../../apps/app/src/components/incidents/push-setup.tsx) use the shared Button size and icon contract. Permission consent and delivery behavior remain unchanged; existing complete-screen tests cover enable, disable, failure, and retry.
 
 [Issue #24](https://github.com/KenEzekiel/lookout-ai/issues/24), [experience design](../../architecture/design.md#operator-notifications), and [visual design](../../../DESIGN.md). This PR introduces the subscription and attempt contracts above.
 
