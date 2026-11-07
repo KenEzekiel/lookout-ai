@@ -335,6 +335,7 @@ test("stop actions reject foreign members, bots, malformed payloads and unowned 
     },
     idle: async () => {},
     retryPending: () => {},
+    drain: async () => {},
     close: async () => {},
   };
   const transport = createSlackTransport({
