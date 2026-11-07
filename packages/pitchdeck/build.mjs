@@ -5,6 +5,9 @@ const root = new URL("./", import.meta.url);
 const font = await readFile(
   new URL(import.meta.resolve("@fontsource-variable/geist/files/geist-latin-wght-normal.woff2")),
 );
+const camera = await readFile(new URL("assets/parking-camera.jpg", root));
+const slackRequest = await readFile(new URL("assets/oracle-slack-request.jpg", root));
+const slackChecks = await readFile(new URL("assets/oracle-slack-checks.jpg", root));
 const files = (await readdir(new URL("slides/", root)))
   .filter((file) => file.endsWith(".html"))
   .sort();
@@ -18,8 +21,23 @@ const [template, css, player] = await Promise.all(
   ),
 );
 const html = template
-  .replace("{{styles}}", () => css.replace("__GEIST_FONT__", font.toString("base64")))
-  .replace("{{slides}}", () => slides.join("\n"))
+  .replace("{{styles}}", () =>
+    css
+      .replace("__GEIST_FONT__", font.toString("base64"))
+      .replaceAll("__CAMERA_IMAGE__", camera.toString("base64")),
+  )
+  .replace("{{slides}}", () =>
+    slides
+      .join("\n")
+      .replace(
+        "__SLACK_REQUEST_SCREENSHOT__",
+        `data:image/jpeg;base64,${slackRequest.toString("base64")}`,
+      )
+      .replace(
+        "__SLACK_CHECKS_SCREENSHOT__",
+        `data:image/jpeg;base64,${slackChecks.toString("base64")}`,
+      ),
+  )
   .replace("__PITCHDECK_PLAYER__;", () => `${player}\nmountDeck(document);`);
 await mkdir(new URL("dist/", root), { recursive: true });
 await writeFile(new URL("dist/index.html", root), html);

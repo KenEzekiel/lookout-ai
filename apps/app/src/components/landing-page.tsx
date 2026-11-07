@@ -190,6 +190,7 @@ export function LandingPage() {
                       alt="Example parking-area camera view with two cars"
                       fetchPriority="high"
                     />
+                    <span className="landing-camera-target" aria-hidden="true" />
                     <span className="landing-camera-caption">
                       Replay example <span>09:41:24</span>
                     </span>

@@ -1,15 +1,39 @@
-<section class="slide">
-  <p class="eyebrow">03 / Live demo</p>
-  <h2>One event.<br />Follow the response.</h2>
-  <ol>
-    <li>Configure a rule for the video source.</li>
-    <li>Show the event and inspect its evidence.</li>
-    <li>Show the alert and acknowledgment.</li>
-  </ol>
-  <p class="detail">Demo checklist. Confirm the available steps before presenting.</p>
+<section class="slide slide-clients">
+  <div class="slide-inner">
+    <p class="slide-label">How it works</p>
+    <h2>Two focused views.<br />One shared incident.</h2>
+    <div class="client-map">
+      <div class="client-view">
+        <span class="client-type">Operational device</span>
+        <strong>Watch the source</strong>
+        <p>
+          Connect camera or replayed video. Keep a recent local buffer. Run assessment and report a
+          confirmed event.
+        </p>
+        <span class="client-bottom">Device → server</span>
+      </div>
+      <div class="client-bridge" aria-hidden="true"><span>→</span></div>
+      <div class="client-view">
+        <span class="client-type">Operator workspace</span>
+        <strong>Own the response</strong>
+        <p>
+          Receive the incident, inspect evidence, acknowledge the alert, and choose its outcome.
+        </p>
+        <span class="client-bottom">Server → operator</span>
+      </div>
+    </div>
+    <p class="flow-note">
+      Only confirmed incident clips are intended for server replay. The alert can arrive while the
+      clip is still uploading.
+    </p>
+  </div>
   <aside data-notes hidden>
-    Switch to the app for the demonstration. The planned examples are a prerecorded car crash and a
-    safely staged fall by a consenting participant. Keep a local backup recording. Remove any demo
-    step that is not implemented.
+    The device owns capture, a rolling buffer, and the assessment loop. Model inference runs through
+    an authenticated server relay; a browser does not hold an OpenAI key. The server owns shared
+    incident state, alert routing, replay, and escalation. The operator can close their workspace
+    without stopping the separate operational device. The current build has incomplete connections
+    between assessment, reporting, and clip upload. The two planned demonstrations are a permitted
+    crash replay and a safely staged fall with a consenting participant. Show only connected steps
+    after a real run, and avoid promising universal camera support.
   </aside>
 </section>

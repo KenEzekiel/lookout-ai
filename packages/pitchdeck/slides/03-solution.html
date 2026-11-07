@@ -1,14 +1,36 @@
-<section class="slide">
-  <p class="eyebrow">02 / Product direction</p>
-  <h2>A watch rule.<br />An accountable response.</h2>
-  <p class="lead">
-    Describe the event you care about and who needs to know. Lookout aims to connect visual
-    assessment to an incident with evidence.
-  </p>
-  <p class="detail">Designed for configurable events, including falls and road incidents.</p>
+<section class="slide slide-flow">
+  <div class="slide-inner">
+    <p class="slide-label">What is Lookout?</p>
+    <h2>One rule. One incident.<br />One person who can act.</h2>
+    <div class="flow-track" aria-label="Lookout incident flow">
+      <div class="flow-step">
+        <span class="flow-index">01</span><strong>Define</strong
+        ><span>Choose a source, describe the event, and assign a recipient.</span>
+      </div>
+      <div class="flow-step">
+        <span class="flow-index">02</span><strong>Check</strong
+        ><span>Assess what the camera shows and review a candidate with evidence.</span>
+      </div>
+      <div class="flow-step">
+        <span class="flow-index">03</span><strong>Alert</strong
+        ><span>Open one incident and notify the assigned person.</span>
+      </div>
+      <div class="flow-step">
+        <span class="flow-index">04</span><strong>Respond</strong
+        ><span>Inspect the clip, acknowledge, dismiss, or resolve.</span>
+      </div>
+    </div>
+    <p class="flow-note">
+      Acknowledge means “I’m handling it.” Resolve means the response is complete.
+    </p>
+  </div>
   <aside data-notes hidden>
-    This slide describes the intended product. Before presenting, update the deck to distinguish
-    what the live demo supports from what is still planned. The repository PRD owns the agreed
-    product direction.
+    This is the agreed end-to-end product flow, not a claim that every connection is deployed. Rules
+    are specific to a source and recipient. Candidate review precedes automatic alerting. Repeated
+    observations of the same event should enrich the open incident rather than create repeated
+    initial alerts. Acknowledgment stops further paging; a person resolves or dismisses the incident
+    separately. Live AI assessment, target-device background push, and cloud clip retention still
+    need end-to-end proof; describe the flow as the product direction until those steps pass a real
+    run.
   </aside>
 </section>

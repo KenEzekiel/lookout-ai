@@ -34,7 +34,9 @@ test("presents the built HTML deck with bounded navigation and a slide picker", 
   unmount = mountDeck(document);
   const user = userEvent.setup();
   expect(screen.getAllByRole("group")).toHaveLength(1);
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("lookout");
+  expect(screen.getByRole("heading", { level: 1 }).textContent.replace(/\s+/g, " ")).toContain(
+    "moments that matter",
+  );
   expect(screen.getByRole("button", { name: "Previous slide" }).disabled).toBe(true);
   await user.click(screen.getByRole("button", { name: "Next slide" }));
   expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Cameras record");
@@ -66,9 +68,9 @@ test("notes are opt-in and follow the current slide", async () => {
   const user = userEvent.setup();
   expect(screen.queryByRole("complementary", { name: "Speaker notes" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Notes" }));
-  expect(screen.getByRole("complementary").textContent).toContain("Introduce the team");
+  expect(screen.getByRole("complementary").textContent).toContain("Introduce Lesgo Heketon");
   await user.click(screen.getByRole("button", { name: "Next slide" }));
-  expect(screen.getByRole("complementary").textContent).toContain("one concrete example");
+  expect(screen.getByRole("complementary").textContent).toContain("parking-area example");
   await user.click(screen.getByRole("button", { name: "Notes" }));
   expect(screen.queryByRole("complementary")).toBeNull();
 });
@@ -116,4 +118,31 @@ test("blocked audience windows leave the original deck usable", async () => {
   expect(screen.queryByRole("complementary")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Next slide" }));
   expect(window.location.hash).toBe("#2");
+});
+
+test("the built deck explains the two product clients", async () => {
+  unmount = mountDeck(document);
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByRole("combobox"), "3");
+  expect(screen.getByText("Operational device")).toBeTruthy();
+  expect(screen.getByText("Operator workspace")).toBeTruthy();
+});
+
+test("the build slide embeds the real Oracle Slack capture and links its source", async () => {
+  unmount = mountDeck(document);
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByRole("combobox"), "4");
+  expect(screen.getByRole("heading", { name: /A request in Slack/ })).toBeTruthy();
+  expect(screen.getByText("Aji shares issue #19")).toBeTruthy();
+  expect(screen.getByText("Oracle reports the checks")).toBeTruthy();
+  expect(
+    screen.getByRole("img", { name: /Real Slack message from Aji/ }).getAttribute("src"),
+  ).toMatch(/^data:image\/jpeg;base64,/);
+  expect(
+    screen.getByRole("img", { name: /Real Slack reply from Oracle/ }).getAttribute("src"),
+  ).toMatch(/^data:image\/jpeg;base64,/);
+  expect(screen.getByText("Oracle in #hackathon · 7 Nov 2026")).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: /Open the source thread/ }).getAttribute("href"),
+  ).toContain("slack.com/archives/");
 });
