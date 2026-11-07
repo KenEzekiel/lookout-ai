@@ -14,6 +14,8 @@ The operational device calls the relay during assessment. This is a supporting p
 
 ## Wiring and compatibility
 
+Custom rule conditions now include optional `exclusions`. The assessment integration must consume both the authored text and exclusions; `conditionText` provides their combined instruction text. Preserve a separate ambiguity assessment and candidate review rather than treating a predicate score as a confirmed incident. The relay and assessment execution remain unimplemented.
+
 F-RULE-CONFIG now publishes [rule and source schemas](../../../apps/app/src/lib/rules.ts) through `GET /api/config/device`. Relay authorization must use the stored source ID and current enabled rule/version from that contract. This consumer remains unimplemented.
 
 Use `monitoringDevice` from the delivered F-AUTH-ACCESS boundary. Demo scope is all sources in that device’s workspace. Validate requested sources against that workspace, and deny revoked credentials on every request. This relay connection is still unimplemented.
