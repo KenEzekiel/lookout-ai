@@ -22,7 +22,7 @@ function EventTime({ at }: { at: number }) {
 function Status({ incident }: { incident: Incident }) {
   return (
     <span
-      className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${incident.status === "open" ? "bg-incident text-incident-foreground" : incident.status === "resolved" ? "bg-muted text-resolved" : "bg-muted text-foreground"}`}
+      className={`inline-flex text-sm font-medium ${incident.status === "open" ? "text-incident" : incident.status === "resolved" ? "text-resolved" : "text-muted-foreground"}`}
     >
       {incidentStatusLabels[incident.status]}
     </span>
@@ -117,16 +117,18 @@ export function IncidentInbox() {
           </Link>
         </div>
       ) : (
-        <ul className="grid gap-3" aria-label="Incidents">
+        <ul className="divide-y divide-border border-y border-border" aria-label="Incidents">
           {incidents.map((incident) => (
             <li key={incident.id}>
               <Link
                 to="/incidents/$incidentId"
                 params={{ incidentId: incident.id }}
-                className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-card p-6 outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-accent"
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 py-5 outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-accent/30"
               >
                 <div className="min-w-0">
-                  <p className="text-panel-title break-words">{incident.rule.definition.name}</p>
+                  <p className="text-base font-medium break-words">
+                    {incident.rule.definition.name}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground break-words">
                     {incident.source.name} ·{" "}
                     {incident.source.kind === "replay" ? "Replayed footage" : "Camera"}
@@ -277,11 +279,11 @@ export function IncidentDetail({ id }: { id: string }) {
               Event time · <EventTime at={incident.eventTime} />
             </p>
           </header>
-          <div className="grid items-start gap-6 lg:grid-cols-[1.5fr_1fr]">
+          <div className="grid items-start gap-8 lg:grid-cols-[2fr_1fr]">
             <div className="grid gap-6">
               <section
                 aria-label="Evidence"
-                className="flex min-h-60 flex-col items-center justify-center gap-3 rounded-2xl bg-card p-8 text-center"
+                className={`flex min-h-60 flex-col items-center justify-center gap-3 ${incident.evidenceStatus === "ready" ? "text-left" : "rounded-lg bg-card p-6 text-center"}`}
               >
                 {incident.evidenceStatus === "ready" ? (
                   <>
@@ -311,7 +313,7 @@ export function IncidentDetail({ id }: { id: string }) {
                   </>
                 )}
               </section>
-              <section aria-labelledby="rule-title" className="rounded-2xl bg-card p-6">
+              <section aria-labelledby="rule-title" className="border-t border-border pt-5">
                 <h3 id="rule-title" className="text-panel-title">
                   Matched trigger
                 </h3>
@@ -323,8 +325,11 @@ export function IncidentDetail({ id }: { id: string }) {
                 </p>
               </section>
             </div>
-            <div className="grid gap-6 rounded-2xl bg-card p-6">
-              <section aria-labelledby="response-title">
+            <div className="contents lg:grid lg:gap-6">
+              <section
+                aria-labelledby="response-title"
+                className="order-first border-t-2 border-incident pt-4 lg:order-none"
+              >
                 <h3 id="response-title" className="text-panel-title">
                   Response
                 </h3>
@@ -380,7 +385,7 @@ export function IncidentDetail({ id }: { id: string }) {
                   )}
                 </div>
               </section>
-              <section aria-labelledby="alert-title">
+              <section aria-labelledby="alert-title" className="border-t border-border pt-5">
                 <h3 id="alert-title" className="text-panel-title">
                   Alert delivery
                 </h3>
@@ -440,7 +445,7 @@ export function IncidentDetail({ id }: { id: string }) {
                       : "Escalation continues only while nobody acknowledges."}
                 </p>
               </section>
-              <section aria-labelledby="timeline-title">
+              <section aria-labelledby="timeline-title" className="border-t border-border pt-5">
                 <h3 id="timeline-title" className="flex items-center gap-2 text-panel-title">
                   <Clock aria-hidden="true" className="size-4" />
                   Timeline

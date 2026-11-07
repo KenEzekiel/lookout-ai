@@ -38,6 +38,8 @@ The device owns the assessment loop but does not run the model locally. A browse
 
 ## Operator workspace layout
 
+The user-approved register direction replaces repeated cards on Devices, Triggers and the incident inbox with full-width rows and fine dividers. Keep Geist and the existing identity. Place browser activation below the paired-device list; preserve separate authorization and health semantics. Trigger descriptions retain their authored wording with uniform weight and color, without highlighted phrases or generated sentence templates. Keep metadata and existing actions available. Incident detail gives ready replay the full evidence column and uses a restrained amber rule above response. On narrow screens, response actions precede the evidence visually.
+
 Use a slim top bar for the lowercase wordmark, source or place selector, primary destinations, and **New trigger**. The current source name belongs in that bar. Do not add a breadcrumb that repeats it. Keep profile or settings access at the far edge. **New trigger** belongs only in the operator client.
 
 On a wide desktop, available video or replay occupies about two thirds of the main width. The incident panel occupies the rest. Use roughly 24 to 32 px outer padding and a 20 to 24 px gutter. The evidence is the largest object, while the incident title and response buttons remain visible without scrolling. Avoid a wall of small cards around the footage. The operator client does not need to remain open for monitoring to continue.

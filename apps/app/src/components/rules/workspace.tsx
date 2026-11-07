@@ -73,9 +73,7 @@ export function RuleWorkspace() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-page-title">Triggers</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Define what matters for each source in your workspace.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">What Lookout should watch for.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <ActionForm
@@ -204,7 +202,7 @@ export function RuleWorkspace() {
               </DialogContent>
             </Dialog>
           )}
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid divide-y divide-border border-y border-border">
             {configuration.rules.map((rule) => (
               <RuleSummary
                 key={rule.id}

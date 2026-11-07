@@ -44,6 +44,8 @@ Health accepts no media, unknown fields, or client-supplied identity. Requests a
 
 ## Decisions and sources
 
+The current PR follows the user-approved HTML UI study and the instruction to keep trigger descriptions plain. Monitoring health sits directly on the Devices canvas with a bottom divider instead of an enclosing card. Health reporting, staleness rules, status text and refresh behavior are unchanged. Source: [UI implementation](../../../apps/app/src/components/device-health.tsx). Existing integration journeys remain regression coverage; manual browser evidence is recorded in the PR.
+
 [Issue #33](https://github.com/KenEzekiel/lookout-ai/issues/33), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), and [visual design](../../../DESIGN.md).
 
 Synthesis decision introduced by this PR: store one bounded latest metadata report per device and derive freshness on read/display. Reuse the existing capture and assessment controller instead of adding another loop or service. Five-second reports, twenty-second contact freshness, ten-second capture freshness, and forty-five-second assessment freshness are explicit demo policy, not measured reliability guarantees. Typed per-rule health follows Model the Domain and Type System Discipline; it avoids coupling remote health to local prose notices.

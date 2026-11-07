@@ -473,12 +473,9 @@ export function RuleSummary({
 }) {
   const source = configuration.sources.find((source) => source.id === rule.sourceId);
   return (
-    <article
-      aria-label={rule.definition.name}
-      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6"
-    >
+    <article aria-label={rule.definition.name} className="grid min-w-0 gap-4 py-6">
       <div className="flex flex-wrap justify-between gap-3">
-        <h3 className="font-semibold">{rule.definition.name}</h3>
+        <h3 className="break-words text-panel-title">{rule.definition.name}</h3>
         <span className="text-sm">
           {rule.enabled ? "Enabled" : "Disabled"} · Version {rule.version}
         </span>
@@ -486,8 +483,10 @@ export function RuleSummary({
       <p className="text-sm text-muted-foreground">
         {source?.name} · {source?.kind === "camera" ? "Live camera" : "Replayed footage"}
       </p>
-      <p className="text-sm">{conditionText(rule.definition.condition)}</p>
-      <dl className="grid gap-2 text-sm">
+      <p className="max-w-3xl whitespace-pre-wrap break-words text-base font-normal">
+        {conditionText(rule.definition.condition)}
+      </p>
+      <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
         <div>
           <dt className="inline text-muted-foreground">Severity </dt>
           <dd className="inline capitalize">{rule.definition.severity}</dd>

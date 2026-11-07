@@ -485,3 +485,30 @@ test("operators build and remove sequential levels without losing the remaining 
     { recipientIds: ["owner"], acknowledgmentTimeoutSeconds: null },
   ]);
 });
+
+test("trigger register preserves a custom description and exclusions without adding emphasis", async () => {
+  configuration.rules = [
+    {
+      ...fall,
+      definition: {
+        ...fall.definition,
+        condition: {
+          kind: "custom",
+          text: "A vehicle blocks the loading bay exit.",
+          exclusions: "Ignore vehicles passing through.",
+        },
+      },
+    },
+  ];
+  const user = await open();
+  const row = await screen.findByRole("article", { name: "Possible fall" });
+  const description = within(row).getByText(/A vehicle blocks the loading bay exit/);
+  expect(description).toHaveTextContent("Ignore vehicles passing through.");
+  expect(description.querySelector("strong, b, em, mark")).toBeNull();
+  expect(within(row).getByText(/Living room/)).toBeVisible();
+  await user.click(within(row).getByRole("button", { name: "Edit Possible fall" }));
+  expect(await screen.findByRole("dialog", { name: "Edit trigger" })).toBeVisible();
+  expect(screen.getByLabelText("What should count?")).toHaveValue(
+    "A vehicle blocks the loading bay exit.",
+  );
+});
