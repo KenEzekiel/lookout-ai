@@ -49,9 +49,13 @@ const incidentBaseSchema = z.object({
   evidenceExpiresAt: z.number().int().nullable(),
   notificationStatus: z.enum(["not-sent", "attempting", "accepted", "failed"]),
   followUp: followUpSchema.default({ kind: "none" }),
+  escalationActivations: z.array(z.number().int()).default([]),
+  escalationDueAt: z.number().int().nullable().default(null),
+  deliveryLevel: z.number().int().min(1).optional(),
   timeline: z.array(
     z.object({
       kind: z.enum(["reported", "acknowledged", "dismissed", "resolved", "follow-up-attempted"]),
+      level: z.number().int().optional(),
       at: z.number().int(),
       actorId: z.string(),
       actorName: z.string(),
@@ -69,7 +73,11 @@ export const reportReceiptSchema = z.object({ incident: incidentSchema });
 export type Incident = z.infer<typeof incidentSchema>;
 export type IncidentCommand = z.infer<typeof incidentCommandSchema>;
 export function incidentAlertKey(incident: Incident) {
-  return incident.followUp.kind === "attempted" ? `${incident.id}:follow-up` : incident.id;
+  const level = incident.deliveryLevel ?? incident.escalationActivations.length;
+  if (level > 2) return `${incident.id}:level:${level}`;
+  return level === 2 || (level === 0 && incident.followUp.kind === "attempted")
+    ? `${incident.id}:follow-up`
+    : incident.id;
 }
 export const incidentStatusLabels: Record<Incident["status"], string> = {
   open: "Needs attention",

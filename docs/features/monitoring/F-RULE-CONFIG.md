@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+Rules now store escalationLevels as the sole ordered recipient policy. Each level has recipientIds and acknowledgmentTimeoutSeconds; only the final timeout is null. Level 1 owns initial recipients. The editor supports one to six levels. Membership removal checks all levels before disabling and versioning affected rules. Issue [#87](https://github.com/KenEzekiel/lookout-ai/issues/87) defines sequential escalation; the migration preserves existing rules as two same-recipient levels. Consumer wiring includes device configuration, incident snapshots, initial push, durable escalation and incoming delivery.
+
 Reload triggers and New trigger share the same default button size, with reload and add icons respectively. Reload is outlined as a secondary action. The toolbar wraps at narrow widths. Source creation, save, edit, disable, and cancel also have decorative action icons; pending forms keep descriptive labels and reject repeat submissions.
 
 Initial operator and device configuration reads show card skeletons. Source and trigger submissions and manual reloads use the shared busy button while keeping existing configuration visible.
@@ -28,7 +30,7 @@ Members open `/triggers` from the shared navigation. Add a named source, choose 
 
 F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` protects device reads, including revocation on every request. Workspace IDs come from the principal, never the request body. All paired devices in a workspace receive its sources and rules; other workspaces cannot. Per-source device access remains deferred by the accepted access decision.
 
-[Shared contract](../../../apps/app/src/lib/rules.ts) owns `sourceSchema`, `ruleInputSchema`, `ruleSchema`, and `deviceConfigurationSchema`. A rule has `id`, `sourceId`, `version`, `enabled`, and `definition`. The definition owns `name`, a template/custom condition, nullable `durationSeconds`, `severity`, `recipientIds`, and `escalationDelaySeconds`. Custom conditions accept optional `exclusions` (up to 1000 characters). `conditionText` includes these exclusions for summaries and consumers. Existing definitions without exclusions remain valid. `conditionText` also resolves stored template text. Downstream callers import this contract instead of inventing a second format.
+[Shared contract](../../../apps/app/src/lib/rules.ts) owns `sourceSchema`, `ruleInputSchema`, `ruleSchema`, and `deviceConfigurationSchema`. A rule has `id`, `sourceId`, `version`, `enabled`, and `definition`. The definition owns `name`, a template/custom condition, nullable `durationSeconds`, `severity`, ordered `escalationLevels` with `recipientIds` and `acknowledgmentTimeoutSeconds`. Custom conditions accept optional `exclusions` (up to 1000 characters). `conditionText` includes these exclusions for summaries and consumers. Existing definitions without exclusions remain valid. `conditionText` also resolves stored template text. Downstream callers import this contract instead of inventing a second format.
 
 `GET /api/config/operator` returns sources, rules, and current recipient choices. `GET /api/config/device` returns sources and rules without the member directory. Device snapshots include disabled rules and their versions so clients can stop obsolete work. The device UI refreshes every five seconds and on request, and hides configuration on access or transport failure. Receiving a version does not acknowledge application by a capture or assessment loop.
 
@@ -36,7 +38,7 @@ F-AUTH-ACCESS `member` protects operator reads and writes. `monitoringDevice` pr
 
 F-DETECT-REVIEW connects `/device` capture to a selected configured source and polls current enabled rule versions. F-AI-RELAY now uses the authoritative source/rule/version contract to authorize remote assessment requests and derives condition text from stored definitions. F-INCIDENT-RESPONSE now checks source/rule IDs and current versions when accepting device reports and snapshots the rule definition. F-ALERT-INAPP routes only to those snapshotted recipients; later edits do not rewrite an existing incident. Assessment submission and initial background notifications are connected; durable in-app escalation is also connected. They must use the source/rule IDs and current versions, respect disabled rules, and derive recipients from stored configuration. Saving settings does not send an alert or start capture.
 
-F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to schedule one in-app follow-up. Later rule edits do not reschedule it. F-ALERT-PUSH preserves the independent initial background-delivery path.
+F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to advance through in-app escalation levels while unacknowledged. Later rule edits do not reschedule it. F-ALERT-PUSH preserves the independent initial background-delivery path.
 
 ## Implementation
 
@@ -76,7 +78,7 @@ Ken approved the revised issue #18 flow in the implementation conversation: inci
 
 The trigger-dialog follow-up replaces the inline editor with the shared modal component so editing remains visible from any card and on narrow screens. It preserves the configuration API and explicitly restores focus to the opening button.
 
-The configuration slice introduces this contract. Synthesis decision: keep sources and rules in D1 and share one Zod definition across forms, handlers, and consumers. Store the definition as JSON instead of duplicating condition variants across relational columns. A single write checks source/recipient membership, and optimistic versions reject concurrent overwrites. Poll complete snapshots for the demo rather than adding a push transport. Escalation settings describe one follow-up to the same recipients; executing that policy remains F-ALERT-ESCALATE.
+The configuration slice introduces this contract. Synthesis decision: keep sources and rules in D1 and share one Zod definition across forms, handlers, and consumers. Store the definition as JSON instead of duplicating condition variants across relational columns. A single write checks source/recipient membership, and optimistic versions reject concurrent overwrites. Poll complete snapshots for the demo rather than adding a push transport. Escalation settings describe sequential recipient levels and acknowledgment windows; F-ALERT-ESCALATE owns their execution.
 
 The current interface-refinement PR follows Ken's request to use shadcn in-app dropdowns. No new component dependency or backend contract is introduced.
 

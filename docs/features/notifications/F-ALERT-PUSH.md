@@ -23,6 +23,8 @@ The shared workspace layout keeps the **Background alerts** disclosure mounted a
 
 ## Wiring and compatibility
 
+The sequential escalation policy from [issue #87](https://github.com/KenEzekiel/lookout-ai/issues/87) moves the initial recipient lookup to escalationLevels[0].recipientIds. Initial provider claims, receipts and retry behavior are unchanged. Later levels publish in-app only and never reuse the initial push claim.
+
 `GET /api/push/settings` returns `{configured,publicKey,endpoints}` for the current member session. `POST /api/push/subscribe` accepts the browser's `{endpoint,expirationTime,keys:{p256dh,auth}}`. `POST /api/push/unsubscribe` accepts `{endpoint}` and deletes only the caller's session subscription. Device and visitor principals cannot register. IDs, user ownership and workspace come from server authorization, never submitted fields. Encryption keys are validated on entry. Registration permits at most ten subscriptions per account and twenty save attempts per minute.
 
 D1 subscriptions reference the live Better Auth session, user and workspace. Signing out or switching to capture deletes the human session; expired sessions and missing membership also fail delivery eligibility. Removing an operator deletes subscriptions in the membership-removal batch, preventing a later rejoin from restoring them. An endpoint cannot move between active accounts. A new session for the same account can explicitly enable its existing endpoint. HTTPS endpoints are limited to Google's FCM, Mozilla's production push service and Apple's web push service, with no credentials, custom port, or followed redirects. Other push providers remain unsupported.
@@ -31,7 +33,7 @@ The existing incident report path calls [the push service](../../../apps/app/src
 
 The request awaits provider attempts with a five-second fetch timeout per endpoint. Each encrypted RFC 8291 message uses VAPID authentication and a 60-second TTL. Provider 404 or 410 removes the subscription; other errors retain it for later incidents and record failure. A response or sign-out stops new eligible claims, but cannot retract an in-flight provider request. A crash after claiming can lose the attempt and leave an attempting receipt. There is no queue or retry scheduler in this slice.
 
-F-INCIDENT-RESPONSE publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`. At least one provider acceptance takes precedence over pending or failed attempts. Accepted means provider acceptance, not display on a device. A failed aggregate includes expired subscriptions. In-app visibility and replay readiness remain separate. F-ALERT-ESCALATE now provides one durable in-app follow-up with its own attempt timestamp. It preserves this initial push path and does not reuse the initial-attempt claim or send a second background push.
+F-INCIDENT-RESPONSE publishes `notificationStatus` as `not-sent`, `attempting`, `accepted`, or `failed`. At least one provider acceptance takes precedence over pending or failed attempts. Accepted means provider acceptance, not display on a device. A failed aggregate includes expired subscriptions. In-app visibility and replay readiness remain separate. F-ALERT-ESCALATE provides sequential in-app level activations with independent publication timestamps. It preserves this initial push path and does not reuse the initial-attempt claim or send a second background push.
 
 ## Implementation
 

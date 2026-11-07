@@ -402,23 +402,49 @@ export function IncidentDetail({ id }: { id: string }) {
                     }[incident.notificationStatus]
                   }
                 </p>
-                {incident.followUp.kind === "scheduled" ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    One in-app follow-up due <EventTime at={incident.followUp.dueAt} />. Acknowledge
-                    to cancel it.
-                  </p>
-                ) : incident.followUp.kind === "attempted" ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    In-app follow-up attempted <EventTime at={incident.followUp.attemptedAt} />.
-                    This does not confirm anyone saw it.
-                  </p>
-                ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {incident.followUp.kind === "cancelled"
-                      ? "Pending follow-up cancelled by the incident response."
-                      : "No follow-up was scheduled for this incident."}
-                  </p>
-                )}
+                <ol className="mt-3 grid gap-3 text-sm" aria-label="Escalation levels">
+                  {incident.rule.definition.escalationLevels.map((level, index) => {
+                    const activatedAt = incident.escalationActivations[index];
+                    const active = index === incident.escalationActivations.length - 1;
+                    return (
+                      <li key={index}>
+                        <p>
+                          Level {index + 1}:{" "}
+                          {activatedAt !== undefined
+                            ? active && incident.status === "open"
+                              ? "Active"
+                              : "Published"
+                            : incident.status === "open"
+                              ? "Waiting"
+                              : "Cancelled"}
+                        </p>
+                        <p className="break-all text-muted-foreground">
+                          Recipients: {level.recipientIds.join(", ")}
+                        </p>
+                        {activatedAt !== undefined && (
+                          <p>
+                            Published <EventTime at={activatedAt} />. Display is not confirmed.
+                          </p>
+                        )}
+                        {active &&
+                          incident.status === "open" &&
+                          incident.escalationDueAt !== null && (
+                            <p>
+                              Next level due <EventTime at={incident.escalationDueAt} />.
+                              Acknowledge to stop escalation.
+                            </p>
+                          )}
+                      </li>
+                    );
+                  })}
+                </ol>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {incident.status !== "open"
+                    ? "Pending escalation cancelled by the incident response."
+                    : incident.escalationDueAt === null
+                      ? "No further escalation is scheduled. The incident remains open."
+                      : "Escalation continues only while nobody acknowledges."}
+                </p>
               </section>
               <section aria-labelledby="timeline-title">
                 <h3 id="timeline-title" className="flex items-center gap-2 font-medium">
@@ -436,7 +462,7 @@ export function IncidentDetail({ id }: { id: string }) {
                             : entry.kind === "dismissed"
                               ? "Dismissed by"
                               : entry.kind === "follow-up-attempted"
-                                ? "In-app follow-up attempted by"
+                                ? `Level ${entry.level ?? 2} escalation published by`
                                 : "Resolved by"}{" "}
                         {entry.actorName}
                       </p>

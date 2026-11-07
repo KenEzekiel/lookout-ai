@@ -233,8 +233,10 @@ const monitoringRule = {
     condition: { kind: "template", template: "fall" },
     durationSeconds: null,
     severity: "critical",
-    recipientIds: ["owner-one"],
-    escalationDelaySeconds: 30,
+    escalationLevels: [
+      { recipientIds: ["owner-one"], acknowledgmentTimeoutSeconds: 30 },
+      { recipientIds: ["owner-one"], acknowledgmentTimeoutSeconds: null },
+    ],
   },
 };
 const configuredSource = { id: "source-one", name: "Living room", kind: "camera" };
