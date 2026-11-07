@@ -18,9 +18,9 @@ The operator client owns incident definitions, rule configuration, roles and ale
 
 The incident path is operational device → server → operator. The server distributes operator-defined configuration to assigned devices and owns shared incident state and routing.
 
-Decision option A is selected: the operational device initiates Decisions API assessment and candidate review, receives the results, then reports triggered incidents and uploads their video snippets. Non-triggered video is not stored on Lookout's server. This aims to reduce latency, but the improvement has not been measured. Option B, uploading snippets for server-owned decisions, is deferred.
+Decision option A is selected: the operational device initiates Decisions API assessment and candidate review, receives the results, then reports triggered incidents and uploads their video snippets. Non-triggered video is not persistently stored on Lookout's server. This aims to reduce latency, but the improvement has not been measured. Option B, uploading snippets for server-owned decisions, is deferred.
 
-Device-owned decisions do not mean local model inference. For a browser client, a stateless authenticated relay is the recommended way to protect OpenAI credentials while returning results to the device. It does not store non-triggered media or own the decision loop. See the [design](docs/architecture/design.md) for this transport boundary and always-on device limits.
+Device-owned decisions do not mean local model inference. For a browser client, an authenticated relay with a bounded 60-second in-memory frame cache is the recommended way to protect OpenAI credentials while returning results to the device. It temporarily retains sampled frames to avoid repeated uploads in overlapping windows, expires them after 60 seconds, and does not write them to persistent storage or own the decision loop. See the [design](docs/architecture/design.md) for this transport boundary and always-on device limits.
 
 ## Why this product
 

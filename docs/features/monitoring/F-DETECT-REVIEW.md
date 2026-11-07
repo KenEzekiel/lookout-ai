@@ -20,6 +20,8 @@ F-RULE-CONFIG now publishes [versioned rule snapshots](../../../apps/app/src/lib
 
 Use the capture session and rule version in reports. Preserve the event interval on confirmation and report before waiting for upload. Repeated observations of an ongoing event update its incident.
 
+F-AI-RELAY provides a [transport contract](../../../apps/app/src/lib/assessment.ts). Decisions returns match and uncertainty probabilities; the device owns thresholds. Review uses GPT-6.1 Terra with medium reasoning and returns `positive`, `rejected`, or `need_more_evidence`. Transport/refusal failures remain `unavailable`, never a negative observation. The endpoint authorizes the stored source and enabled rule version from F-RULE-CONFIG. No assessment loop is wired to this helper yet. Create one `createAssessmentClient()` per capture session. Assign each sampled JPEG `Blob` a UUID once and reuse its ID, timestamp, and Blob across overlapping windows. The returned `requestAssessment` function uploads binary multipart parts only for unacknowledged frames and handles one explicit cache-miss retry. The relay caches frames for at most 60 seconds with bounded device/workspace storage; each provider call still receives the full observation window. Discard the client on capture-session or device changes. Pass the shared rule/version and source references, apply configured duration locally, and preserve capture-epoch and request context to discard late results.
+
 F-INCIDENT-RESPONSE now provides [session, report, and receipt schemas](../../../apps/app/src/lib/incidents.ts) and `/api/incidents/sessions`, `/api/incidents/sessions/end`, and `/api/incidents/reports`. The future loop must start a server session for its configured source, use the current rule ID/version, and reuse one event ID and event time for retries. Store the returned incident ID for evidence. Capture lifecycle and assessment are not yet connected to those endpoints, and observation enrichment remains unimplemented.
 
 ## Implementation
@@ -36,4 +38,4 @@ Exercise positive, harmless, ambiguous, and provider-failure cases. Verify no al
 
 ## Open questions
 
-Models, thresholds, cadence, observation windows, and uncertainty handling remain open. Agreement between models is not proof of accuracy.
+The user selected GPT-6.1 Terra with medium reasoning for review in the current relay PR. Live access, quality, thresholds, cadence, and uncertainty handling remain unverified. The relay's eight-frame/30-second envelope is an input bound, not a sampling policy. Agreement between models is not proof of accuracy.

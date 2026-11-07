@@ -14,6 +14,7 @@ import { Route as DeviceRouteImport } from './routes/device'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as MonitorRouteImport } from './routes/monitor'
 import { Route as TriggersRouteImport } from './routes/triggers'
+import { Route as ApiAssessmentRouteImport } from './routes/api/assessment'
 import { Route as IncidentsIndexRouteImport } from './routes/incidents.index'
 import { Route as IncidentsIncidentIdRouteImport } from './routes/incidents.$incidentId'
 import { Route as ApiAccessSplatRouteImport } from './routes/api/access/$'
@@ -46,6 +47,11 @@ const MonitorRoute = MonitorRouteImport.update({
 const TriggersRoute = TriggersRouteImport.update({
   id: '/triggers',
   path: '/triggers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAssessmentRoute = ApiAssessmentRouteImport.update({
+  id: '/api/assessment',
+  path: '/api/assessment',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IncidentsIndexRoute = IncidentsIndexRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/triggers': typeof TriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/incidents/$incidentId': typeof IncidentsIncidentIdRoute
   '/incidents/': typeof IncidentsIndexRoute
   '/api/access/$': typeof ApiAccessSplatRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/triggers': typeof TriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/incidents/$incidentId': typeof IncidentsIncidentIdRoute
   '/incidents': typeof IncidentsIndexRoute
   '/api/access/$': typeof ApiAccessSplatRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/triggers': typeof TriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/incidents/$incidentId': typeof IncidentsIncidentIdRoute
   '/incidents/': typeof IncidentsIndexRoute
   '/api/access/$': typeof ApiAccessSplatRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/monitor'
     | '/triggers'
+    | '/api/assessment'
     | '/incidents/$incidentId'
     | '/incidents/'
     | '/api/access/$'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/monitor'
     | '/triggers'
+    | '/api/assessment'
     | '/incidents/$incidentId'
     | '/incidents'
     | '/api/access/$'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/monitor'
     | '/triggers'
+    | '/api/assessment'
     | '/incidents/$incidentId'
     | '/incidents/'
     | '/api/access/$'
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   JoinRoute: typeof JoinRoute
   MonitorRoute: typeof MonitorRoute
   TriggersRoute: typeof TriggersRoute
+  ApiAssessmentRoute: typeof ApiAssessmentRoute
   IncidentsIncidentIdRoute: typeof IncidentsIncidentIdRoute
   IncidentsIndexRoute: typeof IncidentsIndexRoute
   ApiAccessSplatRoute: typeof ApiAccessSplatRoute
@@ -234,6 +247,13 @@ declare module '@tanstack/react-router' {
       path: '/triggers'
       fullPath: '/triggers'
       preLoaderRoute: typeof TriggersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/assessment': {
+      id: '/api/assessment'
+      path: '/api/assessment'
+      fullPath: '/api/assessment'
+      preLoaderRoute: typeof ApiAssessmentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/incidents/': {
@@ -301,6 +321,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinRoute: JoinRoute,
   MonitorRoute: MonitorRoute,
   TriggersRoute: TriggersRoute,
+  ApiAssessmentRoute: ApiAssessmentRoute,
   IncidentsIncidentIdRoute: IncidentsIncidentIdRoute,
   IncidentsIndexRoute: IncidentsIndexRoute,
   ApiAccessSplatRoute: ApiAccessSplatRoute,

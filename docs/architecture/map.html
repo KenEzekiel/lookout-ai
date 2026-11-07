@@ -48,8 +48,9 @@
         Device owns the Decisions API assessment and review loop. Model inference runs at OpenAI.
       </p>
       <p>
-        Browser credential transport: authenticated stateless relay. Results return to the device;
-        no non-triggered media is retained by Lookout.
+        Browser credential transport: authenticated relay with a 60-second in-memory frame cache.
+        Results return to the device; sampled frames expire after 60 seconds and are never written
+        to persistent storage.
       </p>
     </section>
     <div class="arrow">Triggered incident report + event video snippet &darr;</div>
