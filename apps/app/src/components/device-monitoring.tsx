@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Button } from "@/components/ui/button";
 import { LoadingStatus } from "@/components/ui/loading";
 import { request } from "@/lib/api";
 import { type CaptureSession, type CaptureSnapshot } from "@/lib/capture-session";
