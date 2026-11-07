@@ -163,7 +163,7 @@ members without changing transport permissions.
 
 ## Slack connection
 
-The Slack app needs `users:read`, `chat:write`, `assistant:write`, `app_mentions:read`, `reactions:write`,
+The Slack app needs `files:read`, `files:write`, `users:read`, `chat:write`, `assistant:write`, `app_mentions:read`, `reactions:write`,
 and history scopes for the conversations it serves. Enable Socket Mode and subscribe
 to `app_mention`, `message.channels`, `message.groups`, and `message.im` to receive
 mentions and plain thread follow-ups. Also add `agent_session_stopped` under
@@ -237,3 +237,45 @@ progress, replies, and shared source have no content filter. Names, paths, and
 synthetic credential examples pass through unchanged. The coding agent is
 instructed not to publish actual credentials or unrelated private information.
 Live Slack and T3 behavior requires separate runtime verification.
+
+## Slack files
+
+Mentions, DMs, and replies in owned threads accept attachments, including
+file-only messages with Slack's `file_share` subtype. Event and thread history
+retain file IDs. `dispatcher/files.ts` retrieves each file with `files.info`,
+downloads its bytes with the bot token, and gives the session local paths under
+the task worktree's ignored `oracle/.local/slack-files-*` directory. Images must
+be inspected with the session's image-viewing tool. This uses the existing
+shared local worktree rather than changing T3's text message API.
+
+The current request's files take priority over preceding thread attachments.
+Downloads are deduplicated and bounded to 10 files per turn and 20 MiB per file.
+Failures remain visible to the agent with a reason, including access refusals,
+external files, oversized files, and count limits. Slack credentials go only to
+HTTPS `files.slack.com` URLs and redirects are refused, following
+[Slack's file download guidance](https://docs.slack.dev/messaging/working-with-files/).
+File contents are untrusted task data. Local artifacts stay outside Git; remove
+these ignored directories when the conversation's files are no longer needed.
+
+Each turn supplies a separate output directory. The agent returns generated
+files with its final `reply` using `files: [{path, title?}]`. The runner resolves
+paths and symlinks inside that output directory and checks type and size. The
+transport preflights all files, obtains upload URLs, posts bytes, and completes
+the upload with the original channel and thread plus the reply text. It uses
+`files.getUploadURLExternal` and `files.completeUploadExternal`, never the retired
+`files.upload`. Text-only replies retain their existing publication path.
+Delivery records retain the output paths and mark failed or interrupted
+publication uncertain; uploads are not automatically retried because completion
+may already have shared the file. Staged uploads that fail before completion
+remain unshared. Exactly-once delivery is not guaranteed.
+
+Add `files:read` and `files:write` to the bot's OAuth scopes and reinstall the
+Slack app before using this capability. No additional file-event subscription
+is required. Files are read only from messages in conversations Oracle already
+serves; this does not watch unrelated workspace uploads.
+
+The file integration tests exercise real routing, session persistence, runner
+prompts, local file bytes, output validation, and thread publication with fake
+Slack and T3 boundaries. They cover PNG and text inputs, history attachments,
+file-only requests, download failure and host checks, and generated outputs.
+This change affects Oracle only and does not change Lookout product features.
