@@ -46,6 +46,8 @@ Production-build Chromium QA used separate owner/device sessions and real local 
 
 Dropdown integration tests exercise real shadcn controls, submitted values, readable labels, keyboard selection, Escape dismissal, and focus return. They mount the full router document at `document` so portal focus events use the production root structure. Production-build browser verification covers saved source/severity values, validation recovery, and 320px/390px layouts, including long source labels. Run `pnpm verify`; per-run captures and observations belong in the PR.
 
+Dropdown panels open outside the trigger with a six-pixel gap and matching width. Four-pixel padding separates the rounded options from the panel border; the selected row no longer overlays the trigger. This corrects the visual alignment reported in PR #59.
+
 ## Decisions and sources
 
 [Issue #18](https://github.com/KenEzekiel/lookout-ai/issues/18), [product direction](../../../PRD.md), [accepted workspace-wide device access](../../../PRD.md#demo-accounts-and-device-access), [experience design](../../architecture/design.md), and [visual design](../../../DESIGN.md).
