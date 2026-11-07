@@ -21,6 +21,7 @@ export interface TurnRunner {
     input: Incoming;
     history: readonly HistoryItem[];
     signal: AbortSignal;
+    report: (text: string) => Promise<void>;
   }): Promise<Outcome>;
 }
 
@@ -38,6 +39,7 @@ export async function createOracle(deps: {
   sessions: SessionStore;
   runner: TurnRunner;
   publish: (address: Address, text: string) => Promise<void>;
+  setStatus?: (address: Address, status: "processing" | "active") => Promise<void>;
   disclosure: Disclosure;
   limits: Limits;
   onFault?: (code: string) => void;
@@ -49,18 +51,27 @@ export async function createOracle(deps: {
   const queue: QueuedTurn[] = [];
   const admitting = new Set<string>();
   const generations = new Map<string, number>();
-  let active: { key: string; controller: AbortController } | undefined;
+  let active: { key: string; address: Address; controller: AbortController } | undefined;
   let pump: Promise<void> | undefined;
   let closed = false;
+  const setStatus = async (address: Address, status: "processing" | "active"): Promise<void> => {
+    try {
+      await deps.setStatus?.(address, status);
+    } catch {
+      deps.onFault?.("slack_status_unavailable");
+    }
+  };
   const fault = (error: unknown): void => {
     closed = true;
     active?.controller.abort();
+    if (active) void setStatus(active.address, "active");
+    for (const turn of queue) void setStatus(turn.input.address, "active");
     queue.length = 0;
     deps.onFault?.(error instanceof BoundaryError ? error.code : "local_failure");
   };
   const deliver = async (
     address: Address,
-    kind: "ack" | "result" | "stop",
+    kind: "progress" | "result" | "stop",
     text: string,
   ): Promise<void> => {
     disclosure.assert(text);
@@ -78,7 +89,7 @@ export async function createOracle(deps: {
     const { input, generation } = turn;
     const key = keyOf(input.address);
     const controller = new AbortController();
-    active = { key, controller };
+    active = { key, address: input.address, controller };
     const timeout = setTimeout(() => controller.abort(), limits.maxTurnMs);
     try {
       await turn.ready;
@@ -90,7 +101,15 @@ export async function createOracle(deps: {
       try {
         disclosure.assert(input.text);
         outcome = outcomeSchema.parse(
-          await deps.runner.run({ input, history, signal: controller.signal }),
+          await deps.runner.run({
+            input,
+            history,
+            signal: controller.signal,
+            report: async (text) => {
+              assertActive(controller.signal);
+              await deliver(input.address, "progress", text);
+            },
+          }),
         );
         assertActive(controller.signal);
         if (outcome.kind === "reply") disclosure.assert(outcome.text);
@@ -120,6 +139,8 @@ export async function createOracle(deps: {
     } finally {
       clearTimeout(timeout);
       active = undefined;
+      if (!queue.some((queued) => keyOf(queued.input.address) === key))
+        await setStatus(input.address, "active");
     }
   };
   const schedule = (): void => {
@@ -161,20 +182,21 @@ export async function createOracle(deps: {
             if (keyOf(queue[index]?.input.address ?? input.address) === key) queue.splice(index, 1);
           }
           const result = await sessions.stop(input);
-          if (result === "stopped")
+          if (result === "stopped") {
             await deliver(
               input.address,
               "stop",
               "Stopped. Send a fresh direct request to continue.",
             );
+            await setStatus(input.address, "active");
+          }
           return result;
         }
         const generation = generations.get(key) ?? 0;
         const result = await sessions.admit(input);
         if (result !== "accepted") return result;
         if (closed || generation !== (generations.get(key) ?? 0)) return "accepted";
-        const ready =
-          input.route === "direct" ? deliver(input.address, "ack", "On it.") : Promise.resolve();
+        const ready = setStatus(input.address, "processing");
         queue.push({ input, generation, ready });
         schedule();
         await ready;
@@ -192,9 +214,13 @@ export async function createOracle(deps: {
     async close() {
       closed = true;
       active?.controller.abort();
-      queue.length = 0;
+      const pending = queue.splice(0);
       await sessions.interrupt();
       if (pump) await pump;
+      for (const turn of pending) {
+        await turn.ready;
+        await setStatus(turn.input.address, "active");
+      }
     },
   };
 }

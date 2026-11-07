@@ -41,7 +41,7 @@ test("deduplication across Slack listeners admits and executes one turn", async 
       event: wire,
       listener,
       identity: { user_id: "UORACLE1", team_id: "TTEAM1" },
-      allowedActors: new Set(["UACTOR1"]),
+      teamId: "TTEAM1",
       owns: oracle.owns,
     });
   const mention = route("mention");
@@ -53,7 +53,7 @@ test("deduplication across Slack listeners admits and executes one turn", async 
   ]);
   await oracle.idle();
   assert.equal(runs, 1);
-  assert.deepEqual(messages, ["On it.", "Checked."]);
+  assert.deepEqual(messages, ["Checked."]);
 });
 
 test("global FIFO holds the checkout for complete model turns", async (t) => {
@@ -188,7 +188,7 @@ test("an old stop delivery cannot interrupt current work", async (t) => {
   await oracle.idle();
 });
 
-test("persistence precedes acknowledgements and completed reply delivery", async (t) => {
+test("persistence precedes processing status and completed reply delivery", async (t) => {
   const sessions = createSessionStore({
     directory: await directory(t),
     limits: defaultLimits,
@@ -199,6 +199,10 @@ test("persistence precedes acknowledgements and completed reply delivery", async
     limits: defaultLimits,
     now: () => testNow,
     disclosure: createDisclosure(),
+    setStatus: async (address, status) => {
+      if (status === "processing")
+        assert.equal(sessions.snapshot(address)?.events[0]?.status, "queued");
+    },
     runner: {
       async run() {
         return { kind: "reply", text: "Observed." };
@@ -207,7 +211,7 @@ test("persistence precedes acknowledgements and completed reply delivery", async
     publish: async (address, text) => {
       const document = sessions.snapshot(address);
       assert.equal(document?.deliveries.at(-1)?.state, "attempting");
-      assert.equal(document?.events[0]?.status, text === "On it." ? "queued" : "completed");
+      assert.equal(document?.events[0]?.status, "completed");
       if (text === "Observed.") assert.equal(document?.history.at(-1)?.text, text);
     },
   });
@@ -226,7 +230,7 @@ test("ambiguous Slack sends are never automatically retried", async (t) => {
     disclosure: createDisclosure(),
     runner: {
       async run() {
-        return { kind: "silent" };
+        return { kind: "reply", text: "Checked." };
       },
     },
     publish: async () => {
@@ -320,4 +324,40 @@ test("unsafe runner replies and raw failures become generic messages", async (t)
     false,
   );
   assert.equal(outputs.filter((text) => text.includes("could not finish")).length, 2);
+});
+
+test("shutdown clears processing for both active and queued conversations", async (t) => {
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  const entered = deferred<void>();
+  const statuses = new Map<string, string>();
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    disclosure: createDisclosure(),
+    runner: {
+      run: async ({ signal }) => {
+        entered.resolve();
+        await untilAborted(signal);
+        return { kind: "silent" };
+      },
+    },
+    publish: async () => {},
+    setStatus: async (address, status) => {
+      statuses.set(address.rootTs, status);
+    },
+  });
+  const first = input("First");
+  const second = input("Second");
+  await oracle.receive(first);
+  await entered.promise;
+  await oracle.receive(second);
+  assert.equal(statuses.get(second.address.rootTs), "processing");
+  await oracle.close();
+  assert.equal(statuses.get(first.address.rootTs), "active");
+  assert.equal(statuses.get(second.address.rootTs), "active");
 });
