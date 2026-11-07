@@ -1,4 +1,12 @@
-# Lookout AI product direction
+# Lookout AI — Product direction
+
+Status: evolving direction, based on the team brief and Ken's interview on 7 November 2026.
+
+This document gives builders enough context to make good decisions together. It captures the product intent and agreed behavior, not a fixed implementation contract. Examples, technical preferences, and open choices are labeled accordingly. Evolve it as the team learns; preserve the reasons behind changes rather than treating the first design as permanent.
+
+The visual system and monitor-screen interactions live in [DESIGN.md](DESIGN.md). This PRD remains the source for agreed product behavior.
+
+## The idea
 
 **Define what matters in a visual feed. Lookout turns it into an incident someone owns.**
 

@@ -29,19 +29,30 @@ pnpm dev
 
 The development command selects port 3000. Open `http://localhost:3000` once the server reports it is ready. The Vite configuration includes Cloudflare's local Workers integration.
 
-| Command                                    | Purpose                                                                  |
-| ------------------------------------------ | ------------------------------------------------------------------------ |
-| `pnpm check`                               | Check formatting, lint, comments, TypeScript, and dependency boundaries. |
-| `pnpm test`                                | Run Vitest UI integration tests with jsdom and MSW.                      |
-| `pnpm verify`                              | Run all PR checks, integration tests, and the production build.          |
-| `pnpm qa:browser`                          | Run optional Playwright smoke tests for manual QA of the built app.      |
-| `pnpm build`                               | Build the application.                                                   |
-| `pnpm preview`                             | Preview the build on port 3000.                                          |
-| `pnpm format`                              | Apply formatting.                                                        |
-| `pnpm lint:fix`                            | Apply available lint fixes.                                              |
-| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset.                       |
+| Command                                    | Purpose                                                                                  |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `pnpm check`                               | Check styles, comments, workspace types, boundaries, tests, and Oracle disclosure rules. |
+| `pnpm oracle`                              | Start the Oracle engineering dispatcher.                                                 |
+| `pnpm test`                                | Run app integration tests and Oracle tests.                                              |
+| `pnpm verify`                              | Run all PR checks, integration tests, and the production build.                          |
+| `pnpm qa:browser`                          | Run optional Playwright smoke tests for manual QA of the built app.                      |
+| `pnpm build`                               | Build the application.                                                                   |
+| `pnpm preview`                             | Preview the build on port 3000.                                                          |
+| `pnpm format`                              | Apply formatting.                                                                        |
+| `pnpm lint:fix`                            | Apply available lint fixes.                                                              |
+| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset.                                       |
 
 CI runs `pnpm verify`. Playwright stays outside CI. For manual browser QA, install Chromium once with `pnpm exec playwright install chromium`. See [verification conventions](docs/verification.md) for mocking rules, temporary database requirements, and the comment ban. Generated route files and vendored agent tooling are excluded from the application formatting/lint scope. See [package scripts](package.json), [app scripts](apps/app/package.json), and [formatter configuration](.oxfmtrc.json) for exact behavior.
+
+## Oracle
+
+The engineering factory lives in `oracle/`. Its dispatcher receives authorized
+Slack requests, its session layer keeps one visible T3 coding thread per
+conversation, and its tools check replies and shared source before disclosure.
+
+Oracle uses the workspace's shared pnpm lockfile, Oxlint, Oxfmt, and TypeScript
+checks. Start it with `pnpm oracle`. See [Oracle](oracle/README.md) for its behavior
+and verification boundaries.
 
 ## Cloudflare deployment
 
