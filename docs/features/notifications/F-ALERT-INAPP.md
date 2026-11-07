@@ -6,6 +6,8 @@ Depends on: F-INCIDENT-RESPONSE
 
 ## Behavior
 
+Issue #99 changes incoming presentation to a viewport-covering modal in the shared operator layout. The shared dialog traps focus and restores it on local silence. Escape silences locally; outside clicks do not dismiss. Content scrolls inside the overlay. Sound controls and command errors remain accessible inside it. Delivery, follow-up keys, queue ordering and ownership commands remain unchanged. Production Chromium verification with isolated, migrated D1 passed: overlay above an open trigger dialog, preserved draft and restored focus, queue and duplicate handling, failed acknowledgment and retry, cross-session acknowledgment, delayed submission feedback, reduced motion, and scrolling to actions at 320 × 300. The PR contains screenshots and video evidence.
+
 Alert actions display decorative icons alongside their visible labels. Acknowledge, Open incident, and Silence here share default sizing; sound preferences and retry use the shared compact size. Open incident remains a navigation link and still silences only this browser.
 
 Initial connection has a compact indicator. Alert retry, sound loading, and acknowledgment show specific busy feedback and prevent duplicate user submissions. Regular polling does not replace the current screen with a loader.
@@ -16,7 +18,7 @@ Sound starts off. Enable sound and test requests browser playback and plays an o
 
 ## Entry points
 
-The member screens for Devices, Team, Triggers, inbox, and detail include the alert connection and sound controls. The incoming view leads the page at desktop and phone widths. It uses native links and buttons and a persistent live announcement region, without a focus trap or animation. Device, visitor, unassigned-user, and pairing screens do not subscribe.
+The member screens for Devices, Team, Triggers, inbox, and detail include the alert connection and sound controls. The incoming view covers the viewport at desktop and phone widths, above the current page and its dialogs. It uses the shared modal focus management, native links and buttons, and a persistent live announcement region. Device, visitor, unassigned-user, and pairing screens do not subscribe.
 
 ## Wiring and compatibility
 
@@ -56,7 +58,7 @@ The current routing PR moves member dashboard pages under one persistent layout 
 
 [Issue #23](https://github.com/KenEzekiel/lookout-ai/issues/23), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 
-The incoming-alert implementation's synthesis decision is recipient-filtered polling over the existing incident service. The inbox and commands already use polling and version checks, so a second event transport or durable delivery framework would add another ownership path. A focused incoming view keeps context and controls readable without interrupting keyboard focus. Local silence belongs to the browser session, while acknowledgment belongs to shared incident state.
+The incoming-alert implementation's synthesis decision is recipient-filtered polling over the existing incident service. The inbox and commands already use polling and version checks, so a second event transport or durable delivery framework would add another ownership path. The initial inline view kept context and controls readable without interrupting keyboard focus. [Issue #99](https://github.com/KenEzekiel/lookout-ai/issues/99) supersedes that presentation with a full-screen interruption and managed focus. Local silence belongs to the browser session, while acknowledgment belongs to shared incident state.
 
 [Sound revision issue #68](https://github.com/KenEzekiel/lookout-ai/issues/68) records Kenneth's request for an incident-appropriate alert. The current PR replaces the soft rising chime with the original three-pulse alarm. A static generated WAV makes the exact sound reviewable and gives test and incoming playback identical audio; we accept one small asset fetch on opt-in. Continuing procedural oscillator synthesis would avoid that fetch but would require a separately rendered review artifact and could let the reviewed sound drift from playback. The six-second interval, opt-in, local silence and shared response contracts remain unchanged.
 
