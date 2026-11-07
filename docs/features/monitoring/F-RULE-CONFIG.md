@@ -54,7 +54,7 @@ Dropdown integration tests exercise real shadcn controls, submitted values, read
 
 Dropdown panels open outside the trigger with a six-pixel gap and matching width. Four-pixel padding separates the rounded options from the panel border; the selected row no longer overlays the trigger. This corrects the visual alignment reported in PR #59.
 
-The Sources, assessment help, inline source creation, and timing sections use the shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel.tsx). Full-width keyboard-operable buttons expose expansion state and preserve mounted form values while collapsed. Router integration coverage checks keyboard activation and draft preservation. This replaces native disclosure triangles at Ken’s request.
+The Sources, assessment help, inline source creation, and timing sections use the shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel.tsx). The trigger inherits the panel corner radius so its inset focus ring remains continuous, with square bottom corners while expanded. Full-width keyboard-operable buttons expose expansion state and preserve mounted form values while collapsed. Router integration coverage checks keyboard activation and draft preservation. This replaces native disclosure triangles at Ken’s request.
 
 ## Decisions and sources
 

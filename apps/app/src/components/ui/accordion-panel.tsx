@@ -24,7 +24,7 @@ export function AccordionPanel({
         id={`${id}-trigger`}
         aria-expanded={isOpen}
         aria-controls={`${id}-panel`}
-        className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-[inherit] px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-muted/50 aria-expanded:rounded-b-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         onClick={() => {
           setExpanded(!isOpen);
           onOpenChange?.(!isOpen);
