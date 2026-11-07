@@ -14,6 +14,8 @@ Open New trigger in the operator client, review the intended recipient, and enab
 
 ## Wiring and compatibility
 
+Use F-AUTH-ACCESS human members for configuration changes and device identities for configuration reads. Devices receive workspace-wide source access in the demo; per-source access assignments are deferred. Preserve rule versions and configured recipients. The configuration endpoints are still unimplemented.
+
 Publish one versioned rule contract for devices, relay authorization, and incident reporting. Distribute rule changes and revocations. Model output cannot replace configured recipients or permissions.
 
 ## Implementation

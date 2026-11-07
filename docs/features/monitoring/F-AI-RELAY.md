@@ -14,6 +14,8 @@ The operational device calls the relay during assessment. This is a supporting p
 
 ## Wiring and compatibility
 
+Use `monitoringDevice` from the delivered F-AUTH-ACCESS boundary. Demo scope is all sources in that device’s workspace. Validate requested sources against that workspace, and deny revoked credentials on every request. This relay connection is still unimplemented.
+
 The device owns the monitoring loop. The relay must not persist non-triggered images, clips, or decision payloads in application storage or logs. Provider inference remains remote.
 
 ## Implementation

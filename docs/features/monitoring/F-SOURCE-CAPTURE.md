@@ -14,6 +14,8 @@ Use source setup in the operational-device client. The operator client can close
 
 ## Wiring and compatibility
 
+Use the paired device identity from F-AUTH-ACCESS. Pairing grants workspace-wide source access but does not start capture. Include its workspace and device identity in capture sessions and deny revoked device requests. This capture connection is still unimplemented.
+
 Expose source timestamps, capture session identity, lifecycle changes, and buffer access for assessment and clip preservation. Preserve event lead-in and aftermath where available. Never persist untriggered video on the Lookout server.
 
 ## Implementation

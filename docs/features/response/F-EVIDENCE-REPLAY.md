@@ -14,6 +14,8 @@ Open incident evidence in the operator client. Offer seekable saved replay only 
 
 ## Wiring and compatibility
 
+Use F-AUTH-ACCESS device identities for workspace-scoped uploads and human membership for replay reads. Membership removal and device revocation must affect later requests. Upload/replay endpoints and these checks remain unimplemented.
+
 Attach retrying uploads to the same incident. Notification does not wait for upload. Preserve local event footage independently of acknowledgment. Capture timestamps position the event marker, distinct from detection time.
 
 ## Implementation

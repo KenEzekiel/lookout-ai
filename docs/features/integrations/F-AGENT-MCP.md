@@ -14,6 +14,8 @@ Connect an authorized MCP client and inspect an incident before requesting ackno
 
 ## Wiring and compatibility
 
+The delivered F-AUTH-ACCESS contract distinguishes human members from monitoring devices. A monitoring credential must never authorize MCP incident responses. External-agent authentication and its mapping to workspace permissions are still undecided and unimplemented.
+
 Reuse incident authorization, evidence access, and acknowledgment semantics. Agent action must stop escalation and appear in the operator view.
 
 ## Implementation

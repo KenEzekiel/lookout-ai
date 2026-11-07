@@ -14,6 +14,8 @@ Use Enable alerts during setup. On supported iOS devices, Home Screen installati
 
 ## Wiring and compatibility
 
+Use F-AUTH-ACCESS human membership when registering recipients and subscriptions. Unverified account email is not a verified email-notification destination. Device pairing grants no recipient-administration permission. Subscription and delivery wiring remain unimplemented.
+
 Authorize subscriptions and route only to configured recipients. Opening a push does not acknowledge the incident or keep a capture tab running. Delivery state remains independent of replay readiness.
 
 ## Implementation

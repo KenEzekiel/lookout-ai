@@ -14,6 +14,8 @@ Open the assigned source in the operator client when peer viewing becomes availa
 
 ## Wiring and compatibility
 
+Use F-AUTH-ACCESS human membership and device identity to restrict signaling to the same workspace. The demo device scope is workspace-wide. Signaling and media viewing remain unimplemented.
+
 Use authorized server signaling and the existing capture lifecycle. Peer media does not replace private saved incident replay.
 
 ## Implementation
