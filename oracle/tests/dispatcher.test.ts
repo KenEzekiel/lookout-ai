@@ -53,7 +53,7 @@ test("deduplication across Slack listeners admits and executes one turn", async 
   ]);
   await oracle.idle();
   assert.equal(runs, 1);
-  assert.deepEqual(messages, ["On it.", "Checked."]);
+  assert.deepEqual(messages, ["Checked."]);
 });
 
 test("global FIFO holds the checkout for complete model turns", async (t) => {

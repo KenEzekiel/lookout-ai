@@ -50,3 +50,18 @@ test("edited, malformed, and unmatched mention payloads are ignored", () => {
   assert.equal(route({ ...event, text: "<@UOTHER1> inspect" }, false, "mention"), undefined);
   assert.equal(route({ ...event, user: undefined }), undefined);
 });
+
+test("another workspace teammate can continue an owned thread", () => {
+  assert.equal(
+    route({ ...event, user: "UTEAMMATE1", text: "Please inspect it", thread_ts: event.ts }, true)
+      ?.actor,
+    "UTEAMMATE1",
+  );
+});
+
+test("a bare mention asks Oracle to use the preceding thread context", () => {
+  assert.equal(
+    route({ ...event, text: "<@UORACLE1>", thread_ts: event.ts }, true)?.text,
+    "Respond to the latest request in this Slack thread.",
+  );
+});
