@@ -32,6 +32,8 @@ F-SOURCE-PEER uses `getPeerStream()` to clone the active camera stream or captur
 
 The incident service now has server-owned per-source session leases. The local capture epoch is not that session ID. F-DETECT-REVIEW selects a configured source, starts a `/api/incidents/sessions` lease for its capture epoch, and ends it on Stop or failure. Samples expose stable UUIDs, JPEG Blobs, source media time, and wall-clock capture time; overlapping windows reuse these values.
 
+F-DEVICE-HEALTH consumes the existing snapshot state and last sampled observation time through monitoring controls. It adds no capture loop and sends no images or video. A running capture with no fresh samples is shown remotely as stalled; Stop and pause remain distinct from stale contact.
+
 ## Implementation
 
 Capture consumes [shared typography roles](../../../apps/app/src/styles.css): a 30 px page title, 20 px panel headings, 15 px actions, and 13 px metadata replace independent pixel sizes. [Typography browser journeys](../../../tests/e2e/typography.spec.ts) reach capture through real device activation and inspect titles, actions, metadata, and narrow-screen overflow. Source selection, local retention, and capture permissions remain unchanged.

@@ -1,4 +1,5 @@
 import { peerSessionSchema, peerSyncSchema } from "../../src/lib/peer";
+import { deviceHealthSchema, healthStatus, type HealthReport } from "../../src/lib/device-health";
 import assert from "node:assert/strict";
 import {
   inviteSchema,
@@ -464,6 +465,227 @@ async function paired(admin: Browser, name = "Monitoring browser") {
   expect((await device.request("/api/access/pairing/claim", {})).status).toBe(200);
   return device;
 }
+
+test("device health persists metadata, detects stale capture and contact, and reconnects without inventing observations", async () => {
+  const { admin, input, source } = await configuredWorkspace();
+  const device = await paired(admin);
+  const rule = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/create", input)).json(),
+  );
+  const report: HealthReport = {
+    sourceId: source.id,
+    capture: "running",
+    lastObservationAt: Date.now(),
+    assessment: "ready",
+    lastAssessmentAt: Date.now(),
+    configurationAvailable: true,
+    appliedRules: [{ id: rule.id, version: rule.version }],
+  };
+  async function health() {
+    const response = await admin.request("/api/health/operator");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const result = deviceHealthSchema.parse(await response.json());
+    const first = result.devices[0];
+    assert(first);
+    return { device: first, status: healthStatus(first, result.serverTime) };
+  }
+  expect((await health()).status).toBe("No reports yet");
+  expect((await device.request("/api/health/report", report)).status).toBe(200);
+  const active = await health();
+  expect(active.status).toBe("Monitoring");
+  expect(active.device.source).toEqual(source);
+  expect(active.device.report).toEqual(report);
+  expect(active.device.lastContactAt).toBeGreaterThanOrEqual(report.lastObservationAt ?? 0);
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        capture: "stopped",
+        lastObservationAt: null,
+        lastAssessmentAt: null,
+        assessment: "unavailable",
+      })
+    ).status,
+  ).toBe(200);
+  const stopped = await health();
+  expect(stopped.status).toBe("Stopped");
+  expect(stopped.device.report?.lastObservationAt).toBe(report.lastObservationAt);
+  expect(
+    (await device.request("/api/health/report", { ...report, capture: "paused" })).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Paused");
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        lastObservationAt: Date.now() - 11_000,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Capture stalled");
+  expect(
+    (await device.request("/api/health/report", { ...report, assessment: "degraded" })).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Assessment degraded");
+  expect(
+    (await device.request("/api/health/report", { ...report, assessment: "unavailable" })).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Assessment unavailable");
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        lastAssessmentAt: Date.now() - 46_000,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await health()).status).toBe("Assessment stale");
+  expect((await device.request("/api/health/report", report)).status).toBe(200);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE device_health SET last_contact_at=?")
+    .bind(Date.now() - 21_000)
+    .run();
+  expect((await health()).status).toBe("Disconnected / stale");
+  expect((await device.request("/api/health/report", report)).status).toBe(200);
+  const resumed = await health();
+  expect(resumed.status).toBe("Monitoring");
+  expect(resumed.device.report?.lastObservationAt).toBe(report.lastObservationAt);
+  expect(resumed.device.lastContactAt).toBeGreaterThan(active.device.lastContactAt ?? 0);
+  const stored = await env.DB.prepare("SELECT report FROM device_health").first<{
+    report: string;
+  }>();
+  expect(JSON.parse(stored?.report ?? "null")).toEqual(report);
+});
+
+test("health shows assigned versus applied rule versions through edits and disable", async () => {
+  const { admin, input, source } = await configuredWorkspace();
+  const device = await paired(admin);
+  const rule = ruleSchema.parse(
+    await (await admin.request("/api/config/rules/create", input)).json(),
+  );
+  const report: HealthReport = {
+    sourceId: source.id,
+    capture: "running",
+    lastObservationAt: Date.now(),
+    assessment: "ready",
+    lastAssessmentAt: Date.now(),
+    configurationAvailable: true,
+    appliedRules: [{ id: rule.id, version: 1 }],
+  };
+  await device.request("/api/health/report", report);
+  const edited = ruleSchema.parse(
+    await (
+      await admin.request("/api/config/rules/update", {
+        ...rule,
+        definition: { ...rule.definition, name: "Updated trigger" },
+      })
+    ).json(),
+  );
+  const result = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  const first = result.devices[0];
+  assert(first);
+  expect(first.assignedRules).toEqual([
+    { id: rule.id, name: "Updated trigger", enabled: true, version: 2 },
+  ]);
+  expect(first.report?.appliedRules).toEqual(report.appliedRules);
+  expect(healthStatus(first, result.serverTime)).toBe("Configuration out of date");
+  await device.request("/api/health/report", {
+    ...report,
+    appliedRules: [{ id: rule.id, version: edited.version }],
+  });
+  const current = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  assert(current.devices[0]);
+  expect(healthStatus(current.devices[0], current.serverTime)).toBe("Monitoring");
+  await admin.request("/api/config/rules/disable", { id: rule.id, version: 2 });
+  const disabled = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  assert(disabled.devices[0]);
+  expect(healthStatus(disabled.devices[0], disabled.serverTime)).toBe("Configuration out of date");
+  await device.request("/api/health/report", {
+    ...report,
+    appliedRules: [{ id: rule.id, version: 3 }],
+  });
+  const applied = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  assert(applied.devices[0]);
+  expect(healthStatus(applied.devices[0], applied.serverTime)).toBe("No enabled triggers");
+});
+
+test("health rejects unauthorized, cross-workspace, media, oversized, future and revoked reports", async () => {
+  const { admin, source } = await configuredWorkspace();
+  const other = await owner("Other workspace");
+  const device = await paired(admin);
+  const stranger = new Browser();
+  const report: HealthReport = {
+    sourceId: source.id,
+    capture: "stopped",
+    lastObservationAt: null,
+    assessment: "unavailable",
+    lastAssessmentAt: null,
+    configurationAvailable: false,
+    appliedRules: [],
+  };
+  expect((await stranger.request("/api/health/report", report)).status).toBe(401);
+  expect((await admin.request("/api/health/report", report)).status).toBe(403);
+  expect((await device.request("/api/health/operator")).status).toBe(403);
+  expect((await stranger.request("/api/health/operator")).status).toBe(401);
+  const foreign = sourceSchema.parse(
+    await (await other.request("/api/config/sources", { name: "Private", kind: "camera" })).json(),
+  );
+  expect(
+    (await device.request("/api/health/report", { ...report, sourceId: foreign.id })).status,
+  ).toBe(404);
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        image: "data:image/jpeg;base64,AAAA",
+      })
+    ).status,
+  ).toBe(400);
+  expect(
+    (await device.request("/api/health/report", { ...report, workspaceId: "injected" })).status,
+  ).toBe(400);
+  expect(
+    (
+      await device.request("/api/health/report", {
+        ...report,
+        lastObservationAt: Date.now() + 60_000,
+      })
+    ).status,
+  ).toBe(400);
+  expect(
+    (await device.request("/api/health/report", { ...report, video: "x".repeat(17_000) })).status,
+  ).toBe(413);
+  const wrongOrigin = await harness.fetch(origin + "/api/health/report", {
+    method: "POST",
+    headers: { Origin: "https://evil.example", "Content-Type": "application/json" },
+    body: JSON.stringify(report),
+  });
+  expect(wrongOrigin.status).toBe(403);
+  expect((await device.request("/api/health/report", report)).status).toBe(200);
+  expect(
+    deviceHealthSchema.parse(await (await other.request("/api/health/operator")).json()).devices,
+  ).toEqual([]);
+  const status = devicePrincipalSchema.parse(
+    await (await device.request("/api/access/devices/status")).json(),
+  );
+  await admin.request("/api/access/devices/revoke", { id: status.deviceId });
+  expect(
+    (await device.request("/api/health/report", { ...report, capture: "running" })).status,
+  ).toBe(401);
+  const revoked = deviceHealthSchema.parse(
+    await (await admin.request("/api/health/operator")).json(),
+  );
+  assert(revoked.devices[0]);
+  expect(healthStatus(revoked.devices[0], revoked.serverTime)).toBe("Access removed");
+});
 
 test("template and custom triggers persist, and a device receives edits and disabled versions", async () => {
   const { admin, input } = await configuredWorkspace();
