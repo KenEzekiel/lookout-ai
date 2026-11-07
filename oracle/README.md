@@ -13,20 +13,21 @@ place ahead of their own follow-ups. They do not stop unrelated ready work.
 Exact `stop`, `cancel`, or `abort` requests abort active work and cancel queued
 work only for that conversation. A fresh direct request resumes it.
 
-Each accepted request posts an acknowledgment with a **Stop Oracle** button in
-its Slack thread before coding starts. Verified workspace teammates can click it
-to use the same thread-scoped cancellation as a typed `stop` request. Duplicate
-click deliveries do not cancel a later resumed turn. Other threads keep their
-work. Existing threads receive a button on their next accepted request; older
-messages are not rewritten.
+Slack shows its native agent stop control while Oracle sets the thread's
+`agents.sessions.setStatus` to `processing`. The app must subscribe to the
+[`agent_session_stopped` event](https://docs.slack.dev/reference/events/agent_session_stopped/)
+for that control to appear. Oracle does not post a custom stop-button message.
 
-The Slack transport parses button payloads into the existing `Incoming` request
-with `text: "stop"`. The dispatcher and session store remain the owners of
-cancellation, deduplication, and persistence. Keeping the button in a separate
-acknowledgment preserves the formatting and length limits of model replies and
-makes it available while a request is queued, before the model reports progress.
-`tests/slack.test.ts` covers the posted control and the complete transport-to-session
-cancellation path with offline Slack and runner fakes.
+The Slack transport validates the event's channel, thread, user, and `event_ts`,
+checks the callback envelope's workspace and verified human membership, then
+routes it through the existing `Incoming` request with `text: "stop"`. The
+dispatcher and session store still own cancellation, deduplication, and
+persistence. The event timestamp identifies the click, so an old thread can be
+stopped without treating its original message as a fresh request. Duplicate
+event deliveries cannot cancel a later resumed turn. Oracle confirms the stop
+in the originating thread and sets its status to `active`. Other conversations
+keep running. `tests/slack.test.ts` covers this flow with the real dispatcher and
+session store and offline Slack and runner fakes.
 
 `dispatcher/` owns Slack routing, identity checks, and composition. `session/` owns
 atomic snapshots, the T3 lifecycle, and `operating.md`. Credentials and connection
@@ -165,11 +166,13 @@ members without changing transport permissions.
 The Slack app needs `users:read`, `chat:write`, `assistant:write`, `app_mentions:read`,
 and history scopes for the conversations it serves. Enable Socket Mode and subscribe
 to `app_mention`, `message.channels`, `message.groups`, and `message.im` to receive
-mentions and plain thread follow-ups. Invite Oracle to channels it should serve.
-The **Stop Oracle** button uses
-[Socket Mode's basic interactivity](https://docs.slack.dev/tools/bolt-js/creating-an-app/#sending-and-responding-to-actions).
-It delivers `block_actions` payloads without a public Request URL. The action
-listener acknowledges clicks before membership lookup and cancellation.
+mentions and plain thread follow-ups. Also add `agent_session_stopped` under
+**Event Subscriptions > Subscribe to bot events** and save the app settings.
+Registering a Bolt listener does not configure Slack's server-side subscription.
+Without the subscription, Slack shows a non-interactive loading indicator and
+returns `missing_agent_session_stopped_event_subscription` from the status API.
+Socket Mode delivers the native stop as an Events API callback without a public
+Request URL. Invite Oracle to channels it should serve.
 Enable the app's Agents feature for the native processing indicator. Oracle uses
 `agents.sessions.setStatus` as described in the
 [Slack agent guide](https://docs.slack.dev/ai/developing-agents/).
