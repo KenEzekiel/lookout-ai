@@ -10,6 +10,8 @@ An accepted device report persists one workspace incident with event time, sourc
 
 Acknowledge changes open to acknowledged and records the responding member as owner. Resolve changes acknowledged to resolved. Dismiss changes open or acknowledged to dismissed and records incorrect-alert feedback. Dismissed and resolved are distinct terminal states. Opening an incident changes nothing. Every response requires the last-read version, increments it, and appends one timeline entry atomically. Any current workspace member can respond, including resolving a colleague's acknowledged incident. Ownership is preserved after resolution or dismissal.
 
+Response buttons, confirmation dialogs, and newly shown errors use the shared interaction motion styles. Motion is presentation only: response commands and ownership updates do not wait for it, and reduced motion disables transitions. Existing labels and status colors remain the persistent feedback.
+
 ## Entry points
 
 Members open **Incidents** in shared navigation, then select an inbox row. `/incidents` shows up to 100 incidents with open and acknowledged responses first. `/incidents/$incidentId` shows context, evidence availability, ownership, and response actions. Both refresh every five seconds and offer explicit reload. Failed reads hide the data and response controls. Conflicting commands show an error and require current state before another successful response.

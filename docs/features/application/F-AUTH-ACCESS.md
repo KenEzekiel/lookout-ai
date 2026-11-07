@@ -12,6 +12,8 @@ Monitoring browsers display a five-minute pairing code. The owner approves it in
 
 The interface separates Team and Devices. Only owners see invitation, pairing, and removal actions. Invitations and device approvals open focused dialogs. Removal requires confirmation; same-browser activation explains the cross-tab sign-out before submission. Signup keeps the password-recovery limitation visible beside the password field. Errors preserve entered values, and failed workspace loads can be retried.
 
+Access dialogs and action buttons use the shared interaction motion styles. Pending labels and new validation feedback use a short opacity reveal while retaining the existing disabled state, field retention, and accessible feedback. Reduced motion presents these changes immediately.
+
 ## Entry points
 
 Open `/` for registration, sign-in, create-or-join onboarding, and workspace access controls. `/join?token=...` preserves an invitation through signup and opens the join action directly instead of showing a competing workspace-creation form. Successful onboarding replaces the invitation URL with the Devices destination so used invitations are not offered again after membership removal. A secondary action accepts an invitation code or returns to workspace creation. `/monitor` pairs a browser without entering the owner's password. Devices offers **Add device** for a code displayed on another device and **Use this device instead** for an explicitly confirmed same-browser switch. The paired screen links to the capture station and distinguishes local capture from unimplemented AI assessment. Revoked devices display the failure and can return to sign-in.

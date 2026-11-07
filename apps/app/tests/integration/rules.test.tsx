@@ -305,4 +305,11 @@ test("trigger dialogs focus the editor and restore the opening button on cancel 
   await user.click(screen.getByRole("button", { name: "Cancel editing" }));
   await waitFor(() => expect(edit).toHaveFocus());
   expect(configuration.rules).toEqual([fall]);
+  await user.click(create);
+  await user.clear(screen.getByLabelText("Trigger name"));
+  await user.type(screen.getByLabelText("Trigger name"), "Unsaved draft");
+  await user.click(screen.getByRole("button", { name: "Cancel editing" }));
+  await waitFor(() => expect(create).toHaveFocus());
+  await user.click(create);
+  expect(screen.getByLabelText("Trigger name")).toHaveValue("Possible fall");
 });

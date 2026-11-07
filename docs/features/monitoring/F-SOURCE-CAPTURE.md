@@ -10,6 +10,8 @@ A paired operational device selects a browser camera or local video, starts and 
 
 The camera/local-video selector uses the existing [shadcn Select](../../../apps/app/src/components/ui/select.tsx) built on Base UI, with visible labels and keyboard interaction. Changing its value retains the existing capture-stop behavior. File selection and camera permission remain browser-managed.
 
+Capture controls share the button and dropdown motion. Local-video fields enter briefly when selected, and capture-status text uses a short opacity reveal. Reduced motion keeps all feedback immediate. Video playback and sampling are never remounted or delayed by these effects.
+
 ## Entry points
 
 Open `/device` using **Open capture station** from the paired-device home screen. The capture header reuses the approved Horizon identity from the access shell. The operator client can close while a separate active capture device continues.

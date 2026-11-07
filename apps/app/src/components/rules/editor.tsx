@@ -116,7 +116,7 @@ export function RuleEditor({
           />
         </label>
         {condition.kind === "custom" ? (
-          <label className="grid gap-2 text-sm font-medium">
+          <label className="motion-reveal grid gap-2 text-sm font-medium">
             Observable event
             <textarea
               className={control}

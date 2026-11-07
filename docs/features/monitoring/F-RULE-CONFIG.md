@@ -12,6 +12,8 @@ Triggers save enabled or disabled. Every edit, disable, or re-enable increments 
 
 Source type, template, source assignment, and severity use the existing [shadcn Select](../../../apps/app/src/components/ui/select.tsx) built on Base UI. Controls display human-readable labels, submit the existing values, and support keyboard selection, Escape dismissal, and focus return. Native browser dropdowns are replaced; source and rule API contracts are unchanged.
 
+Dropdown and dialog transitions can reverse during rapid interaction. Select chevrons and the Sources disclosure indicate open state; newly revealed custom-description fields enter briefly. Reduced motion removes movement and transition delays. Keyboard selection, Escape focus return, trigger/menu geometry, and submitted values are preserved.
+
 ## Entry points
 
 Members open `/triggers` from the shared navigation. Add a named source, choose **New trigger**, review recipients, and save. Cards expose edit and disable. New and edited triggers open in a labeled modal dialog that scrolls within the viewport. Keyboard focus enters the editor and returns to the opening button when it closes. Save closes the dialog; validation and request errors keep the draft open. **Reload triggers** retrieves current configuration after a conflict. Paired browsers open `/monitor` to inspect source labels and received trigger versions.
