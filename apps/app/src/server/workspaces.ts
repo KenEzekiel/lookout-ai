@@ -103,7 +103,7 @@ export async function removeMember(request: Request) {
       "DELETE FROM push_subscription WHERE user_id=? AND workspace_id=? AND EXISTS (SELECT 1 FROM membership WHERE user_id=? AND role='operator')",
     ).bind(id, actor.workspaceId, id),
     env.DB.prepare(
-      "UPDATE monitoring_rule SET enabled=0,version=version+1 WHERE workspace_id=?1 AND EXISTS (SELECT 1 FROM json_each(definition,'$.recipientIds') WHERE value=?2) AND EXISTS (SELECT 1 FROM membership WHERE user_id=?2 AND workspace_id=?1 AND role='operator')",
+      "UPDATE monitoring_rule SET enabled=0,version=version+1 WHERE workspace_id=?1 AND EXISTS (SELECT 1 FROM json_each(definition,'$.escalationLevels') level, json_each(level.value,'$.recipientIds') recipient WHERE recipient.value=?2) AND EXISTS (SELECT 1 FROM membership WHERE user_id=?2 AND workspace_id=?1 AND role='operator')",
     ).bind(actor.workspaceId, id),
     env.DB.prepare(
       "DELETE FROM membership WHERE user_id=? AND workspace_id=? AND role='operator' RETURNING user_id",

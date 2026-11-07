@@ -316,8 +316,10 @@ async function configuredWorkspace() {
       condition: { kind: "template", template: "fall" },
       durationSeconds: null,
       severity: "critical",
-      recipientIds: [actor.userId],
-      escalationDelaySeconds: 60,
+      escalationLevels: [
+        { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 60 },
+        { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+      ],
     },
   };
   return { admin, actor, source, input };
@@ -359,7 +361,9 @@ test("template and custom triggers persist, and a device receives edits and disa
       },
       durationSeconds: 15,
       severity: "warning",
-      escalationDelaySeconds: 90,
+      escalationLevels: input.definition.escalationLevels.map((level, index) =>
+        index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 90 } : level,
+      ),
     },
   };
   const customResponse = await admin.request("/api/config/rules/create", customInput);
@@ -373,11 +377,27 @@ test("template and custom triggers persist, and a device receives edits and disa
   );
   expect(configuration.rules).toEqual([fall, custom]);
   expect(configuration.sources).toHaveLength(2);
-  const edit = { ...fall, definition: { ...fall.definition, escalationDelaySeconds: 120 } };
+  const edit = {
+    ...fall,
+    definition: {
+      ...fall.definition,
+      escalationLevels: fall.definition.escalationLevels.map((level, index) =>
+        index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 120 } : level,
+      ),
+    },
+  };
   const edited = ruleSchema.parse(
     await (await admin.request("/api/config/rules/update", edit)).json(),
   );
-  expect(edited).toMatchObject({ version: 2, definition: { escalationDelaySeconds: 120 } });
+  expect(edited).toMatchObject({
+    version: 2,
+    definition: {
+      escalationLevels: [
+        { acknowledgmentTimeoutSeconds: 120 },
+        { acknowledgmentTimeoutSeconds: null },
+      ],
+    },
+  });
   let delivered = deviceConfigurationSchema.parse(
     await (await device.request("/api/config/device")).json(),
   );
@@ -418,28 +438,99 @@ test("invalid conditions, settings, sources and recipients reject the entire sav
       ...input,
       definition: { ...input.definition, condition: { kind: "template", template: "unknown" } },
     },
-    { ...input, definition: { ...input.definition, recipientIds: [] } },
     {
       ...input,
       definition: {
         ...input.definition,
-        recipientIds: [...input.definition.recipientIds, outsiderActor.userId],
+        escalationLevels: [{ recipientIds: [], acknowledgmentTimeoutSeconds: null }],
       },
     },
-    { ...input, definition: { ...input.definition, recipientIds: ["nonexistent"] } },
     {
       ...input,
       definition: {
         ...input.definition,
-        recipientIds: [...input.definition.recipientIds, ...input.definition.recipientIds],
+        escalationLevels: [
+          {
+            recipientIds: [
+              ...input.definition.escalationLevels[0]!.recipientIds,
+              outsiderActor.userId,
+            ],
+            acknowledgmentTimeoutSeconds: null,
+          },
+        ],
       },
     },
-    { ...input, definition: { ...input.definition, escalationDelaySeconds: 0 } },
+    {
+      ...input,
+      definition: {
+        ...input.definition,
+        escalationLevels: [{ recipientIds: ["nonexistent"], acknowledgmentTimeoutSeconds: null }],
+      },
+    },
+    {
+      ...input,
+      definition: {
+        ...input.definition,
+        escalationLevels: [
+          {
+            recipientIds: [
+              ...input.definition.escalationLevels[0]!.recipientIds,
+              ...input.definition.escalationLevels[0]!.recipientIds,
+            ],
+            acknowledgmentTimeoutSeconds: null,
+          },
+        ],
+      },
+    },
+    {
+      ...input,
+      definition: {
+        ...input.definition,
+        escalationLevels: input.definition.escalationLevels.map((level, index) =>
+          index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 0 } : level,
+        ),
+      },
+    },
     { ...input, definition: { ...input.definition, durationSeconds: -1 } },
     { ...input, definition: { ...input.definition, severity: "unknown" } },
     { ...input, sourceId: outsiderSource.id },
     { ...input, sourceId: "nonexistent" },
   ];
+  invalid.push(
+    ...[
+      [],
+      Array.from({ length: 7 }, (_, index) => ({
+        recipientIds: [input.definition.escalationLevels[0]!.recipientIds[0]!],
+        acknowledgmentTimeoutSeconds: index === 6 ? null : 60,
+      })),
+      [
+        {
+          recipientIds: input.definition.escalationLevels[0]!.recipientIds,
+          acknowledgmentTimeoutSeconds: 60,
+        },
+      ],
+      [
+        {
+          recipientIds: input.definition.escalationLevels[0]!.recipientIds,
+          acknowledgmentTimeoutSeconds: null,
+        },
+        {
+          recipientIds: input.definition.escalationLevels[0]!.recipientIds,
+          acknowledgmentTimeoutSeconds: null,
+        },
+      ],
+      [
+        {
+          recipientIds: input.definition.escalationLevels[0]!.recipientIds,
+          acknowledgmentTimeoutSeconds: 60,
+        },
+        { recipientIds: [outsiderActor.userId], acknowledgmentTimeoutSeconds: null },
+      ],
+    ].map((escalationLevels) => ({
+      ...input,
+      definition: { ...input.definition, escalationLevels },
+    })),
+  );
   for (const body of invalid)
     expect((await admin.request("/api/config/rules/create", body)).status).toBe(400);
   const empty = operatorConfigurationSchema.parse(
@@ -456,7 +547,9 @@ test("invalid conditions, settings, sources and recipients reject the entire sav
         definition: {
           ...rule.definition,
           name: "Must not persist",
-          recipientIds: [outsiderActor.userId],
+          escalationLevels: [
+            { recipientIds: [outsiderActor.userId], acknowledgmentTimeoutSeconds: null },
+          ],
         },
       })
     ).status,
@@ -569,7 +662,10 @@ test("operators configure rules and removing a recipient disables and versions a
     await (
       await operator.request("/api/config/rules/create", {
         ...input,
-        definition: { ...input.definition, recipientIds: [actor.userId] },
+        definition: {
+          ...input.definition,
+          escalationLevels: [{ recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null }],
+        },
       })
     ).json(),
   );
@@ -595,7 +691,14 @@ async function incidentSetup(escalationDelaySeconds = 60) {
     await (
       await workspace.admin.request("/api/config/rules/create", {
         ...workspace.input,
-        definition: { ...workspace.input.definition, escalationDelaySeconds },
+        definition: {
+          ...workspace.input.definition,
+          escalationLevels: workspace.input.definition.escalationLevels.map((level, index) =>
+            index === 0
+              ? { ...level, acknowledgmentTimeoutSeconds: escalationDelaySeconds }
+              : level,
+          ),
+        },
       })
     ).json(),
   );
@@ -686,7 +789,15 @@ test("incoming delivery is recipient-scoped, retry-safe and stops for every reci
     await (
       await admin.request("/api/config/rules/update", {
         ...rule,
-        definition: { ...rule.definition, recipientIds: [actor.userId, operatorActor.userId] },
+        definition: {
+          ...rule.definition,
+          escalationLevels: [
+            {
+              recipientIds: [actor.userId, operatorActor.userId],
+              acknowledgmentTimeoutSeconds: null,
+            },
+          ],
+        },
       })
     ).json(),
   );
@@ -694,19 +805,22 @@ test("incoming delivery is recipient-scoped, retry-safe and stops for every reci
   const incident = reportReceiptSchema.parse(
     await (await device.request("/api/incidents/reports", currentReport)).json(),
   ).incident;
-  expect(await alerts(admin)).toEqual([incident]);
-  expect(await alerts(operator)).toEqual([incident]);
+  expect(await alerts(admin)).toEqual([{ ...incident, deliveryLevel: 1 }]);
+  expect(await alerts(operator)).toEqual([{ ...incident, deliveryLevel: 1 }]);
   expect(await alerts(otherMember)).toEqual([]);
   expect(await alerts(outsider)).toEqual([]);
   expect((await new Browser().request("/api/incidents/alerts")).status).toBe(401);
   expect((await device.request("/api/incidents/alerts")).status).toBe(403);
   await device.request("/api/incidents/reports", currentReport);
-  expect(await alerts(admin)).toEqual([incident]);
+  expect(await alerts(admin)).toEqual([{ ...incident, deliveryLevel: 1 }]);
   await admin.request("/api/config/rules/update", {
     ...currentRule,
-    definition: { ...currentRule.definition, recipientIds: [actor.userId] },
+    definition: {
+      ...currentRule.definition,
+      escalationLevels: [{ recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null }],
+    },
   });
-  expect(await alerts(operator)).toEqual([incident]);
+  expect(await alerts(operator)).toEqual([{ ...incident, deliveryLevel: 1 }]);
   expect(
     (
       await operator.request(`/api/incidents/commands/${incident.id}`, {
@@ -834,7 +948,7 @@ test("report and incident endpoints enforce workspace, device, origin and member
       await device.request("/api/incidents/reports", {
         ...report,
         eventId: "forged",
-        recipientIds: [actor.userId],
+        escalationLevels: [{ recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null }],
       })
     ).status,
   ).toBe(400);
@@ -1244,7 +1358,12 @@ test("a real alarm survives object eviction and publishes one follow-up using th
   await harness.getWorker().evictDurableObject("INCIDENT_FOLLOW_UP", { name: created.id });
   await admin.request("/api/config/rules/update", {
     ...rule,
-    definition: { ...rule.definition, escalationDelaySeconds: 3600 },
+    definition: {
+      ...rule.definition,
+      escalationLevels: rule.definition.escalationLevels.map((level, index) =>
+        index === 0 ? { ...level, acknowledgmentTimeoutSeconds: 3600 } : level,
+      ),
+    },
   });
   const detail = async () =>
     incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${created.id}`)).json());
@@ -1268,7 +1387,7 @@ test("a real alarm survives object eviction and publishes one follow-up using th
   expect(
     incidentInboxSchema.parse(await (await admin.request("/api/incidents/alerts")).json())
       .incidents,
-  ).toEqual([attempted]);
+  ).toEqual([{ ...attempted, deliveryLevel: 2 }]);
 });
 
 test("acknowledge, dismiss and resolve prevent new follow-up attempts, including repeated alarm delivery", async () => {
@@ -1393,4 +1512,203 @@ test("a failed creation resets the object and recovers its durable intent throug
   ]);
   expect((await device.request("/api/incidents/reports", report)).status).toBe(200);
   expect(await inbox()).toEqual(recovered);
+});
+
+test("levels activate sequentially with full acknowledgment windows and recipient-scoped delivery", async () => {
+  const { admin, device, report, rule, actor } = await incidentSetup();
+  const operator = await teammate(admin);
+  const operatorActor = memberSchema.parse(
+    await (await operator.request("/api/access/principal")).json(),
+  );
+  const updated = ruleSchema.parse(
+    await (
+      await admin.request("/api/config/rules/update", {
+        ...rule,
+        definition: {
+          ...rule.definition,
+          escalationLevels: [
+            { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 60 },
+            { recipientIds: [operatorActor.userId], acknowledgmentTimeoutSeconds: 120 },
+            {
+              recipientIds: [actor.userId, operatorActor.userId],
+              acknowledgmentTimeoutSeconds: null,
+            },
+          ],
+        },
+      })
+    ).json(),
+  );
+  const created = reportReceiptSchema.parse(
+    await (
+      await device.request("/api/incidents/reports", {
+        ...report,
+        ruleVersion: updated.version,
+      })
+    ).json(),
+  ).incident;
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  const detail = async () =>
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${created.id}`)).json());
+  const alerts = async (browser: Browser) =>
+    incidentInboxSchema.parse(await (await browser.request("/api/incidents/alerts")).json())
+      .incidents;
+  expect(await alerts(operator)).toEqual([]);
+  expect((await alerts(admin))[0]?.deliveryLevel).toBe(1);
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  const alarm = env.INCIDENT_FOLLOW_UP.getByName(created.id);
+  await Promise.all([alarm.dispatch(), alarm.dispatch()]);
+  const second = await detail();
+  expect(second.escalationActivations).toHaveLength(2);
+  expect(second.escalationDueAt).toBe(second.escalationActivations[1]! + 120_000);
+  expect((await alerts(operator))[0]?.deliveryLevel).toBe(2);
+  expect((await alerts(admin))[0]?.deliveryLevel).toBe(1);
+  await alarm.dispatch();
+  expect(await detail()).toEqual(second);
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  await alarm.dispatch();
+  const final = await detail();
+  expect(final.escalationActivations).toHaveLength(3);
+  expect(final.escalationDueAt).toBeNull();
+  expect(final.status).toBe("open");
+  expect(final.version).toBe(1);
+  expect((await alerts(admin))[0]?.deliveryLevel).toBe(3);
+  await alarm.dispatch();
+  expect(await detail()).toEqual(final);
+  expect(
+    (
+      await admin.request(`/api/incidents/commands/${created.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).status,
+  ).toBe(200);
+  expect(await alerts(operator)).toEqual([]);
+});
+
+test("acknowledgment by an earlier recipient cancels later levels and removal disables future-recipient rules", async () => {
+  const { admin, device, report, rule, actor } = await incidentSetup();
+  const operator = await teammate(admin);
+  const operatorActor = memberSchema.parse(
+    await (await operator.request("/api/access/principal")).json(),
+  );
+  const policy = [
+    { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 60 },
+    { recipientIds: [operatorActor.userId], acknowledgmentTimeoutSeconds: 60 },
+    { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+  ];
+  const updated = ruleSchema.parse(
+    await (
+      await admin.request("/api/config/rules/update", {
+        ...rule,
+        definition: { ...rule.definition, escalationLevels: policy },
+      })
+    ).json(),
+  );
+  const created = reportReceiptSchema.parse(
+    await (
+      await device.request("/api/incidents/reports", {
+        ...report,
+        ruleVersion: updated.version,
+      })
+    ).json(),
+  ).incident;
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  await env.INCIDENT_FOLLOW_UP.getByName(created.id).dispatch();
+  expect(
+    (
+      await admin.request(`/api/incidents/commands/${created.id}`, {
+        action: "acknowledge",
+        version: 1,
+      })
+    ).status,
+  ).toBe(200);
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(created.id).run();
+  await env.INCIDENT_FOLLOW_UP.getByName(created.id).dispatch();
+  const stopped = incidentSchema.parse(
+    await (await admin.request(`/api/incidents/detail/${created.id}`)).json(),
+  );
+  expect(stopped.escalationActivations).toHaveLength(2);
+  expect(stopped.status).toBe("acknowledged");
+  expect(
+    (await admin.request("/api/access/remove-member", { id: operatorActor.userId })).status,
+  ).toBe(200);
+  const config = operatorConfigurationSchema.parse(
+    await (await admin.request("/api/config/operator")).json(),
+  );
+  expect(config.rules[0]).toMatchObject({ enabled: false, version: updated.version + 1 });
+  expect((await operator.request("/api/incidents/alerts")).status).toBe(403);
+});
+
+test("the migration preserves legacy pending, attempted and unscheduled incident state", async () => {
+  const { admin, device, report, rule, actor } = await incidentSetup(3600);
+  const env = await harness.getWorker<Cloudflare.Env>().getEnv();
+  const incidents = [];
+  for (let index = 0; index < 3; index++) {
+    incidents.push(
+      reportReceiptSchema.parse(
+        await (
+          await device.request("/api/incidents/reports", {
+            ...report,
+            eventId: crypto.randomUUID(),
+          })
+        ).json(),
+      ).incident,
+    );
+  }
+  const [pending, attempted, unscheduled] = incidents;
+  assert(pending && attempted && unscheduled);
+  await env.DB.prepare("UPDATE incident SET follow_up_attempted_at=received_at+1000 WHERE id=?")
+    .bind(attempted.id)
+    .run();
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=NULL WHERE id=?")
+    .bind(unscheduled.id)
+    .run();
+  const legacy = { ...rule.definition, recipientIds: [actor.userId], escalationDelaySeconds: 3600 };
+  const { escalationLevels: _levels, ...definition } = legacy;
+  await env.DB.prepare("UPDATE monitoring_rule SET definition=? WHERE id=?")
+    .bind(JSON.stringify(definition), rule.id)
+    .run();
+  await env.DB.prepare("UPDATE incident SET context=json_set(context,'$.rule.definition',json(?))")
+    .bind(JSON.stringify(definition))
+    .run();
+  await env.DB.prepare("ALTER TABLE incident DROP COLUMN escalation_activations").run();
+  const { readFile } = await import("node:fs/promises");
+  const migration = await readFile(
+    new URL("../../migrations/0007_escalation_levels.sql", import.meta.url),
+    "utf8",
+  );
+  await env.DB.batch(
+    migration
+      .split(";")
+      .map((sql) => sql.trim())
+      .filter(Boolean)
+      .map((sql) => env.DB.prepare(sql)),
+  );
+  const detail = async (id: string) =>
+    incidentSchema.parse(await (await admin.request(`/api/incidents/detail/${id}`)).json());
+  expect((await detail(pending.id)).escalationDueAt).toBe(pending.receivedAt + 3_600_000);
+  expect((await detail(attempted.id)).escalationActivations).toEqual([
+    attempted.receivedAt,
+    attempted.receivedAt + 1000,
+  ]);
+  expect((await detail(attempted.id)).escalationDueAt).toBeNull();
+  expect((await detail(unscheduled.id)).escalationDueAt).toBeNull();
+  const configuration = operatorConfigurationSchema.parse(
+    await (await admin.request("/api/config/operator")).json(),
+  );
+  expect(configuration.rules[0]?.definition.escalationLevels).toEqual([
+    { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 3600 },
+    { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+  ]);
+  await env.DB.prepare("UPDATE incident SET follow_up_due_at=0 WHERE id=?").bind(pending.id).run();
+  await env.INCIDENT_FOLLOW_UP.getByName(pending.id).dispatch();
+  expect((await detail(pending.id)).escalationActivations).toHaveLength(2);
+  await env.INCIDENT_FOLLOW_UP.getByName(attempted.id).dispatch();
+  expect((await detail(attempted.id)).escalationActivations).toEqual([
+    attempted.receivedAt,
+    attempted.receivedAt + 1000,
+  ]);
+  await env.INCIDENT_FOLLOW_UP.getByName(unscheduled.id).dispatch();
+  expect((await detail(unscheduled.id)).escalationActivations).toEqual([unscheduled.receivedAt]);
 });

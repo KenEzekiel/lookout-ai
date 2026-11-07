@@ -138,8 +138,10 @@ test("a synthetic report receipt uploads only its preserved clip to the same inc
               condition: { kind: "template", template: "fall" },
               durationSeconds: null,
               severity: "critical",
-              recipientIds: ["operator-one"],
-              escalationDelaySeconds: 60,
+              escalationLevels: [
+                { recipientIds: ["operator-one"], acknowledgmentTimeoutSeconds: 60 },
+                { recipientIds: ["operator-one"], acknowledgmentTimeoutSeconds: null },
+              ],
             },
           },
           status: "open",

@@ -160,6 +160,7 @@ export const incident = sqliteTable(
     version: integer("version").notNull(),
     owner: text("owner"),
     timeline: text("timeline").notNull(),
+    escalationActivations: text("escalation_activations").notNull().default("[]"),
     followUpDueAt: integer("follow_up_due_at"),
     followUpAttemptedAt: integer("follow_up_attempted_at"),
   },

@@ -161,8 +161,10 @@ async function configuredDevice() {
           condition: { kind: "template", template: "fall" },
           durationSeconds: null,
           severity: "critical",
-          recipientIds: [actor.userId],
-          escalationDelaySeconds: 30,
+          escalationLevels: [
+            { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: 30 },
+            { recipientIds: [actor.userId], acknowledgmentTimeoutSeconds: null },
+          ],
         },
       })
     ).json(),
