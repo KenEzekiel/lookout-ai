@@ -11,6 +11,8 @@ async function handle(request: Request) {
     incidentDetail,
     commandIncident,
   } = await import("@/server/incidents");
+  const { unavailableEvidence, startEvidence, uploadEvidence, replayEvidence } =
+    await import("@/server/evidence");
   return endpoint(request, async () => {
     const path = new URL(request.url).pathname.replace("/api/incidents/", "");
     if (request.method === "POST" && path === "sessions") return startIncidentSession(request);
@@ -22,12 +24,21 @@ async function handle(request: Request) {
     if (id && rest.length === 0) {
       if (request.method === "GET" && area === "detail") return incidentDetail(request, id);
       if (request.method === "POST" && area === "commands") return commandIncident(request, id);
+      if (request.method === "POST" && area === "evidence-unavailable")
+        return unavailableEvidence(request, id);
+      if (request.method === "POST" && area === "evidence-start") return startEvidence(request, id);
+      if (request.method === "PUT" && area === "evidence") return uploadEvidence(request, id);
+      if (request.method === "GET" && area === "evidence") return replayEvidence(request, id);
     }
     return json({ message: "Not found." }, 404);
   });
 }
 export const Route = createFileRoute("/api/incidents/$")({
   server: {
-    handlers: { GET: ({ request }) => handle(request), POST: ({ request }) => handle(request) },
+    handlers: {
+      GET: ({ request }) => handle(request),
+      POST: ({ request }) => handle(request),
+      PUT: ({ request }) => handle(request),
+    },
   },
 });

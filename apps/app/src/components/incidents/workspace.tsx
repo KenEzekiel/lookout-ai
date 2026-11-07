@@ -24,6 +24,12 @@ function Status({ incident }: { incident: Incident }) {
     </span>
   );
 }
+const evidenceLabels: Record<Incident["evidenceStatus"], string> = {
+  preparing: "Preparing evidence",
+  uploading: "Uploading evidence",
+  ready: "Replay ready",
+  unavailable: "Evidence unavailable",
+};
 export function IncidentInbox() {
   const [incidents, setIncidents] = useState<Incident[]>();
   const [error, setError] = useState("");
@@ -121,8 +127,8 @@ export function IncidentInbox() {
                     <EventTime at={incident.eventTime} />
                   </p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {incident.owner ? `Owned by ${incident.owner.name}` : "No owner yet"} · Evidence
-                    pending
+                    {incident.owner ? `Owned by ${incident.owner.name}` : "No owner yet"} ·{" "}
+                    {evidenceLabels[incident.evidenceStatus]}
                   </p>
                 </div>
                 <Status incident={incident} />
@@ -264,14 +270,43 @@ export function IncidentDetail({ id }: { id: string }) {
           </header>
           <div className="grid items-start gap-6 lg:grid-cols-[1.5fr_1fr]">
             <div className="grid gap-6">
-              <div className="flex min-h-60 flex-col items-center justify-center gap-3 rounded-2xl bg-card p-8 text-center">
-                <Video aria-hidden="true" className="size-8 text-muted-foreground" />
-                <h3 className="text-panel-title">Evidence pending</h3>
-                <p className="max-w-sm text-muted-foreground">
-                  Preparing replay. No saved clip is available yet. You can respond while evidence
-                  is pending.
-                </p>
-              </div>
+              <section
+                aria-label="Evidence"
+                className="flex min-h-60 flex-col items-center justify-center gap-3 rounded-2xl bg-card p-8 text-center"
+              >
+                {incident.evidenceStatus === "ready" ? (
+                  <>
+                    <h3 className="text-panel-title">Saved event replay</h3>
+                    <video
+                      controls
+                      aria-label="Event clip replay"
+                      preload="metadata"
+                      className="w-full max-w-2xl rounded-xl bg-black"
+                      src={`/api/incidents/evidence/${encodeURIComponent(incident.id)}`}
+                    >
+                      <track kind="captions" src="data:text/vtt,WEBVTT" />
+                      Your browser cannot play this video.
+                    </video>
+                    {incident.evidenceExpiresAt && (
+                      <p className="text-sm text-muted-foreground">
+                        Available until <EventTime at={incident.evidenceExpiresAt} />
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Video aria-hidden="true" className="size-8 text-muted-foreground" />
+                    <h3 className="text-panel-title">{evidenceLabels[incident.evidenceStatus]}</h3>
+                    <p className="max-w-sm text-muted-foreground">
+                      {incident.evidenceStatus === "unavailable"
+                        ? incident.evidenceReason || "No playable clip is available for this event."
+                        : incident.evidenceStatus === "uploading"
+                          ? "The device is sending the clip. You can respond while it uploads."
+                          : "The device is preparing the clip. You can respond while evidence is pending."}
+                    </p>
+                  </>
+                )}
+              </section>
               <section aria-labelledby="rule-title" className="rounded-2xl bg-card p-6">
                 <h3 id="rule-title" className="text-panel-title">
                   Matched trigger

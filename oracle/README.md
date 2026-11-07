@@ -191,6 +191,10 @@ trigger reloads. Install changed dependencies before expecting new code to start
 
 `session/operating.md` is read before every coding turn, so policy changes apply
 without restarting or interrupting an active turn.
+Verified Slack members can request changes to Oracle's source, operating
+instructions, dispatcher configuration, and repository automation. Oracle makes
+those changes in its task worktree and opens a pull request targeting `main`.
+The user's explicit confirmation is still required to merge that pull request.
 Startup logs identify the configured T3 instance and model. This bridge does not
 automatically poll GitHub or Linear or handle agent-container onboarding.
 

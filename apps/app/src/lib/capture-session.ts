@@ -31,11 +31,40 @@ export type CaptureSnapshot = {
 };
 
 export type RecordedSegment = { from: number; to: number; blob: Blob };
+export type EventInterval = { epoch: number; sourceTimeMs: number };
+export type PreservedEvent =
+  | (CaptureIdentity & {
+      kind: "file";
+      epoch: number;
+      eventTimeMs: number;
+      from: number;
+      to: number;
+      file: File;
+    })
+  | (CaptureIdentity & {
+      kind: "camera";
+      epoch: number;
+      eventTimeMs: number;
+      from: number;
+      to: number;
+      segments: readonly RecordedSegment[];
+    });
+
+type PendingEvent = {
+  epoch: number;
+  eventTimeMs: number;
+  from: number;
+  to: number;
+  segments: Map<number, RecordedSegment>;
+  resolve: (event: PreservedEvent) => void;
+};
 
 const bufferMs = 30_000;
 const segmentMs = 5_000;
 const maxBufferBytes = 24 * 1024 * 1024;
 const maxSamples = 30;
+const eventLeadInMs = 10_000;
+const eventAftermathMs = 10_000;
 
 export const initialCaptureSnapshot: CaptureSnapshot = {
   state: "idle",
@@ -63,6 +92,7 @@ export class CaptureSession {
   private segments: RecordedSegment[] = [];
   private activeChunks: Blob[] = [];
   private segmentStartedAt = 0;
+  private pendingEvents = new Set<PendingEvent>();
   private canvas = document.createElement("canvas");
 
   constructor(
@@ -141,6 +171,48 @@ export class CaptureSession {
     return null;
   }
 
+  preserveEventInterval({ epoch, sourceTimeMs }: EventInterval): Promise<PreservedEvent> {
+    if (this.state !== "running" || epoch !== this.epoch) {
+      return Promise.reject(new Error("This event belongs to an inactive capture run."));
+    }
+    if (!Number.isFinite(sourceTimeMs) || sourceTimeMs < 0) {
+      return Promise.reject(new Error("The event time is invalid."));
+    }
+    if (this.source === "file" && this.file) {
+      const durationMs = this.video.duration * 1000;
+      const to = Number.isFinite(durationMs)
+        ? Math.min(durationMs, sourceTimeMs + eventAftermathMs)
+        : sourceTimeMs + eventAftermathMs;
+      if (to <= sourceTimeMs) {
+        return Promise.reject(new Error("The event is outside the selected video."));
+      }
+      return Promise.resolve({
+        ...this.identity,
+        kind: "file",
+        epoch,
+        eventTimeMs: sourceTimeMs,
+        from: Math.max(0, sourceTimeMs - eventLeadInMs),
+        to,
+        file: this.file,
+      });
+    }
+    if (this.source !== "camera") {
+      return Promise.reject(new Error("No source footage is available for this event."));
+    }
+    return new Promise((resolve) => {
+      const pending: PendingEvent = {
+        epoch,
+        eventTimeMs: sourceTimeMs,
+        from: sourceTimeMs - eventLeadInMs,
+        to: sourceTimeMs + eventAftermathMs,
+        segments: new Map(),
+        resolve,
+      };
+      this.pendingEvents.add(pending);
+      this.updatePendingEvents();
+    });
+  }
+
   getPeerStream(): MediaStream | null {
     if (this.state !== "running") return null;
     if (this.stream) return this.stream.clone();
@@ -199,6 +271,7 @@ export class CaptureSession {
   }
 
   stop() {
+    this.updatePendingEvents(true);
     this.generation += 1;
     this.state = "stopped";
     this.release();
@@ -272,11 +345,13 @@ export class CaptureSession {
       if (this.segmentTimer !== null) window.clearTimeout(this.segmentTimer);
       this.segmentTimer = null;
       if (this.activeChunks.length) {
-        this.segments.push({
+        const segment = {
           from: this.segmentStartedAt,
           to: Date.now(),
           blob: new Blob(this.activeChunks, { type: recorder.mimeType || "video/webm" }),
-        });
+        };
+        this.segments.push(segment);
+        this.rememberSegmentForPending(segment);
         this.trimSegments();
       }
       this.activeChunks = [];
@@ -304,6 +379,7 @@ export class CaptureSession {
   }
 
   private fail(error: unknown) {
+    this.updatePendingEvents(true);
     this.state = "error";
     this.release();
     this.error = this.errorMessage(error);
@@ -352,6 +428,40 @@ export class CaptureSession {
 
   private publish() {
     this.onChange(this.getSnapshot());
+    this.updatePendingEvents();
+  }
+
+  private updatePendingEvents(force = false) {
+    if (this.pendingEvents.size === 0) return;
+    const recent = this.getRecentVideo();
+    if (recent?.kind === "camera") {
+      for (const segment of recent.segments) this.rememberSegmentForPending(segment);
+    }
+    for (const pending of this.pendingEvents) {
+      const complete = this.segments.some((segment) => segment.to >= pending.to);
+      if (!force && !complete) continue;
+      const segments = [...pending.segments.values()].sort((a, b) => a.from - b.from);
+      const first = segments[0];
+      const last = segments.at(-1);
+      pending.resolve({
+        ...this.identity,
+        kind: "camera",
+        epoch: pending.epoch,
+        eventTimeMs: pending.eventTimeMs,
+        from: Math.max(pending.from, first?.from ?? pending.from),
+        to: Math.min(pending.to, last?.to ?? pending.to),
+        segments,
+      });
+      this.pendingEvents.delete(pending);
+    }
+  }
+
+  private rememberSegmentForPending(segment: RecordedSegment) {
+    for (const pending of this.pendingEvents) {
+      if (segment.to <= pending.from || segment.from >= pending.to) continue;
+      const earlier = pending.segments.get(segment.from);
+      if (!earlier || earlier.to < segment.to) pending.segments.set(segment.from, segment);
+    }
   }
 
   private onSeek = () => {
