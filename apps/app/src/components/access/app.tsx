@@ -32,14 +32,22 @@ export function AccessApp({
   const [actor, setActor] = useState<Principal>();
   const [error, setError] = useState("");
   const refresh = useCallback(async () => {
-    setActor(await request("/api/access/principal", principalSchema));
+    setActor(
+      await request(
+        capture ? "/api/access/principal?mode=device" : "/api/access/principal",
+        principalSchema,
+      ),
+    );
     setError("");
-  }, []);
+  }, [capture]);
   useEffect(() => {
     let active = true;
     async function check() {
       try {
-        const next = await request("/api/access/principal", principalSchema);
+        const next = await request(
+          capture ? "/api/access/principal?mode=device" : "/api/access/principal",
+          principalSchema,
+        );
         if (active) {
           setActor(next);
           setError("");
@@ -57,7 +65,7 @@ export function AccessApp({
       active = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [capture]);
   if (capture && actor?.kind === "device" && !error) {
     return <DeviceScreen deviceId={actor.deviceId} workspaceId={actor.workspaceId} />;
   }
@@ -113,6 +121,7 @@ export function AccessApp({
                   size="sm"
                   variant="ghost"
                   action={async () => {
+                    await mutate("/api/access/devices/leave");
                     await mutate("/api/auth/sign-out");
                     await refresh();
                   }}
@@ -153,7 +162,7 @@ export function AccessApp({
                 variant="secondary"
                 action={async () => {
                   await mutate("/api/access/devices/leave");
-                  window.location.assign("/");
+                  window.location.assign("/devices");
                 }}
               />
             </div>
@@ -163,7 +172,12 @@ export function AccessApp({
         ) : actor.kind === "device" ? (
           <Monitor actor={actor} />
         ) : pairing ? (
-          <PairBrowser signedIn={signedIn} onPaired={refresh} />
+          <PairBrowser
+            signedIn={signedIn}
+            onPaired={async () => {
+              await navigate({ to: "/device" });
+            }}
+          />
         ) : actor.kind === "visitor" ? (
           <Account invitation={invitation} onSignedIn={refresh} />
         ) : actor.kind === "unassigned-user" ? (

@@ -1,11 +1,12 @@
+import { responseGate } from "../support/response-gate";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse, sse } from "msw";
-import { beforeEach, expect, test } from "vitest";
+import { beforeEach, expect, onTestFinished, test } from "vitest";
 import { server } from "../support/server";
 import { getRouter } from "../../src/router";
-import type { Principal } from "../../src/lib/access";
+import type { Principal, DevicePrincipal } from "../../src/lib/access";
 
 const owner = {
   kind: "member",
@@ -16,9 +17,19 @@ const owner = {
   role: "owner",
 } satisfies Principal;
 let principal: Principal;
+let activeDevice: DevicePrincipal | null;
 beforeEach(() => {
   principal = { kind: "visitor" };
-  server.use(http.get("/api/access/principal", () => HttpResponse.json(principal)));
+  activeDevice = null;
+  server.use(
+    http.get("/api/access/principal", ({ request }) =>
+      new URL(request.url).searchParams.get("mode") === "device"
+        ? activeDevice
+          ? HttpResponse.json(activeDevice)
+          : HttpResponse.json({ message: "Device unavailable" }, { status: 401 })
+        : HttpResponse.json(principal),
+    ),
+  );
 });
 async function open(path = "/devices") {
   const router = getRouter();
@@ -117,24 +128,49 @@ test("SSE reconnects with a fresh snapshot after a dropped connection", async ()
 });
 
 test("access loss clears streamed devices and offers manual recovery", async () => {
+  const stackTraceLimit = Error.stackTraceLimit;
+  Error.stackTraceLimit = 40;
+  onTestFinished(() => {
+    Error.stackTraceLimit = stackTraceLimit;
+  });
   principal = owner;
-  let revoke: (() => void) | undefined;
+  const trace: string[] = [];
+  const connection = responseGate();
+  const revocations: (() => void)[] = [];
   server.use(
     http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })),
-    sse<{ message: string; unavailable: string }>("/api/access/team/events", ({ client }) => {
-      client.send({
-        data: JSON.stringify({
-          members: [],
-          devices: [{ id: "private", name: "Private camera", revokedAt: null }],
-        }),
-      });
-      revoke = () => client.send({ event: "unavailable", data: "{}" });
-    }),
+    sse<{ message: string; unavailable: string }>(
+      "/api/access/team/events",
+      ({ client, request }) => {
+        trace.push("connected");
+        request.signal.addEventListener("abort", () =>
+          trace.push(`aborted: ${String(request.signal.reason?.stack ?? request.signal.reason)}`),
+        );
+        client.send({
+          data: JSON.stringify({
+            members: [],
+            devices: [{ id: "private", name: "Private camera", revokedAt: null }],
+          }),
+        });
+        revocations.push(() => {
+          trace.push("sent unavailable");
+          client.send({ event: "unavailable", data: "{}" });
+        });
+        connection.resolve();
+      },
+    ),
   );
   await open("/devices");
   expect(await screen.findByText("Private camera")).toBeVisible();
-  act(() => revoke?.());
-  await waitFor(() => expect(screen.queryByText("Private camera")).not.toBeInTheDocument());
+  await connection.promise;
+  await act(async () => revocations.forEach((revoke) => revoke()));
+  try {
+    await waitFor(() => expect(screen.queryByText("Private camera")).not.toBeInTheDocument());
+  } catch (error) {
+    throw new Error(
+      `${JSON.stringify({ trace, alerts: screen.queryAllByRole("alert").map((node) => node.textContent) })}\n${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   expect(screen.getByText(/Live updates interrupted/)).toBeVisible();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeEnabled();
 });
@@ -172,8 +208,7 @@ test("registration from an invitation link preserves the invitation through onbo
   await user.click(screen.getByRole("link", { name: "Team" }));
   expect(await screen.findByText("Taylor")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Invite member" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Switch to device mode" })).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Switch to device mode" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Switch to device mode" })).toBeVisible();
 });
 
 test("sign-in failures preserve entered fields and allow another attempt", async () => {
@@ -329,7 +364,7 @@ test("device approval errors preserve fields and a cancelled device switch keeps
           { status: 503 },
         );
       }
-      principal = {
+      activeDevice = {
         kind: "device",
         deviceId: "laptop",
         workspaceId: "team",
@@ -343,7 +378,7 @@ test("device approval errors preserve fields and a cancelled device switch keeps
   const user = await open();
   const browser = await screen.findByRole("region", { name: "This browser" });
   expect(browser).toHaveTextContent("Workspace management");
-  expect(browser).toHaveTextContent("across this browser’s tabs");
+  expect(browser).toHaveTextContent("Your workspace login stays signed in");
   expect(within(browser).getByRole("button", { name: "Use this device instead" })).toBeVisible();
   await user.click(await screen.findByRole("button", { name: "Add device" }));
   await user.type(screen.getByLabelText("Device name"), "Lobby");
@@ -354,25 +389,22 @@ test("device approval errors preserve fields and a cancelled device switch keeps
   expect(screen.getByLabelText("Pairing code")).toHaveValue("123456");
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   await user.click(screen.getByRole("button", { name: "Switch to device mode" }));
-  expect(screen.getByRole("dialog")).toHaveTextContent("every tab of this browser");
+  expect(await screen.findByRole("dialog")).toHaveTextContent("stay signed in");
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.getByRole("button", { name: "Add device" })).toBeVisible();
   expect(activationAttempts).toBe(0);
   await user.click(screen.getByRole("button", { name: "Switch to device mode" }));
-  await user.type(screen.getByLabelText("Device name"), "Reception laptop");
-  await user.click(screen.getByRole("button", { name: "Sign out and set up device" }));
+  await user.type(await screen.findByLabelText("Device name"), "Reception laptop");
+  await user.click(screen.getByRole("button", { name: "Set up device" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not set up this device");
   expect(screen.getByLabelText("Device name")).toHaveValue("Reception laptop");
-  expect(screen.getByRole("button", { name: "Sign out and set up device" })).toBeEnabled();
-  await user.click(screen.getByRole("button", { name: "Sign out and set up device" }));
-  expect(await screen.findByRole("heading", { name: "Device connected" })).toBeVisible();
-  expect(screen.getByRole("link", { name: "Open capture station" })).toHaveAttribute(
-    "href",
-    "/device",
-  );
+  expect(screen.getByRole("button", { name: "Set up device" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Set up device" }));
+  expect(await screen.findByRole("heading", { name: "Capture station" })).toBeVisible();
+  expect(principal).toMatchObject({ kind: "member" });
   expect(screen.queryByRole("button", { name: "Add device" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Switch to device mode" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Return to sign in" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Return to workspace" })).toBeVisible();
 });
 
 test("owners can find the device-mode action from Team and cancel without losing workspace access", async () => {
@@ -381,7 +413,7 @@ test("owners can find the device-mode action from Team and cancel without losing
   const user = await open("/team");
   const header = await screen.findByRole("banner");
   await user.click(await within(header).findByRole("button", { name: "Switch to device mode" }));
-  expect(screen.getByRole("dialog")).toHaveTextContent("every tab of this browser");
+  expect(await screen.findByRole("dialog")).toHaveTextContent("stay signed in");
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.getByRole("heading", { name: "Team" })).toBeVisible();
   expect(screen.getByRole("navigation", { name: "Workspace" })).toBeVisible();
@@ -393,12 +425,10 @@ test("operators can find the device-mode action from Team and return without los
   server.use(http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })));
   const user = await open("/team");
   const header = await screen.findByRole("banner");
-  await user.click(await within(header).findByRole("link", { name: "Switch to device mode" }));
+  await user.click(await within(header).findByRole("button", { name: "Switch to device mode" }));
   expect(await screen.findByRole("heading", { name: "Set up this device" })).toBeVisible();
-  expect(screen.getByText(/Once approved/)).toHaveTextContent("every tab of this browser");
-  expect(
-    screen.queryByRole("button", { name: "Sign out and set up device" }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByText(/Once approved/)).toHaveTextContent("stay signed in");
+  expect(screen.queryByRole("button", { name: "Set up device" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("link", { name: "Back to workspace" }));
   expect(await screen.findByRole("heading", { name: "Devices" })).toBeVisible();
   expect(screen.getByRole("navigation", { name: "Workspace" })).toBeVisible();
@@ -417,7 +447,7 @@ test("operators recover from a pairing-code failure and enter device mode after 
         : HttpResponse.json({ code: "654321", expiresAt: Date.now() + 300000 });
     }),
     http.post("/api/access/pairing/claim", () => {
-      principal = {
+      activeDevice = {
         kind: "device",
         deviceId: "laptop",
         workspaceId: "team",
@@ -429,7 +459,7 @@ test("operators recover from a pairing-code failure and enter device mode after 
     http.get("/api/config/device", () => HttpResponse.json({ sources: [], rules: [] })),
   );
   const user = await open();
-  await user.click(await screen.findByRole("link", { name: "Switch to device mode" }));
+  await user.click(await screen.findByRole("button", { name: "Switch to device mode" }));
   await user.click(await screen.findByRole("button", { name: "Get pairing code" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not get a code");
   expect(screen.getByRole("link", { name: "Back to workspace" })).toBeVisible();
@@ -438,18 +468,15 @@ test("operators recover from a pairing-code failure and enter device mode after 
   expect(screen.getByText("Waiting for your workspace owner")).toBeVisible();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   await waitFor(
-    () => expect(screen.getByRole("heading", { name: "Device connected" })).toBeVisible(),
+    () => expect(screen.getByRole("heading", { name: "Capture station" })).toBeVisible(),
     {
       timeout: 4000,
     },
   );
-  expect(screen.getByRole("link", { name: "Open capture station" })).toHaveAttribute(
-    "href",
-    "/device",
-  );
-  expect(screen.getByRole("button", { name: "Return to sign in" })).toBeVisible();
+  expect(principal).toMatchObject({ kind: "member", role: "operator" });
+  expect(screen.getByRole("button", { name: "Return to workspace" })).toBeVisible();
   expect(screen.queryByRole("navigation", { name: "Workspace" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: "Switch to device mode" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Switch to device mode" })).not.toBeInTheDocument();
 });
 
 test("operators can leave a pending pairing and keep using their workspace", async () => {
@@ -462,13 +489,13 @@ test("operators can leave a pending pairing and keep using their workspace", asy
     http.post("/api/access/pairing/claim", () => HttpResponse.json({ status: "pending" })),
   );
   const user = await open();
-  await user.click(await screen.findByRole("link", { name: "Switch to device mode" }));
+  await user.click(await screen.findByRole("button", { name: "Switch to device mode" }));
   await user.click(await screen.findByRole("button", { name: "Get pairing code" }));
   expect(await screen.findByRole("status", { name: "Pairing code" })).toHaveTextContent("654321");
   await user.click(screen.getByRole("link", { name: "Back to workspace" }));
   expect(await screen.findByRole("heading", { name: "Devices" })).toBeVisible();
   expect(screen.queryByRole("status", { name: "Pairing code" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Switch to device mode" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Switch to device mode" })).toBeVisible();
 });
 
 test("team removal asks for confirmation before removing access", async () => {
@@ -556,4 +583,171 @@ test("visitor header preserves the Lookout home link and static mark", async () 
   expect(within(home).getByLabelText("Lookout")).toBeVisible();
   expect(home.querySelector("svg")).toBeInTheDocument();
   expect(home.querySelector("canvas")).not.toBeInTheDocument();
+});
+
+test("remembered capture resumes directly, returns to workspace, and forgetting requires confirmation", async () => {
+  principal = owner;
+  activeDevice = {
+    kind: "device",
+    deviceId: "laptop",
+    workspaceId: "team",
+    workspaceName: "Demo team",
+    name: "Reception laptop",
+  };
+  let activations = 0;
+  let forgotten = false;
+  server.use(
+    http.get("/api/access/devices/remembered", () => HttpResponse.json({ device: activeDevice })),
+    http.get("/api/access/team", () =>
+      HttpResponse.json({
+        members: [],
+        devices: [{ id: "laptop", name: "Reception laptop", revokedAt: null }],
+      }),
+    ),
+    http.get("/api/config/device", () => HttpResponse.json({ sources: [], rules: [] })),
+    http.post("/api/access/devices/activate", () => {
+      activations++;
+      return HttpResponse.json({ status: "paired" });
+    }),
+    http.post("/api/access/devices/forget", () => {
+      forgotten = true;
+      activeDevice = null;
+      return HttpResponse.json({ left: true });
+    }),
+  );
+  const user = await open("/devices");
+  await user.click(await screen.findByRole("button", { name: "Switch to device mode" }));
+  expect(await screen.findByRole("heading", { name: "Capture station" })).toBeVisible();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(activations).toBe(0);
+  await user.click(screen.getByRole("button", { name: "Return to workspace" }));
+  expect(await screen.findByRole("heading", { name: "Devices" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Switch to device mode" }));
+  await user.click(await screen.findByRole("button", { name: "Forget this device" }));
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(forgotten).toBe(false);
+  await user.click(screen.getByRole("button", { name: "Forget this device" }));
+  await user.click(screen.getByRole("button", { name: "Forget device" }));
+  expect(await screen.findByRole("heading", { name: "Devices" })).toBeVisible();
+  expect(forgotten).toBe(true);
+  expect(principal).toMatchObject({ kind: "member" });
+});
+
+test("reconnecting an existing device preserves the selected identity and supports delayed failure and retry", async () => {
+  principal = owner;
+  const response = responseGate();
+  let attempts = 0;
+  server.use(
+    http.get("/api/access/team", () =>
+      HttpResponse.json({
+        members: [],
+        devices: [{ id: "existing", name: "Lobby", revokedAt: 1 }],
+      }),
+    ),
+    http.post("/api/access/pairing/approve", async ({ request }) => {
+      expect(await request.json()).toEqual({ code: "123456", deviceId: "existing" });
+      if (++attempts === 1) {
+        await response.promise;
+        return HttpResponse.json(
+          { message: "Pairing code expired. Get a new code." },
+          { status: 400 },
+        );
+      }
+      return HttpResponse.json({ paired: true });
+    }),
+  );
+  const user = await open("/devices");
+  await user.click(await screen.findByRole("button", { name: "Reconnect Lobby" }));
+  expect(screen.getByRole("dialog")).toHaveTextContent("disconnects its previous browser");
+  expect(screen.queryByLabelText("Device name")).not.toBeInTheDocument();
+  await user.type(screen.getByLabelText("Pairing code"), "123456");
+  await user.click(screen.getByRole("button", { name: "Reconnect device" }));
+  expect(screen.getByRole("button", { name: "Connecting device…" })).toBeDisabled();
+  expect(screen.getByLabelText("Pairing code")).toHaveValue("123456");
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  response.resolve();
+  expect(await screen.findByRole("alert")).toHaveTextContent("expired");
+  await user.click(screen.getByRole("button", { name: "Reconnect device" }));
+  expect(await screen.findByText(/Device approved/)).toBeVisible();
+  expect(attempts).toBe(2);
+});
+
+test("device lookup keeps workspace content while pending and can be retried after failure", async () => {
+  principal = { ...owner, role: "operator" };
+  const response = responseGate();
+  let attempts = 0;
+  server.use(
+    http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })),
+    http.get("/api/access/devices/remembered", async () => {
+      if (++attempts === 1) {
+        await response.promise;
+        return HttpResponse.json({ message: "Could not check saved device." }, { status: 503 });
+      }
+      return HttpResponse.json({ device: null });
+    }),
+  );
+  const user = await open("/team");
+  await user.click(await screen.findByRole("button", { name: "Switch to device mode" }));
+  expect(screen.getByRole("button", { name: "Checking saved device…" })).toBeDisabled();
+  expect(screen.getByRole("heading", { name: "Team" })).toBeVisible();
+  response.resolve();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not check saved device");
+  await user.click(screen.getByRole("button", { name: "Switch to device mode" }));
+  expect(await screen.findByRole("heading", { name: "Set up this device" })).toBeVisible();
+});
+
+test("sign-in offers a remembered device without requiring account credentials", async () => {
+  server.use(
+    http.get("/api/access/devices/remembered", () =>
+      HttpResponse.json({
+        device: {
+          kind: "device",
+          deviceId: "laptop",
+          workspaceId: "team",
+          workspaceName: "Demo team",
+          name: "Reception laptop",
+        },
+      }),
+    ),
+  );
+  await open("/devices");
+  expect(await screen.findByRole("link", { name: "Resume Reception laptop" })).toHaveAttribute(
+    "href",
+    "/device",
+  );
+  expect(screen.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+});
+
+test("leaving a workspace page cancels its pending device lookup without redirecting", async () => {
+  principal = owner;
+  const response = responseGate();
+  const released = responseGate();
+  server.use(
+    http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })),
+    http.get("/api/access/devices/remembered", async () => {
+      await response.promise;
+      released.resolve();
+      return HttpResponse.json({
+        device: {
+          kind: "device",
+          deviceId: "laptop",
+          workspaceId: "team",
+          workspaceName: "Demo team",
+          name: "Reception laptop",
+        },
+      });
+    }),
+  );
+  const user = await open("/devices");
+  await user.click(await screen.findByRole("button", { name: "Switch to device mode" }));
+  expect(screen.getByRole("button", { name: "Checking saved device…" })).toBeDisabled();
+  await user.click(screen.getByRole("link", { name: "Team" }));
+  expect(await screen.findByRole("heading", { name: "Team" })).toBeVisible();
+  await act(async () => {
+    response.resolve();
+    await released.promise;
+  });
+  expect(screen.getByRole("heading", { name: "Team" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Switch to device mode" })).toBeEnabled();
+  expect(screen.queryByRole("heading", { name: "Capture station" })).not.toBeInTheDocument();
 });

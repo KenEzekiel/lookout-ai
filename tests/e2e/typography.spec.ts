@@ -4,6 +4,9 @@ for (const width of [1440, 390]) {
   test(`shared typography stays consistent through workspace and capture at ${width}px`, async ({
     page,
   }) => {
+    await page
+      .context()
+      .setExtraHTTPHeaders({ "cf-connecting-ip": `2001:db8::${width.toString(16)}` });
     await page.setViewportSize({ width, height: 960 });
     await page.goto("/devices");
     await page.getByRole("button", { name: "Create an account" }).click();
@@ -58,8 +61,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("link", { name: "Devices", exact: true }).click();
     await page.getByRole("button", { name: "Use this device instead" }).click();
     await page.getByLabel("Device name").fill("Typography camera");
-    await page.getByRole("button", { name: "Sign out and set up device" }).click();
-    await page.getByRole("link", { name: "Open capture station" }).click();
+    await page.getByRole("button", { name: "Set up device" }).click();
     const captureTitle = page.getByRole("heading", { name: "Capture station" });
     await expect(captureTitle).toHaveCSS("font-size", "30px");
     await expect(captureTitle).toHaveCSS("line-height", "36px");

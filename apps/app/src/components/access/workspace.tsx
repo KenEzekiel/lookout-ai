@@ -9,6 +9,7 @@ import { ActionForm } from "./forms";
 import { Badge } from "@/components/ui/badge";
 import { LiveView } from "@/components/live-view";
 import { DeviceHealthPanel } from "@/components/device-health";
+import { DeviceModeAction } from "./device-mode-action";
 import { WorkspaceActions, type WorkspaceAction } from "./workspace-actions";
 
 export function Workspace({
@@ -242,6 +243,19 @@ export function Workspace({
                               Live view
                             </Button>
                           )}
+                          {owner && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              icon={RotateCw}
+                              aria-label={`Reconnect ${device.name}`}
+                              onClick={() =>
+                                setAction({ kind: "reconnect", id: device.id, name: device.name })
+                              }
+                            >
+                              Reconnect
+                            </Button>
+                          )}
                           {owner && device.revokedAt === null ? (
                             <Button
                               variant="ghost"
@@ -320,16 +334,16 @@ export function Workspace({
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
               Use this browser’s camera or a local video as a capture source.
             </p>
-            <Button
-              variant="secondary"
-              icon={Monitor}
-              className="mt-4"
-              onClick={() => setAction({ kind: "activate" })}
-            >
-              Use this device instead
-            </Button>
+            <div className="mt-4">
+              <DeviceModeAction
+                actor={actor}
+                onActivated={onChanged}
+                compact={false}
+                label="Use this device instead"
+              />
+            </div>
             <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-              Switching signs you out of workspace management across this browser’s tabs.
+              Your workspace login stays signed in. Returning here keeps this device paired.
             </p>
           </section>
         )}

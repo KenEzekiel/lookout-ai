@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MonitoringControls } from "@/components/device-monitoring";
 import { type DeviceMonitoring } from "@/lib/device-monitoring";
 import { LiveSource } from "@/components/live-source";
+import { DeviceExitActions } from "@/components/access/device-exit-actions";
 import { Brand } from "@/components/access/brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-white/[0.07] bg-background">
-        <div className="mx-auto flex h-[76px] max-w-[1680px] items-center px-5 sm:px-9">
+        <div className="mx-auto flex min-h-[76px] max-w-[1680px] flex-wrap gap-y-3 py-3 items-center px-5 sm:px-9">
           <Link
             to="/"
             aria-label="Lookout home"
@@ -107,6 +108,9 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
           </Link>
           <span className="mx-6 hidden h-6 w-px bg-white/10 sm:block" />
           <span className="hidden text-sm text-muted-foreground sm:block">Operational device</span>
+          <div className="ml-auto">
+            <DeviceExitActions />
+          </div>
         </div>
       </header>
 
