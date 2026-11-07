@@ -120,12 +120,12 @@ test("blocked audience windows leave the original deck usable", async () => {
   expect(window.location.hash).toBe("#2");
 });
 
-test("the built deck explains the two product clients", async () => {
+test("the demo slide introduces the recorded walkthrough", async () => {
   unmount = mountDeck(document);
   const user = userEvent.setup();
   await user.selectOptions(screen.getByRole("combobox"), "4");
-  expect(screen.getByText("Operational device")).toBeTruthy();
-  expect(screen.getByText("Operator workspace")).toBeTruthy();
+  expect(screen.getByText("See what happens")).toBeTruthy();
+  expect(screen.getByText("Follow the alert")).toBeTruthy();
 });
 
 test("the build slide embeds the real Oracle Slack capture and links its source", async () => {
