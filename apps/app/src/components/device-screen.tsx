@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { Activity, Camera, Clock3, FileVideo, Play, ScanEye, Square } from "lucide-react";
+import { Activity, Camera, Clock3, FileVideo, Play, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Brand } from "@/components/access/brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,12 +79,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               "text-foreground focus-visible:outline-2 focus-visible:outline-ring",
             )}
           >
-            <span className="grid size-[34px] place-items-center rounded-xl bg-[#2a3f66] text-[#8eb9ff]">
-              <ScanEye size={19} strokeWidth={2.1} />
-            </span>
-            <span>
-              lookout<span className="text-signal">.</span>
-            </span>
+            <Brand />
           </Link>
           <span className="mx-6 hidden h-6 w-px bg-white/10 sm:block" />
           <span className="hidden text-sm text-muted-foreground sm:block">Operational device</span>

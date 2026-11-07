@@ -9,6 +9,10 @@ from urllib.parse import unquote
 
 def check(root):
     errors = []
+    media_extensions = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".mp4", ".webm", ".mov", ".zip"}
+    for entry in (root / "docs/qa").rglob("*"):
+        if entry.is_file() and entry.suffix.lower() in media_extensions:
+            errors.append(f"{entry.relative_to(root)}: upload QA media as PR attachments; keep local captures in test-results/ or a temporary directory")
     skills = root / ".agents/skills"
     entries = sorted(skills.glob("*/SKILL.md"))
     if not entries:
