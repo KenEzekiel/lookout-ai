@@ -74,7 +74,7 @@ async function fixture(t: TestContext) {
   });
   const runner = createT3Runner({
     sessions,
-    workspace: "/workspace/oracle",
+    workspace: async () => "/workspace/oracle",
     projectId: "project",
     instanceId: "instance",
     model: "model",

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { TurnRunner } from "../dispatcher/index.js";
 import {
   assertActive,
+  type Address,
   BoundaryError,
   eventId,
   type Incoming,
@@ -30,7 +31,7 @@ export function createT3Runner(options: {
   projectId: string;
   instanceId: string;
   model: string;
-  workspace: string;
+  workspace: (address: Address) => Promise<string>;
   policy: () => Promise<string>;
   context: (input: Incoming) => Promise<ThreadContext>;
   profiles: (input: Incoming, thread: ThreadContext) => Promise<UserProfiles>;
@@ -63,17 +64,19 @@ export function createT3Runner(options: {
       assertActive(signal);
       const policy = await options.policy();
       assertActive(signal);
+      const workspace = await options.workspace(input.address);
+      assertActive(signal);
       const previousThreadId = sessions.snapshot(input.address)?.threadId ?? null;
       let threadId = previousThreadId;
-      if (threadId !== null && (await inspect(threadId)).worktreePath !== options.workspace)
+      if (threadId !== null && (await inspect(threadId)).worktreePath !== workspace)
         threadId = null;
       if (threadId === null) {
         const created = await client.launch({
           projectId: options.projectId,
           title: `Oracle ${input.address.rootTs}`,
-          requestId: requestId(`thread:${keyOf(input.address)}:${options.workspace}`),
+          requestId: requestId(`thread:${keyOf(input.address)}:${workspace}`),
           modelSelection: { instanceId: options.instanceId, model: options.model },
-          workspace: options.workspace,
+          workspace,
         });
         if (created.projectId !== options.projectId || created.runId !== null) {
           await drain(created.threadId);
@@ -83,7 +86,7 @@ export function createT3Runner(options: {
         threadId = created.threadId;
       }
       assertActive(signal);
-      if ((await inspect(threadId)).worktreePath !== options.workspace)
+      if ((await inspect(threadId)).worktreePath !== workspace)
         throw new BoundaryError("thread_workspace_changed");
       assertActive(signal);
       const thread = await options.context(input);
