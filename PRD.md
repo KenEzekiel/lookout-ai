@@ -8,6 +8,8 @@ Treat it as an evolving direction. Preserve the user outcomes while refining the
 
 Latest agreed revision: save video on alert and replay it from the server; real phone calls are optional. See the [experience design](docs/architecture/design.md) for desktop/mobile alerts and the video flow.
 
+The visual system and monitor-screen interactions live in [DESIGN.md](DESIGN.md). This PRD remains the source for agreed product behavior.
+
 ## Why this product
 
 Cameras provide visibility, but someone still has to notice an event, decide whether it matters, collect evidence, reach the right person, and follow up. Fatigue and divided attention can delay that response.
