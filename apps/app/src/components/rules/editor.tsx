@@ -1,3 +1,4 @@
+import { AccordionPanel } from "@/components/ui/accordion-panel";
 import {
   Select,
   SelectContent,
@@ -137,14 +138,13 @@ export function RuleEditor({
             placeholder="Describe similar-looking situations to exclude."
           />
         </label>
-        <details className="text-sm text-muted-foreground">
-          <summary>How this definition is assessed</summary>
+        <AccordionPanel title="How this definition is assessed">
           <p className="mt-2">
             The planned assessment combines your definition and exclusions with the observed frame
             sequence, checks for the event and ambiguous evidence, then reviews candidates before
             confirming an incident. Assessment is not connected yet.
           </p>
-        </details>
+        </AccordionPanel>
         <h3 className="border-t pt-5 text-base font-semibold">2. Choose where</h3>
         <div className="grid gap-2 text-sm font-medium">
           <label htmlFor="rule-source">Source</label>
@@ -170,8 +170,7 @@ export function RuleEditor({
         <p className="text-sm text-muted-foreground">
           Source settings only. Connecting a camera is a separate step.
         </p>
-        <details open={showSource} onToggle={(event) => setShowSource(event.currentTarget.open)}>
-          <summary className="text-sm">Add a source</summary>
+        <AccordionPanel title="Add a source" open={showSource} onOpenChange={setShowSource}>
           <div className="mt-3 grid gap-3">
             <label className="grid gap-2 text-sm font-medium">
               Source name
@@ -238,7 +237,7 @@ export function RuleEditor({
               Adding a source saves it to the workspace even if you cancel this trigger.
             </p>
           </div>
-        </details>
+        </AccordionPanel>
         <h3 className="border-t pt-5 text-base font-semibold">3. Choose who gets notified</h3>
         <fieldset className="grid gap-3 rounded-lg border border-border p-4">
           <legend className="px-1 text-sm font-medium">Alert recipients</legend>
@@ -287,8 +286,7 @@ export function RuleEditor({
           One follow-up to these recipients if nobody acknowledges. Follow-up delivery is not
           connected yet.
         </p>
-        <details>
-          <summary className="text-sm">Timing and urgency</summary>
+        <AccordionPanel title="Timing and urgency">
           <div className="mt-3 grid gap-3">
             {" "}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -329,7 +327,7 @@ export function RuleEditor({
               Leave duration empty for an immediate event such as a fall or crash.
             </p>
           </div>
-        </details>
+        </AccordionPanel>
         <section aria-label="Review trigger" className="grid gap-3 rounded-lg bg-muted p-4 text-sm">
           <h3 className="font-semibold">4. Review</h3>
           <p aria-live="polite">

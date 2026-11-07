@@ -54,6 +54,8 @@ Dropdown integration tests exercise real shadcn controls, submitted values, read
 
 Dropdown panels open outside the trigger with a six-pixel gap and matching width. Four-pixel padding separates the rounded options from the panel border; the selected row no longer overlays the trigger. This corrects the visual alignment reported in PR #59.
 
+The Sources, assessment help, inline source creation, and timing sections use the shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel.tsx). Full-width keyboard-operable buttons expose expansion state and preserve mounted form values while collapsed. Router integration coverage checks keyboard activation and draft preservation. This replaces native disclosure triangles at Ken’s request.
+
 ## Decisions and sources
 
 Ken approved the revised issue #18 flow in the implementation conversation: incident definitions are authored by the operator and will feed Decisions assessment, rather than being fixed UI choices. The [fall experiment](../../../experiments/decisions-falls/experiment.py) and [crash experiment](../../../experiments/decisions-crashes/experiment.py) supply the predicate/exclusions and separate uncertainty-question pattern. This change stores the definition only; it does not impose the experiments' candidate threshold or sampling cadence, call Decisions, or implement candidate review.

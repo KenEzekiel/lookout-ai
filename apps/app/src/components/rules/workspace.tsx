@@ -6,7 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { AccordionPanel } from "@/components/ui/accordion-panel";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ActionForm, Field } from "@/components/access/forms";
@@ -100,14 +100,10 @@ export function RuleWorkspace() {
       )}
       {configuration && (
         <>
-          <details
-            open={configuration.sources.length === 0}
-            className="rounded-xl border border-border bg-card p-6"
+          <AccordionPanel
+            title={`Sources (${configuration.sources.length})`}
+            defaultOpen={configuration.sources.length === 0}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
-              Sources ({configuration.sources.length})
-              <ChevronDown aria-hidden="true" className="size-4" data-slot="disclosure-chevron" />
-            </summary>
             <p className="my-4 text-sm text-muted-foreground">
               Name a source for its trigger settings. Capture station uses its own camera or video
               selection for now.
@@ -154,7 +150,7 @@ export function RuleWorkspace() {
                 </Select>
               </div>
             </ActionForm>
-          </details>
+          </AccordionPanel>
           {configuration.rules.length === 0 && editor.kind === "closed" && (
             <p className="rounded-xl border border-dashed border-border p-8 text-sm text-muted-foreground">
               No triggers yet.{" "}

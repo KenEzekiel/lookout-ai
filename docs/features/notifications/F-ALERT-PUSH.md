@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS, F-ALERT-INAPP
 
 ## Behavior
 
+Background alert settings use the shared accordion panel with a full-width keyboard-operable button and exposed expansion state, replacing the native disclosure triangle at Ken’s request.
+
 An operator explicitly enables background alerts for their signed-in browser session. Setup explains blocked permission, unsupported or insecure browsers, missing server configuration, and the iPhone or iPad Home Screen prerequisite. Turning alerts off removes the server subscription before unsubscribing the browser. Signing out ends delivery for that session. Membership removal deletes that operator's workspace subscriptions.
 
 A notification contains only a generic Lookout title, generic sign-in guidance, and an incident ID. Clicking it focuses and navigates an existing same-origin window or opens the corresponding incident page. It never acknowledges the incident. The existing access gate and member-authorized detail endpoint protect evidence and context after navigation. Already dispatched notifications can remain after sign-out or a response, but contain no incident details.

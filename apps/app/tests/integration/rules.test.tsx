@@ -366,3 +366,24 @@ test("a first trigger adds its source inline, reviews exclusions and saves disab
     "People walking through.",
   );
 });
+
+test("accordion panels toggle by keyboard and preserve source drafts", async () => {
+  const user = await open();
+  const sources = await screen.findByRole("button", { name: "Sources (2)" });
+  expect(sources).toHaveAttribute("aria-expanded", "false");
+  sources.focus();
+  await user.keyboard("{Enter}");
+  expect(sources).toHaveAttribute("aria-expanded", "true");
+  await user.click(screen.getByRole("button", { name: "New trigger" }));
+  const panel = screen.getByRole("button", { name: "Add a source" });
+  panel.focus();
+  await user.keyboard(" ");
+  expect(panel).toHaveAttribute("aria-expanded", "true");
+  const region = screen.getByRole("region", { name: "Add a source" });
+  await user.type(within(region).getByLabelText("Source name"), "Kitchen camera");
+  await user.click(panel);
+  expect(region).not.toBeVisible();
+  await user.click(panel);
+  expect(within(region).getByLabelText("Source name")).toHaveValue("Kitchen camera");
+  expect(screen.getByRole("dialog")).toBeVisible();
+});

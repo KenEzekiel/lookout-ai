@@ -1,3 +1,4 @@
+import { AccordionPanel } from "@/components/ui/accordion-panel";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { message, mutate, request } from "@/lib/api";
@@ -124,46 +125,46 @@ export function PushSetup() {
     }
   }
   return (
-    <details className="my-5 rounded-xl border border-border bg-card px-4 py-3 text-sm">
-      <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
-        Background alerts
-      </summary>
-      <div className="mt-3 grid gap-3">
-        <p className="max-w-2xl leading-relaxed text-muted-foreground">
-          Enable notifications for this signed-in browser. Notifications show no incident details.
-          Opening one does not acknowledge it. Delivery depends on your browser and device settings.
-        </p>
-        {setup.kind === "loading" ? (
-          <output>Checking background alerts…</output>
-        ) : setup.kind === "unavailable" ? (
-          <output>{setup.message}</output>
-        ) : (
-          <>
-            <output>
-              {setup.enabled
-                ? "Background alerts are enabled for this browser session."
-                : "Background alerts are off for this browser session."}
-            </output>
-            <Button
-              className="w-fit"
-              variant="outline"
-              disabled={pending}
-              onClick={() => void toggle()}
-            >
-              {pending
-                ? "Updating alerts…"
-                : setup.enabled
-                  ? "Turn off background alerts"
-                  : "Enable alerts"}
-            </Button>
-          </>
-        )}
-        {error && (
-          <p role="alert" className="text-destructive">
-            {error}
+    <div className="my-5 text-sm">
+      <AccordionPanel title="Background alerts">
+        <div className="mt-3 grid gap-3">
+          <p className="max-w-2xl leading-relaxed text-muted-foreground">
+            Enable notifications for this signed-in browser. Notifications show no incident details.
+            Opening one does not acknowledge it. Delivery depends on your browser and device
+            settings.
           </p>
-        )}
-      </div>
-    </details>
+          {setup.kind === "loading" ? (
+            <output>Checking background alerts…</output>
+          ) : setup.kind === "unavailable" ? (
+            <output>{setup.message}</output>
+          ) : (
+            <>
+              <output>
+                {setup.enabled
+                  ? "Background alerts are enabled for this browser session."
+                  : "Background alerts are off for this browser session."}
+              </output>
+              <Button
+                className="w-fit"
+                variant="outline"
+                disabled={pending}
+                onClick={() => void toggle()}
+              >
+                {pending
+                  ? "Updating alerts…"
+                  : setup.enabled
+                    ? "Turn off background alerts"
+                    : "Enable alerts"}
+              </Button>
+            </>
+          )}
+          {error && (
+            <p role="alert" className="text-destructive">
+              {error}
+            </p>
+          )}
+        </div>
+      </AccordionPanel>
+    </div>
   );
 }
