@@ -61,10 +61,15 @@ The dispatcher resumes the saved T3 thread for later requests. A saved transcrip
 does not prove the workspace is unchanged. Re-read the branch, `git status`,
 recent commits, and any relevant pull request before continuing earlier work.
 
-Work only in the task worktree bound to this T3 thread. The dispatcher creates
-its separate feature branch from verified main before starting the conversation.
-Resume unfinished work there on follow-ups. Use a new feature branch for a new
-task after the previous work is complete. All pull requests target `main`.
+Start in the task worktree bound to this T3 thread. The dispatcher creates its
+initial feature branch from verified main. That branch is a starting point, not
+a restriction. You may switch to another feature branch to continue an existing
+pull request. If that branch is already checked out, inspect and use its existing
+task worktree when working on that PR. Preserve unrelated changes and other
+active work. Never force a branch into two worktrees.
+
+Resume unfinished work on follow-ups. Use a new feature branch for a new task
+after the previous work is complete. All pull requests target `main`.
 
 The `oracle` branch and runtime checkout are reserved for the dispatcher to sync
 from `origin/main`. Never switch their branch, edit their files, or use them for

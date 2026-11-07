@@ -112,6 +112,7 @@ test("the runtime refuses uncommitted files even when main is current", async (t
 test("Slack coding uses separate feature worktrees while runtime sync and follow-ups preserve task work", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   const workspace = workspaceFor(worktree);
+  await git(primary, "branch", "feature/existing-pr");
   const paths = new Map<string, string>();
   const sessions = createSessionStore({
     directory: await directory(t),
@@ -155,11 +156,12 @@ test("Slack coding uses separate feature worktrees while runtime sync and follow
         const path = paths.get(threadId);
         assert.ok(path);
         if (sends < 2) {
-          await git(path, "checkout", "-b", `feature/task-${sends}`);
+          if (sends === 0) await git(path, "checkout", "feature/existing-pr");
+          else await git(path, "checkout", "-b", `feature/task-${sends}`);
           await writeFile(join(path, "unfinished.txt"), `task ${sends}\n`);
         } else {
           assert.equal(await readFile(join(path, "unfinished.txt"), "utf8"), "task 0\n");
-          assert.equal(await git(path, "branch", "--show-current"), "feature/task-0");
+          assert.equal(await git(path, "branch", "--show-current"), "feature/existing-pr");
         }
         sends++;
         return { threadId, runId: `run-${sends}`, delivery: "started" };

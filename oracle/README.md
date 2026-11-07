@@ -37,6 +37,11 @@ or switch each other's branches. Existing main-checkout and runtime-bound T3
 conversations continue in replacement task threads with persisted Slack history.
 Changes to Oracle's own code use task worktrees and PRs too.
 
+The initial task branch is a default. Oracle may switch feature branches to
+continue an existing PR, or use its existing task worktree if the branch is
+already checked out there. It preserves unrelated changes and active work.
+Only the runtime `oracle` branch and the primary `main` checkout are reserved.
+
 The workspace owner fetches `origin/main` before every coding turn and every 30
 seconds while idle. It applies an update only after the `Verify` workflow succeeds
 for that exact commit on `main`. CI already runs on pull requests and pushes to
