@@ -28,7 +28,7 @@ This plugin is a port of upstream MIT-licensed work. The port's modifications an
 
 ## What changed in the port
 
-The port is editorial, not mechanical. [CHANGES.md](CHANGES.md) records each release's changes, and [`tools/substitutions.json`](tools/substitutions.json) lists the token rewrites with the reason for each.
+The port is editorial, not mechanical. [CHANGES.md](https://github.com/michael-denyer/pstack-claude/blob/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/CHANGES.md) records each release's changes, and [`tools/substitutions.json`](https://github.com/michael-denyer/pstack-claude/blob/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/tools/substitutions.json) lists the token rewrites with the reason for each.
 
 Summary of structural changes:
 
@@ -39,11 +39,11 @@ Summary of structural changes:
 - `plugins/pstack/skills/babysit/` is independently authored as the Claude Code analog of Cursor's `/babysit` built-in. It has no upstream pstack equivalent; its workflow is informed by Cursor's public `/babysit` behavior. No code or prose was copied from any source.
 - `plugins/pstack/skills/poteto-mode/scripts/` is vendored from upstream (`watch-pr`, `bootstrap.ts`, `package.json`, `bun.lock`). `worktree-audit.mjs` is a port-only rewrite of upstream's `worktree-audit.sh`, which `tools/upstream.json` excludes from sync; it reads the Claude Code, Codex, and Pi transcript directories instead of Cursor's and reports prunable worktrees. Port edits, each on the forked list `bun tools/sync.mjs --dry-run` prints: `bootstrap.ts` fails clearly under node and installs production dependencies only; `package.json` typechecks the whole tree; `tsconfig.json` is port-only. Everything else is upstream's code under the upstream MIT license.
 - `plugins/pstack/agents/comment-sicko.md` is upstream's `Comment Sicko` agent, renamed to `comment-sicko` so the name works as a Claude Code `subagent_type`. The body is verbatim.
-- A Codex build shares the same `skills/` tree. It adds `plugins/pstack/.codex-plugin/plugin.json`, a root `.agents/plugins/marketplace.json`, and `plugins/pstack/skills/poteto-mode/references/codex-tools.md` (the Claude-to-Codex tool, model, built-in, and per-skill map). Affected skill entry points link to this map. See the [reference](docs/reference.md#codex).
+- A Codex build shares the same `skills/` tree. It adds `plugins/pstack/.codex-plugin/plugin.json`, a root `.agents/plugins/marketplace.json`, and `plugins/pstack/skills/poteto-mode/references/codex-tools.md` (the Claude-to-Codex tool, model, built-in, and per-skill map). Affected skill entry points link to this map. See the [reference](https://github.com/michael-denyer/pstack-claude/blob/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/docs/reference.md#codex).
 
 ## Modifications
 
-Per the MIT license, modifications are permitted. Skill bodies have been edited to substitute Cursor-specific primitives with their Claude Code equivalents (the substitution rules are in [`tools/substitutions.json`](tools/substitutions.json)). All upstream copyright notices in source files (where present) are preserved.
+Per the MIT license, modifications are permitted. Skill bodies have been edited to substitute Cursor-specific primitives with their Claude Code equivalents (the substitution rules are in [`tools/substitutions.json`](https://github.com/michael-denyer/pstack-claude/blob/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/tools/substitutions.json)). All upstream copyright notices in source files (where present) are preserved.
 
 Port-authored files covered by this notice include:
 

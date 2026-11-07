@@ -100,8 +100,6 @@ The team uses a repository-owned agent harness to support development. The plann
 - [Model settings](.agents/pstack-models.md) define local delegation preferences.
 - [scripts/check-harness.py](scripts/check-harness.py) validates harness structure. Run `python3 scripts/check-harness.py` when changing the harness.
 
-The harness was copied from [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude/tree/df9bc05b818e2457ac23d3343e96e4ff284dd9e9). It is maintained directly in this repository, without a plugin installation or global configuration changes. Preserve the MIT [license](vendor/pstack/LICENSE), component licenses, and attribution in [vendor/pstack](vendor/pstack). Declare reused tooling separately from product work built during the hackathon.
-
 ## Keeping these docs current
 
 The Lookout team maintains this README and the [PRD](PRD.md). Update setup instructions and current status when scripts or implemented behavior change. Update the PRD when the team changes a product decision. Keep planned features labeled until the corresponding behavior has been verified.
