@@ -20,19 +20,15 @@ let release: (() => Promise<void>) | undefined;
 let unsafeToRelease = false;
 let closing: Promise<void> | undefined;
 let stopWatching: (() => void) | undefined;
-let syncTimer: ReturnType<typeof setInterval> | undefined;
-let syncing: Promise<void> | undefined;
 let reloading = false;
 const shutdown = (): Promise<void> => {
   closing ??= (async () => {
     stopWatching?.();
-    clearInterval(syncTimer);
     try {
       await oracle?.close();
     } catch {
       log("session_shutdown_failed");
     }
-    await syncing;
     try {
       await slack?.close();
     } catch {
@@ -58,15 +54,6 @@ const onFault = (code: string): void => {
 async function main(): Promise<void> {
   const config = await loadConfig();
   const workspace = createWorkspace({ root: config.workspace, branch: "oracle" });
-  let updateState = "";
-  const syncWorkspace = async (): Promise<void> => {
-    const update = await workspace.sync();
-    const state = JSON.stringify(update);
-    if (state !== updateState) {
-      process.stderr.write(`${JSON.stringify({ event: "oracle_workspace", ...update })}\n`);
-      updateState = state;
-    }
-  };
   await mkdir(join(oracleRoot, ".local"), { recursive: true, mode: 0o700 });
   release = await acquireInstanceLock(join(oracleRoot, ".state"));
   const identity = await loadIdentity();
@@ -102,19 +89,8 @@ async function main(): Promise<void> {
     limits: { ...defaultLimits, maxConcurrentSessions: config.maxConcurrentSessions },
     onFault,
   });
-  await syncWorkspace();
   await slack.listen(oracle);
   oracle.retryPending();
-  syncTimer = setInterval(() => {
-    if (syncing || closing) return;
-    syncing = syncWorkspace()
-      .catch((error: unknown) =>
-        log(error instanceof BoundaryError ? error.code : "workspace_sync_deferred"),
-      )
-      .finally(() => {
-        syncing = undefined;
-      });
-  }, 30_000);
   stopWatching = await watchSource({
     root: oracleRoot,
     onFault: () => log("reload_watch_failed"),
@@ -137,6 +113,7 @@ async function main(): Promise<void> {
     },
   });
   log("oracle_listening");
+  log("oracle_updates_manual");
   process.stderr.write(
     `${JSON.stringify({ event: "oracle_concurrency", maxConcurrentSessions: config.maxConcurrentSessions })}\n`,
   );

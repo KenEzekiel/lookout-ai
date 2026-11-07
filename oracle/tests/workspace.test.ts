@@ -12,8 +12,7 @@ import { createWorkspace } from "../session/workspace.js";
 import { deferred, directory, input, testNow } from "./helpers.js";
 
 const execute = promisify(execFile);
-const workspaceFor = (root: string) =>
-  createWorkspace({ root, branch: "oracle", verifyMain: async () => true });
+const workspaceFor = (root: string) => createWorkspace({ root, branch: "oracle" });
 const git = async (cwd: string, ...args: string[]) => {
   const { stdout } = await execute("git", [
     "-C",
@@ -26,6 +25,10 @@ const git = async (cwd: string, ...args: string[]) => {
   ]);
   return stdout.trim();
 };
+async function syncRuntime(root: string): Promise<void> {
+  await git(root, "fetch", "origin", "main");
+  await git(root, "merge", "--no-edit", "origin/main");
+}
 async function fixture(t: TestContext) {
   const root = await directory(t);
   const origin = join(root, "origin.git");
@@ -62,7 +65,7 @@ test("task preparation uses the pinned runtime without fetching newer main", asy
   assert.equal(await readFile(join(task, "file.txt"), "utf8"), "initial\n");
 });
 
-test("sync includes latest main and preserves Oracle commits and the primary checkout", async (t) => {
+test("manual sync preserves runtime commits and the primary checkout", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   await writeFile(join(worktree, "oracle.txt"), "Oracle work\n");
   await git(worktree, "add", ".");
@@ -71,7 +74,7 @@ test("sync includes latest main and preserves Oracle commits and the primary che
   await advance("latest main\n");
   const mainCommit = await git(primary, "rev-parse", "HEAD");
   await writeFile(join(primary, "file.txt"), "uncommitted user work\n");
-  await workspaceFor(worktree).sync();
+  await syncRuntime(worktree);
   await git(worktree, "merge-base", "--is-ancestor", mainCommit, "HEAD");
   await git(worktree, "merge-base", "--is-ancestor", oracleCommit, "HEAD");
   assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "latest main\n");
@@ -81,24 +84,27 @@ test("sync includes latest main and preserves Oracle commits and the primary che
   assert.equal(await git(primary, "branch", "--show-current"), "main");
   const workspace = workspaceFor(worktree);
   const task = await workspace.task(input().address);
-  assert.equal(await git(task, "rev-parse", "HEAD"), mainCommit);
+  assert.equal(await git(task, "rev-parse", "HEAD"), await git(worktree, "rev-parse", "HEAD"));
 });
 
-test("sync refuses primary, main and detached checkouts", async (t) => {
+test("task preparation refuses primary, main and detached checkouts", async (t) => {
   const { primary, worktree } = await fixture(t);
-  await assert.rejects(workspaceFor(primary).sync(), { code: "workspace_must_be_isolated" });
+  await assert.rejects(workspaceFor(primary).task(input().address), {
+    code: "workspace_must_be_isolated",
+  });
   await git(primary, "checkout", "-b", "human");
   await git(worktree, "checkout", "main");
-  await assert.rejects(workspaceFor(worktree).sync(), { code: "workspace_must_be_isolated" });
+  await assert.rejects(workspaceFor(worktree).task(input().address), {
+    code: "workspace_must_be_isolated",
+  });
   await git(worktree, "checkout", "--detach");
-  await assert.rejects(workspaceFor(worktree).sync());
+  await assert.rejects(workspaceFor(worktree).task(input().address));
 });
 
 test("the runtime refuses a switched branch even when main is current", async (t) => {
   const { worktree } = await fixture(t);
   const workspace = workspaceFor(worktree);
   await git(worktree, "checkout", "-b", "feature/other-task");
-  await assert.rejects(workspace.sync(), { code: "workspace_branch_changed" });
   await assert.rejects(workspace.task(input().address), {
     code: "workspace_branch_changed",
   });
@@ -207,7 +213,8 @@ test("Slack coding uses separate feature worktrees while runtime sync and follow
   const firstPath = await workspace.task(first.address);
   await oracle.receive(first);
   await entered.promise;
-  await advance("new verified main\n");
+  await advance("new main chosen by the maintainer\n");
+  await syncRuntime(worktree);
   await oracle.receive(second);
   await secondFinished.promise;
   assert.equal(sends, 2);
@@ -226,20 +233,24 @@ test("Slack coding uses separate feature worktrees while runtime sync and follow
   assert.equal(await git(primary, "status", "--porcelain"), "");
 });
 
-test("dirty updates and merge conflicts preserve files and leave no merge in progress", async (t) => {
+test("task preparation preserves dirty files and unresolved manual merge conflicts", async (t) => {
   const { worktree, advance } = await fixture(t);
   const workspace = workspaceFor(worktree);
   await writeFile(join(worktree, "file.txt"), "local change\n");
   await advance("remote change\n");
-  await assert.rejects(workspace.sync(), { code: "workspace_sync_dirty" });
+  await assert.rejects(workspace.task(input().address), { code: "workspace_sync_dirty" });
   assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "local change\n");
   await git(worktree, "commit", "-am", "conflicting Oracle work");
   const before = await git(worktree, "rev-parse", "HEAD");
-  await assert.rejects(workspace.sync(), { code: "workspace_sync_conflict" });
+  await git(worktree, "fetch", "origin", "main");
+  await assert.rejects(git(worktree, "merge", "--no-edit", "origin/main"));
+  const conflicted = await readFile(join(worktree, "file.txt"), "utf8");
+  await assert.rejects(workspace.task(input().address), { code: "workspace_sync_conflict" });
   assert.equal(await git(worktree, "rev-parse", "HEAD"), before);
+  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), conflicted);
+  assert.ok(await git(worktree, "rev-parse", "--verify", "MERGE_HEAD"));
+  await git(worktree, "merge", "--abort");
   assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "local change\n");
-  assert.equal(await git(worktree, "status", "--porcelain"), "");
-  await assert.rejects(git(worktree, "rev-parse", "--verify", "MERGE_HEAD"));
 });
 
 for (const scenario of ["untracked", "conflict"] as const) {
@@ -251,6 +262,11 @@ for (const scenario of ["untracked", "conflict"] as const) {
     if (scenario === "conflict") await git(worktree, "commit", "-am", "local work");
     const before = await git(worktree, "rev-parse", "HEAD");
     await advance("remote change\n");
+    if (scenario === "conflict") {
+      await git(worktree, "fetch", "origin", "main");
+      await assert.rejects(git(worktree, "merge", "--no-edit", "origin/main"));
+    }
+    const beforeContents = await readFile(localPath, "utf8");
     const sessions = createSessionStore({
       directory: await directory(t),
       limits: defaultLimits,
@@ -283,8 +299,10 @@ for (const scenario of ["untracked", "conflict"] as const) {
     await oracle.idle();
     assert.equal(coding, 0);
     assert.equal(await git(worktree, "rev-parse", "HEAD"), before);
-    assert.equal(await readFile(localPath, "utf8"), "unfinished work\n");
-    await assert.rejects(git(worktree, "rev-parse", "--verify", "MERGE_HEAD"));
+    assert.equal(await readFile(localPath, "utf8"), beforeContents);
+    if (scenario === "conflict")
+      assert.ok(await git(worktree, "rev-parse", "--verify", "MERGE_HEAD"));
+    else await assert.rejects(git(worktree, "rev-parse", "--verify", "MERGE_HEAD"));
     assert.equal(messages.length, 1);
     assert.match(
       messages[0] ?? "",
@@ -297,7 +315,6 @@ for (const scenario of ["untracked", "conflict"] as const) {
     ]);
     assert.equal(sessions.snapshot(request.address)?.deliveries[0]?.state, "sent");
     if (scenario === "conflict") {
-      await assert.rejects(git(worktree, "merge", "origin/main"));
       await writeFile(localPath, "unfinished work\nremote change\n");
     }
     await git(worktree, "add", ".");
@@ -312,14 +329,14 @@ for (const scenario of ["untracked", "conflict"] as const) {
   });
 }
 
-test("runtime sync proceeds independently and never updates an existing task checkout", async (t) => {
+test("manual runtime sync never updates an existing task checkout", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   const workspace = workspaceFor(worktree);
   const first = input("Active task");
   const task = await workspace.task(first.address);
   await writeFile(join(task, "unfinished.txt"), "active task work\n");
   await advance("updated runtime\n");
-  await workspace.sync();
+  await syncRuntime(worktree);
   assert.equal(await readFile(join(task, "file.txt"), "utf8"), "initial\n");
   assert.equal(await readFile(join(task, "unfinished.txt"), "utf8"), "active task work\n");
   assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "updated runtime\n");
@@ -328,120 +345,41 @@ test("runtime sync proceeds independently and never updates an existing task che
   assert.equal(await workspace.task(first.address), task);
 });
 
-test("unverified main stays out of the workspace until CI succeeds for its exact commit", async (t) => {
+test("Slack requests run from the chosen revision while newer main is unavailable", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
-  let verified = false;
-  const checked: string[] = [];
-  const workspace = createWorkspace({
-    root: worktree,
-    branch: "oracle",
-    verifyMain: async (commit) => {
-      checked.push(commit);
-      return verified;
+  const pinned = await git(worktree, "rev-parse", "HEAD");
+  const workspace = workspaceFor(worktree);
+  await advance("new main waiting for a manual update\n");
+  await git(primary, "remote", "set-url", "origin", join(worktree, "unavailable-origin.git"));
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  let coding = 0;
+  const messages: string[] = [];
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    runner: {
+      run: async ({ input: request }) => {
+        const task = await workspace.task(request.address);
+        assert.equal(await git(task, "rev-parse", "HEAD"), pinned);
+        coding++;
+        return { kind: "reply", text: "Completed on the selected runtime" };
+      },
+    },
+    publish: async (_, text) => {
+      messages.push(text);
     },
   });
-  await advance("verified update\n");
-  const commit = await git(primary, "rev-parse", "HEAD");
-  assert.deepEqual(await workspace.sync(), { kind: "waiting_for_ci", commit });
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "initial\n");
-  await assert.rejects(workspace.task(input().address), { code: "workspace_main_unverified" });
-  verified = true;
-  assert.deepEqual(await workspace.sync(), { kind: "updated", commit });
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "verified update\n");
-  assert.ok(checked.every((value) => value === commit));
+  t.after(() => oracle.close());
+  const request = input("Answer without waiting for newer main");
+  await oracle.receive(request);
+  await oracle.idle();
+  assert.equal(coding, 1);
+  assert.deepEqual(messages, ["Completed on the selected runtime"]);
+  assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
+  assert.equal(await git(worktree, "rev-parse", "HEAD"), pinned);
 });
-
-test("merge setup failures retain their original error and never abort a nonexistent merge", async (t) => {
-  const { primary, worktree, advance } = await fixture(t);
-  await writeFile(join(worktree, "oracle.txt"), "local commit\n");
-  await git(worktree, "add", ".");
-  await git(worktree, "commit", "-m", "local commit");
-  await advance("remote commit\n");
-  await git(primary, "config", "user.email", "");
-  await git(primary, "config", "user.name", "");
-  await assert.rejects(workspaceFor(worktree).sync(), (error: unknown) => {
-    assert.ok(error instanceof Error);
-    assert.match(error.message, /empty ident|identity unknown|no email/i);
-    assert.doesNotMatch(error.message, /There is no merge to abort/);
-    return true;
-  });
-  assert.equal(await git(worktree, "status", "--porcelain"), "");
-});
-
-test("a concurrent fetch cannot substitute an unverified commit after the CI check", async (t) => {
-  const { primary, worktree, advance } = await fixture(t);
-  await advance("first update\n");
-  const verifiedCommit = await git(primary, "rev-parse", "HEAD");
-  const workspace = createWorkspace({
-    root: worktree,
-    branch: "oracle",
-    verifyMain: async (commit) => {
-      assert.equal(commit, verifiedCommit);
-      await advance("newer unverified update\n");
-      await git(primary, "fetch", "origin", "main");
-      return true;
-    },
-  });
-  assert.deepEqual(await workspace.sync(), { kind: "updated", commit: verifiedCommit });
-  assert.equal(await git(worktree, "rev-parse", "HEAD"), verifiedCommit);
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "first update\n");
-});
-
-test(
-  "the original Slack request survives unavailable CI checks and runs after verified Git sync",
-  { timeout: 5_000 },
-  async (t) => {
-    const { primary, worktree, advance } = await fixture(t);
-    let verified = false;
-    const workspace = createWorkspace({
-      root: worktree,
-      branch: "oracle",
-      verifyMain: async () => {
-        if (!verified) throw new Error("GitHub temporarily unavailable");
-        return true;
-      },
-    });
-    const sessions = createSessionStore({
-      directory: await directory(t),
-      limits: defaultLimits,
-      now: () => testNow,
-    });
-    const finished = deferred<void>();
-    let coding = 0;
-    const messages: string[] = [];
-    const oracle = await createOracle({
-      sessions,
-      limits: defaultLimits,
-      now: () => testNow,
-      retryIntervalMs: 10,
-      runner: {
-        run: async ({ input: request }) => {
-          const task = await workspace.task(request.address);
-          assert.equal(
-            await git(task, "rev-parse", "HEAD"),
-            await git(primary, "rev-parse", "HEAD"),
-          );
-          coding++;
-          return { kind: "reply", text: "Completed after verified sync" };
-        },
-      },
-      publish: async (_, text) => {
-        messages.push(text);
-        if (text === "Completed after verified sync") finished.resolve();
-      },
-    });
-    t.after(() => oracle.close());
-    await advance("CI-gated update\n");
-    const request = input("Answer the original Slack request");
-    await oracle.receive(request);
-    await oracle.idle();
-    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "waiting_for_ci");
-    assert.equal(coding, 0);
-    verified = true;
-    await finished.promise;
-    await oracle.idle();
-    assert.equal(coding, 1);
-    assert.equal(messages.length, 2);
-    assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
-  },
-);

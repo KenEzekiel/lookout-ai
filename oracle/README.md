@@ -8,8 +8,7 @@ visible T3 Code thread. Up to 24 conversations run concurrently by default, with
 one active turn per conversation and ordered follow-ups. Set
 `ORACLE_MAX_CONCURRENT_SESSIONS` in `oracle/.env` to an integer from 1 to 128 to
 change the limit. Requests beyond the active limit wait in the existing bounded
-queue. CI-waiting conversations release their execution slots and retain their
-place ahead of their own follow-ups. They do not stop unrelated ready work.
+queue. A newer commit on `main` does not delay a coding request or update Oracle.
 Exact `stop`, `cancel`, or `abort` requests abort active work and cancel queued
 work only for that conversation. A fresh direct request resumes it.
 
@@ -43,16 +42,16 @@ model. It pins `reasoningEffort=high` and `serviceTier=priority` on new threads 
 reapplies both before every coding turn, including saved conversations. If T3
 cannot acknowledge the settings, Oracle does not send the coding request.
 
-Run the service from `.worktree/oracle` on branch `oracle`. Set `ORACLE_WORKSPACE`
+Run the service from `.worktree/oracle-runtime` on branch `oracle`. Set `ORACLE_WORKSPACE`
 in that checkout's `oracle/.env` to the absolute runtime worktree path. It must
 match the checkout running the dispatcher. The runtime branch is reserved for
-syncing verified `main`; project work never runs there. A changed runtime branch
+manual updates from `main`; project work never runs there. A changed runtime branch
 blocks coding instead of silently accepting the new branch.
 
 Each Slack conversation gets a linked worktree at
 `<primary>/.worktree/oracle-task-<conversation-hash>` on its own
 `oracle-task/<conversation-hash>` feature branch. New task worktrees start from
-the verified main commit included in the runtime. Follow-ups reuse their worktree
+the runtime's current commit, selected by the maintainer. Follow-ups reuse their worktree
 and preserve uncommitted work. Separate conversations cannot dirty the runtime
 or switch each other's branches. Existing main-checkout and runtime-bound T3
 conversations continue in replacement task threads with persisted Slack history.
@@ -63,32 +62,40 @@ continue an existing PR, or use its existing task worktree if the branch is
 already checked out there. It preserves unrelated changes and active work.
 Only the runtime `oracle` branch and the primary `main` checkout are reserved.
 
-The workspace owner fetches `origin/main` before every coding turn and every 30
-seconds in the background. It applies an update only after the `Verify` workflow succeeds
-for that exact commit on `main`. CI already runs on pull requests and pushes to
-`main`, including merges. Pending, failed, missing, or unreadable checks leave the
-current checkout in place. Coding requests wait when a newer commit is unverified.
-Oracle saves the original request, acknowledges the wait once, and retries every
-30 seconds. It continues in the same Slack thread after verification succeeds.
-Users do not need to resend. Waiting does not consume the coding turn timeout.
-Logs identify the main commit and whether the checkout is current or waiting for CI.
+Oracle stays on the runtime revision you choose. It does not fetch `main`, poll
+GitHub CI, or merge updates at startup, between turns, or on a timer. Startup logs
+include `oracle_updates_manual`. Merge PRs and update the runtime when you are ready.
+From the primary repository, inspect and sync the runtime explicitly:
 
-Runtime sync and task-worktree preparation share a short Git queue. Coding turns
-run outside that queue in their separate worktrees. Each new worktree starts at
-the exact verified main commit captured during preparation. Updating the runtime
-never updates an active task's files. Local runtime commits survive merges. Dirty
-runtime files defer an update, and conflicting merges are aborted. Slack reports
-runtime dirty files, merge conflicts, and a
-changed runtime branch with the maintainer action needed before a fresh request.
-Task worktree edits do not block runtime updates. The primary checkout and `main`
-are reserved for the maintainer. Feature changes use short-lived branches and PRs.
+```sh
+git -C .worktree/oracle-runtime status --short
+git -C .worktree/oracle-runtime fetch origin main
+git -C .worktree/oracle-runtime merge --no-edit origin/main
+```
+
+Check the selected commit's CI before updating. Preserve unfinished work and resolve
+conflicts manually. Source changes from your manual sync trigger the existing
+graceful reload after active turns finish. A new merge on GitHub alone does not
+trigger a sync or restart.
+
+Task-worktree preparation captures the runtime's current commit under a short
+local Git queue. Coding turns run outside that queue in their separate worktrees.
+A manual runtime update never changes an existing task's files. Dirty runtime
+files, unresolved merge conflicts, and a changed runtime branch block task
+preparation and produce the existing maintainer guidance in Slack. Task worktree
+edits remain separate. The primary checkout and `main` are reserved for the
+maintainer. Feature changes use short-lived branches and PRs.
+
+`tests/workspace.test.ts` verifies pinned revisions with an unavailable origin,
+coding requests while newer main exists, manual updates for new tasks, preserved
+existing task edits, and dirty/branch/conflict recovery using real Git repositories.
 
 On macOS, install the persistent service from the clean runtime worktree on
 branch `oracle` with
 `pnpm oracle:service install`. You can pass an absolute worktree path after
 `install` when running the command elsewhere. The installer registers
 `~/Library/LaunchAgents/com.lookout.oracle.plist` with `launchd`. It starts at login
-and restarts after exit. It uses your existing GitHub CLI login to read CI results.
+and restarts after exit. Project operations use your existing GitHub CLI login.
 Credentials remain in `oracle/.env` and are absent from the plist.
 
 Each managed startup runs `pnpm install --frozen-lockfile` before starting the
@@ -195,8 +202,10 @@ automatically poll GitHub or Linear or handle agent-container onboarding.
 An instance started with the previous one-shot launcher needs one restart to
 enter the supervised lifecycle. Future dispatcher updates reload automatically.
 
-Queued and CI-waiting requests survive service updates and restarts. Requests
-already running when the service stops retain context and require a fresh request.
+Queued requests and requests left waiting for CI by earlier versions survive
+service updates and restarts. They resume from the maintainer-selected runtime.
+Requests already running when the service stops retain context and require a
+fresh request.
 Only work that has not started coding is retried automatically. A `stop` request
 cancels both waiting and queued work. Pending requests remain protected from
 age-based pruning and session eviction until they finish or are cancelled.

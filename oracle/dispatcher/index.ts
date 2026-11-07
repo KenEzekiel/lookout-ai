@@ -44,7 +44,7 @@ const failureReply = "The turn could not finish. Send a fresh request to continu
 const workspaceReplies = new Map([
   [
     "workspace_sync_dirty",
-    "Oracle's runtime checkout has uncommitted changes and cannot sync main. A maintainer must preserve that work and clean the runtime checkout, then send a fresh request.",
+    "Oracle's runtime checkout has uncommitted changes and cannot prepare a task. A maintainer must preserve that work and clean the runtime checkout, then send a fresh request.",
   ],
   [
     "workspace_sync_conflict",

@@ -4,17 +4,10 @@ import { appendFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { type Address, BoundaryError, keyOf } from "./domain.js";
-import { mainIsVerified } from "./checks.js";
 
 const execute = promisify(execFile);
 
-type Update = { kind: "current" | "updated" | "waiting_for_ci"; commit: string };
-
-export function createWorkspace(options: {
-  root: string;
-  branch: string;
-  verifyMain?: (commit: string) => Promise<boolean>;
-}) {
+export function createWorkspace(options: { root: string; branch: string }) {
   const { root } = options;
   let pending = Promise.resolve();
   const gitAt = async (cwd: string, ...args: string[]): Promise<string> => {
@@ -30,30 +23,17 @@ export function createWorkspace(options: {
     );
     return result;
   };
-  const sync = async (): Promise<Update> => {
+  const currentCommit = async (): Promise<string> => {
     const directory = await realpath(resolve(root, await git("rev-parse", "--git-dir")));
     const common = await realpath(resolve(root, await git("rev-parse", "--git-common-dir")));
     const branch = await git("symbolic-ref", "--short", "HEAD");
     if (directory === common || branch === "main")
       throw new BoundaryError("workspace_must_be_isolated");
     if (branch !== options.branch) throw new BoundaryError("workspace_branch_changed");
-    await git("fetch", "origin", "main");
-    const commit = await git("rev-parse", "origin/main");
-    if (await git("status", "--porcelain")) throw new BoundaryError("workspace_sync_dirty");
-    const missing = await git("rev-list", "--count", `HEAD..${commit}`);
-    if (missing === "0") return { kind: "current", commit };
-    const verified = await (options.verifyMain?.(commit) ?? mainIsVerified({ root, commit })).catch(
-      () => false,
-    );
-    if (!verified) return { kind: "waiting_for_ci", commit };
-    try {
-      await git("merge", "--no-edit", commit);
-    } catch (error) {
-      if (!(await git("diff", "--name-only", "--diff-filter=U"))) throw error;
-      await git("merge", "--abort");
+    if (await git("diff", "--name-only", "--diff-filter=U"))
       throw new BoundaryError("workspace_sync_conflict");
-    }
-    return { kind: "updated", commit };
+    if (await git("status", "--porcelain")) throw new BoundaryError("workspace_sync_dirty");
+    return git("rev-parse", "HEAD");
   };
   const task = async (address: Address, commit: string): Promise<string> => {
     const common = await realpath(resolve(root, await git("rev-parse", "--git-common-dir")));
@@ -85,12 +65,9 @@ export function createWorkspace(options: {
     return await realpath(path);
   };
   return {
-    sync: () => serial(sync),
     task: (address: Address): Promise<string> =>
       serial(async () => {
-        const update = await sync();
-        if (update.kind === "waiting_for_ci") throw new BoundaryError("workspace_main_unverified");
-        return task(address, update.commit);
+        return task(address, await currentCommit());
       }),
   };
 }
