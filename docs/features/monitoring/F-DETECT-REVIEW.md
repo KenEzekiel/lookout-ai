@@ -40,7 +40,9 @@ Event time is the wall-clock capture time of the first candidate-window frame, l
 
 [Complete-route integration tests](../../../apps/app/tests/integration/device.test.tsx) exercise real capture and monitoring code with browser media input and MSW HTTP boundaries. They cover positive delivery, stable retry payloads, dismissed receipts without duplicate reports, rejected/more-evidence/unavailable review outcomes, slow inference with one pending request, Stop, disabled-rule and seek cancellation, configured duration, and deliberate rearming with a new event identity. Existing relay and incident API integration suites retain real Worker/D1 coverage.
 
-Required before claiming implemented: production-browser journey QA and permitted fall, harmless, and crash footage with live provider responses. Mocked inference proves control behavior, not detection accuracy. Per-run results, latency, screenshots, video, and blockers belong in the PR. Run `pnpm verify`.
+`pnpm verify` passed after integration with the dashboard routes and durable follow-up on main. Contained production-build Chromium QA on `fbf4508` used isolated D1, real application endpoints, simulated camera input, and mocked external inference. It observed assigned-source keyboard selection, reviewed reporting, one persisted incident despite repeated positives after dismissal, delayed-provider degradation, Stop cancellation/session end, and a 390-pixel layout without overflow. There were no console errors; the stopped assessment was the only aborted browser request. Inbox and dismissal checks used the real API rather than the operator UI. Rejected/more-evidence reviews, source-kind mismatch, rule refresh, and recovery were not manually exercised.
+
+Required before claiming implemented: permitted fall, harmless, and crash footage with live provider responses. No local provider credential was available; the private secret request timed out. Mocked inference proves control behavior, not detection accuracy. Per-run results, latency, screenshots, video, and blockers belong in the PR. Run `pnpm verify`.
 
 ## Decisions and sources
 
