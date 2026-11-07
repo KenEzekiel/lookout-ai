@@ -5,6 +5,7 @@ import { atomicJson, createSessionStore } from "../session/index.js";
 import { acquireInstanceLock } from "../session/lock.js";
 import { createT3Runner } from "../session/run.js";
 import { connectT3 } from "../session/t3.js";
+import { createWorkspace } from "../session/workspace.js";
 import { loadConfig, loadIdentity, oracleRoot } from "./config.js";
 import { createOracle, type Oracle } from "./index.js";
 import { watchSource } from "./reload.js";
@@ -19,15 +20,19 @@ let release: (() => Promise<void>) | undefined;
 let unsafeToRelease = false;
 let closing: Promise<void> | undefined;
 let stopWatching: (() => void) | undefined;
+let syncTimer: ReturnType<typeof setInterval> | undefined;
+let syncing: Promise<void> | undefined;
 let reloading = false;
 const shutdown = (): Promise<void> => {
   closing ??= (async () => {
     stopWatching?.();
+    clearInterval(syncTimer);
     try {
       await oracle?.close();
     } catch {
       log("session_shutdown_failed");
     }
+    await syncing;
     try {
       await slack?.close();
     } catch {
@@ -52,6 +57,16 @@ const onFault = (code: string): void => {
 
 async function main(): Promise<void> {
   const config = await loadConfig();
+  const workspace = createWorkspace({ root: config.workspace });
+  let updateState = "";
+  const syncWorkspace = async (): Promise<void> => {
+    const update = await workspace.sync();
+    const state = JSON.stringify(update);
+    if (state !== updateState) {
+      process.stderr.write(`${JSON.stringify({ event: "oracle_workspace", ...update })}\n`);
+      updateState = state;
+    }
+  };
   await mkdir(join(oracleRoot, ".local"), { recursive: true, mode: 0o700 });
   release = await acquireInstanceLock(join(oracleRoot, ".state"));
   const identity = await loadIdentity();
@@ -75,16 +90,33 @@ async function main(): Promise<void> {
     projectId: config.t3.projectId,
     instanceId: config.t3.instanceId,
     model: config.t3.model,
+    workspace: config.workspace,
   });
   oracle = await createOracle({
     sessions,
-    runner,
+    runner: {
+      recover: async () => {
+        await runner.recover?.();
+      },
+      run: (args) => workspace.run(() => runner.run(args)),
+    },
     publish: slack.publish,
     setStatus: slack.setStatus,
     limits: defaultLimits,
     onFault,
   });
+  await syncWorkspace();
   await slack.listen(oracle);
+  syncTimer = setInterval(() => {
+    if (syncing || closing) return;
+    syncing = syncWorkspace()
+      .catch((error: unknown) =>
+        log(error instanceof BoundaryError ? error.code : "workspace_sync_deferred"),
+      )
+      .finally(() => {
+        syncing = undefined;
+      });
+  }, 30_000);
   stopWatching = await watchSource({
     root: oracleRoot,
     onFault: () => log("reload_watch_failed"),

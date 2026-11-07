@@ -13,6 +13,7 @@ const snapshot = (active = null, state = "completed", items = []) => ({
     activeRunId: active,
     latestRunId: runId,
     pendingRequestCount: 0,
+    worktreePath: "/workspace/oracle",
   },
   recentRuns: [{ runId, status: state }],
   items,
@@ -33,11 +34,16 @@ test("creates an idle visible thread before any coding message", async () => {
     title: "Slack request",
     requestId: "session-key",
     modelSelection: { instanceId: "codex", model: "model" },
+    workspace: "/workspace/oracle",
   });
   assert.equal(created.runId, null);
   assert.equal(calls[0].name, "t3_thread_launch");
   assert.equal(Object.hasOwn(calls[0].input, "message"), false);
   assert.equal(calls[0].input.clientRequestId, "session-key");
+  assert.deepEqual(calls[0].input.workspaceStrategy, {
+    type: "existing_worktree",
+    worktreePath: "/workspace/oracle",
+  });
 });
 
 test("sends into the saved thread with stable request id", async () => {

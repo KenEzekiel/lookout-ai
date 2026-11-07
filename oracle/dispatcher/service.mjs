@@ -11,6 +11,17 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 }
 
 try {
+  if (process.env.ORACLE_MANAGED_SERVICE === "1") {
+    const installed = await new Promise((resolve, reject) => {
+      child = spawn("pnpm", ["install", "--frozen-lockfile"], {
+        cwd: fileURLToPath(new URL("../../", import.meta.url)),
+        stdio: "inherit",
+      });
+      child.once("error", reject);
+      child.once("exit", (code) => resolve(code));
+    });
+    if (installed !== 0 || stopping) throw new Error("dependency_install_failed");
+  }
   while (!stopping) {
     const code = await new Promise((resolve, reject) => {
       child = spawn(
@@ -21,7 +32,7 @@ try {
       child.once("error", reject);
       child.once("exit", (exitCode) => resolve(exitCode));
     });
-    if (code !== 75 || stopping) {
+    if (code !== 75 || stopping || process.env.ORACLE_MANAGED_SERVICE === "1") {
       process.exitCode = code ?? 1;
       break;
     }

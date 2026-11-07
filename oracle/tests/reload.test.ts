@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import test from "node:test";
@@ -64,3 +64,54 @@ test(
     assert.deepEqual(await exited, [0, null], errors);
   },
 );
+
+for (const installExit of [0, 1]) {
+  test(`managed startup installs dependencies and exits correctly when installation returns ${installExit}`, async (t) => {
+    const root = await directory(t);
+    const oracleRoot = join(root, "oracle");
+    const bin = join(root, "bin");
+    await mkdir(join(oracleRoot, "dispatcher"), { recursive: true });
+    await mkdir(bin);
+    await copyFile(
+      new URL("../dispatcher/service.mjs", import.meta.url),
+      join(oracleRoot, "dispatcher/service.mjs"),
+    );
+    await writeFile(
+      join(oracleRoot, "dispatcher/main.ts"),
+      'process.stdout.write("ready\\n"); process.exitCode = 75;',
+    );
+    const installer = join(bin, "pnpm");
+    await writeFile(
+      installer,
+      '#!/bin/sh\nprintf \'%s\\n\' "$PWD" "$@" > install.args\nexit "${INSTALL_EXIT:-0}"\n',
+      { mode: 0o755 },
+    );
+    const service = spawn(process.execPath, [join(oracleRoot, "dispatcher/service.mjs")], {
+      cwd: oracleRoot,
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        ORACLE_MANAGED_SERVICE: "1",
+        INSTALL_EXIT: String(installExit),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    t.after(() => {
+      service.kill("SIGTERM");
+    });
+    let output = "";
+    let errors = "";
+    service.stdout.on("data", (chunk) => {
+      output += chunk;
+    });
+    service.stderr.on("data", (chunk) => {
+      errors += chunk;
+    });
+    assert.deepEqual(await once(service, "exit"), [installExit === 0 ? 75 : 1, null], errors);
+    assert.equal(
+      await readFile(join(root, "install.args"), "utf8"),
+      `${root}\ninstall\n--frozen-lockfile\n`,
+    );
+    assert.equal(output, installExit === 0 ? "ready\n" : "");
+  });
+}

@@ -45,6 +45,11 @@ The dispatcher resumes the saved T3 thread for later requests. A saved transcrip
 does not prove the workspace is unchanged. Re-read the branch, `git status`,
 recent commits, and any relevant pull request before continuing earlier work.
 
+Work only in the bound `.worktree/oracle` checkout. The primary checkout and
+`main` branch are reserved for the maintainer. Keep feature branches in this
+worktree. The dispatcher syncs `origin/main` between turns. Preserve unfinished
+work when an update needs conflict resolution.
+
 ## First, acknowledge
 
 For a direct request that needs investigation or implementation, send one short,
