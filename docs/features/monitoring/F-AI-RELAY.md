@@ -1,39 +1,57 @@
 # F-AI-RELAY: Secure assessment transport
 
-Status: planned
+Status: partial
 
 Depends on: F-AUTH-ACCESS, F-RULE-CONFIG
 
 ## Behavior
 
-An authenticated stateless relay protects long-lived model credentials for browser devices. It returns assessment results to the requesting device and enforces scope and usage limits.
+Paired devices request typed assessment or review results through a bounded server relay. The relay authenticates the device, validates its workspace and current enabled rule version, and reads the condition from stored configuration. Model credentials stay on the server. The device owns sampling, interpretation, duration tracking, and incident decisions.
 
 ## Entry points
 
-The operational device calls the relay during assessment. This is a supporting product capability without a standalone operator screen.
+`POST /api/assessment` accepts multipart form data. One `metadata` text part contains `{ rule: { id, version }, sourceId, observation: { stage, frames: [{ id, mediaTimeMs }] } }`; optional indexed `frame-0` through `frame-7` parts carry new binary JPEG files. Each sampled frame has a stable UUID `id`, preserved across overlapping windows. `createAssessmentClient()` returns the `requestAssessment` function for one capture session; it accepts JPEG `Blob` values as each frame’s `image`, remembers acknowledgments, and omits bytes already uploaded. Duplicate, unexpected, empty, wrong-media-type, and oversized parts are rejected. Missing cached IDs produce HTTP 409 `{ kind: "frames_missing", frameIds }` before inference. The client re-uploads just those missing frames once, then reports `unavailable: frames_missing` if recovery fails. `X-Lookout-Frames` contains validated `{ id, expiresAt }` receipts. Retrying admission counts against the existing quotas. JSON/base64 client uploads are not accepted. The capture screen and monitoring loop do not call it yet. This capability has no standalone operator screen.
 
 ## Wiring and compatibility
 
-Custom rule conditions now include optional `exclusions`. The assessment integration must consume both the authored text and exclusions; `conditionText` provides their combined instruction text. Preserve a separate ambiguity assessment and candidate review rather than treating a predicate score as a confirmed incident. The relay and assessment execution remain unimplemented.
+The request derives rule/version and source identities from the F-RULE-CONFIG [shared schemas](../../../apps/app/src/lib/rules.ts). `monitoringDevice` rechecks F-AUTH-ACCESS revocation. The server verifies workspace, source match, enabled state, and current version before inference. Client condition text, model selection, workspace IDs, recipients, and unknown fields are rejected. `conditionText` resolves the authoritative template/custom condition. All paired devices in a workspace share source access; there is no per-device source ACL.
 
-F-RULE-CONFIG now publishes [rule and source schemas](../../../apps/app/src/lib/rules.ts) through `GET /api/config/device`. Relay authorization must use the stored source ID and current enabled rule/version from that contract. This consumer remains unimplemented.
+Custom rule conditions include optional exclusions. The relay uses `conditionText` to send both authored text and exclusions to assessment and review, allowing the full 2,010-character combined instruction. Predicate probabilities remain separate from ambiguity assessment and candidate review.
 
-Use `monitoringDevice` from the delivered F-AUTH-ACCESS boundary. Demo scope is all sources in that device’s workspace. Validate requested sources against that workspace, and deny revoked credentials on every request. This relay connection is still unimplemented.
+Admission uses the existing D1 attempt counter. All requests count against 60 requests per device and 240 per workspace per minute. Reviews also count against six per device and 24 per workspace per minute. These are fixed demo usage ceilings, not a measured sampling policy. Requests are limited to 2 MiB, eight binary JPEGs of at most 192 KiB each, and a strictly increasing source-time window of at most 30 seconds. The body reader buffers at most the request limit and drains excess bytes without retaining them, within a five-second deadline, so the Worker can deliver an explicit error response.
 
-The device owns the monitoring loop. The relay must not persist non-triggered images, clips, or decision payloads in application storage or logs. Provider inference remains remote.
+Only the server provider adapter converts JPEG bytes to data URLs for OpenAI, whose Decisions endpoint accepts image URLs or base64 data URLs rather than binary multipart inputs. A workspace-scoped `FrameCache` Durable Object holds JPEG bytes only in memory. Keys include device, source, and frame ID. Cached IDs cannot change bytes or timestamps. Frames expire 60 seconds after first upload; reads and duplicate uploads do not renew them. A timer releases expired references, and every lookup checks expiry. Restart or eviction may lose frames earlier. Oldest entries are evicted at 8 MiB or 64 frames per device and 24 MiB or 192 frames per workspace, protecting the current bounded window. The byte and count ceilings apply independently. No image data is written to Durable Object storage, D1, R2, or logs. Durable Object duration charges can apply while expiry timers keep it active. A missing cache binding or RPC failure returns `cache_unavailable`.
+
+Device authorization, current enabled rule version, source access, and quotas are checked before cache access. Revoked devices cannot read their cached frames; those frames expire normally within 60 seconds. Every provider call still receives its full observation window. This reduces device-to-relay uploads, not provider image traffic or inference cost. Sampling cadence and candidate-only review belong to F-DETECT-REVIEW.
+
+The adapter sends two Decisions predicates through `gpt-6-luna`, returning match and uncertainty probabilities without choosing a trigger threshold. Review uses `gpt-6.1-terra`, medium reasoning, Responses Structured Outputs, `store: false`, and at most 4096 output tokens. Review outcomes are `positive`, `rejected`, and `need_more_evidence`, with an explanation of at most 600 characters. Transport failures are a separate `unavailable` result. Refusal, malformed/incomplete output, timeout, cancellation, and provider errors never become negative observations. Calls have a 15-second deadline, a 64 KiB response limit, and no retries or redirects.
+
+No image or result is written to persistent application storage or logs. D1 stores admission identifiers/counts only. Provider error bodies are discarded, and responses use `Cache-Control: no-store`. `OPENAI_API_KEY` is a Worker secret. `OPENAI_BASE_URL` defaults to `https://api.openai.com/v1`; only server configuration can override it, including local external-service mocks. Provider inference remains remote; `store: false` is not a provider zero-retention guarantee.
+
+F-DETECT-REVIEW must retain capture-epoch/request context, discard late results, apply configured duration and trigger thresholds, and decide whether to report an incident. An instantaneous positive is not proof that an optional duration has elapsed. Missing credentials produce `provider_not_configured`. No server monitoring loop, incident creation, persistent footage storage, or automatic fallback is introduced.
 
 ## Implementation
 
-Not implemented in the current application. Add actual source links when implementation lands.
+[Shared contract and client](../../../apps/app/src/lib/assessment.ts), [route adapter](../../../apps/app/src/routes/api/assessment.ts), [relay handler](../../../apps/app/src/server/assessment.ts), [bounded body reader](../../../apps/app/src/server/assessment-body.ts), [OpenAI adapter](../../../apps/app/src/server/assessment-provider.ts), [in-memory cache](../../../apps/app/src/server/frame-cache.ts), [Worker entrypoint](../../../apps/app/src/server.ts), and [authoritative rule lookup](../../../apps/app/src/server/rules.ts).
+
+The endpoint and provider adapter are connected to real access and rule storage. Capture-loop integration, deployed credentials, and live provider verification remain incomplete, so the feature remains partial.
 
 ## Verification
 
-Verify assigned-device success, revoked and cross-user denial, bounded requests, provider errors, and absence of browser-exposed secrets or retained non-triggered payloads.
+[Worker HTTP integration tests](../../../apps/app/tests/api/assessment.test.ts) use the built Worker, real authentication, isolated D1 migrations, and a local HTTP mock of OpenAI only. They cover actual 60-second expiry without read renewal, overlapping-window reuse, missing-frame recovery, byte/count eviction, workspace/device/source cache isolation, ID immutability, concurrent reads, authorized assessment/review, cross-workspace/source denial, stale/disabled rules, updated custom conditions, revocation, Origin checks, malformed and oversized inputs/results, provider refusal/errors, a stalled-body deadline, usage limits, and absence of payloads/keys in D1 and Worker logs. [Client HTTP integration tests](../../../apps/app/tests/integration/assessment.test.ts) exercise native multipart encoding, omitted acknowledged frame bytes, one bounded cache-miss retry, typed outcomes, denial, failures, and cancellation. These transport-only checks use Node’s native Fetch types and MSW; UI checks retain the virtual DOM.
+
+`pnpm verify` passed on the repository’s Node 24 runtime, including 52 real-Worker API tests and 51 app integration tests. Production-build Chromium inspection used isolated D1 and an external HTTP mock. It exercised the actual client helper with two-frame windows: the first upload carried two binary JPEGs, the overlapping window carried only one new JPEG, and a repeated window carried metadata only. Request bodies measured 4,045, 2,240, and 432 bytes including multipart metadata for synthetic 640 × 360 JPEGs; these are not production bandwidth estimates. It also observed successful assessment/review, human-session denial, stale-rule rejection, and client-field rejection. The test credential was absent from browser responses and all twelve JavaScript bundles inspected, with no page errors. The PR records browser/network observations; no UI journey was changed. Per-run evidence stays outside version control. Mocked inference proves relay behavior, not model quality. Real provider account access, fall/crash review accuracy, latency, and deployed Worker behavior remain unverified. F-DETECT-REVIEW must verify the eventual capture-to-incident journey.
 
 ## Decisions and sources
 
-[Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md). Delivery issue from the roadmap: [#20](https://github.com/KenEzekiel/lookout-ai/issues/20). Issue status is not implementation evidence.
+[Issue #20](https://github.com/KenEzekiel/lookout-ai/issues/20), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
+
+The user chose a server-held key with binary client uploads, then explicitly authorized a bounded 60-second frame cache to avoid repeated device uploads across sliding windows. This supersedes the original no-retention/stateless transport detail; device-owned orchestration remains unchanged. The [Durable Object lifecycle](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/) and [custom Worker entrypoint](https://developers.cloudflare.com/workers/framework-guides/web-apps/tanstack-start/#custom-entrypoints) informed the in-memory implementation.
+
+The user selected GPT-6.1 Terra with medium reasoning for review. They initially authorized independent transport work in a draft PR, then reported #18 merged; this PR integrates its authoritative rule contract. The [Decisions guide](https://developers.openai.com/api/docs/guides/decisions), [Terra specification](https://developers.openai.com/api/docs/models/gpt-6.1-terra), and [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs) informed the adapter. The fall experiment supplies evidence, not a production dependency or a calibrated generic threshold.
+
+Synthesis decision: retain one shared Zod request/result contract, one server provider adapter, and the existing access/rule/D1 boundaries. No provider SDK or generic transport framework is needed. Stored rule definitions authorize condition text; the client submits only identity/version and bounded observations. Keep inference outcomes separate from transport failure so #21 cannot interpret an outage as a harmless scene.
 
 ## Open questions
 
-Provider access and request/result contract require verification. This feature does not authorize server-owned monitoring as a fallback.
+Connect F-DETECT-REVIEW and validate provider access and review quality with authorized live usage. Revisit the fixed demo limits only with measured workload evidence. The production Wrangler environment explicitly declares FRAME_CACHE, OPENAI_BASE_URL, and the required OPENAI_API_KEY secret alongside the existing deployed D1 binding and origin. The production build and `deploy:check` dry-run passed with FRAME_CACHE present; no deployment was performed for this relay. Deployment requires the Durable Object class migration and Worker secrets. This feature does not authorize server-owned monitoring as a fallback.

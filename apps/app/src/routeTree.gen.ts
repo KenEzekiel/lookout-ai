@@ -17,6 +17,7 @@ import { Route as MonitorRouteImport } from './routes/monitor'
 import { Route as WorkspaceDevicesRouteImport } from './routes/_workspace.devices'
 import { Route as WorkspaceTeamRouteImport } from './routes/_workspace.team'
 import { Route as WorkspaceTriggersRouteImport } from './routes/_workspace.triggers'
+import { Route as ApiAssessmentRouteImport } from './routes/api/assessment'
 import { Route as WorkspaceIncidentsIndexRouteImport } from './routes/_workspace.incidents.index'
 import { Route as WorkspaceIncidentsIncidentIdRouteImport } from './routes/_workspace.incidents.$incidentId'
 import { Route as ApiAccessSplatRouteImport } from './routes/api/access/$'
@@ -64,6 +65,11 @@ const WorkspaceTriggersRoute = WorkspaceTriggersRouteImport.update({
   id: '/triggers',
   path: '/triggers',
   getParentRoute: () => WorkspaceRoute,
+} as any)
+const ApiAssessmentRoute = ApiAssessmentRouteImport.update({
+  id: '/api/assessment',
+  path: '/api/assessment',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspaceIncidentsIndexRoute = WorkspaceIncidentsIndexRouteImport.update({
   id: '/incidents/',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/devices': typeof WorkspaceDevicesRoute
   '/team': typeof WorkspaceTeamRoute
   '/triggers': typeof WorkspaceTriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/incidents/$incidentId': typeof WorkspaceIncidentsIncidentIdRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/devices': typeof WorkspaceDevicesRoute
   '/team': typeof WorkspaceTeamRoute
   '/triggers': typeof WorkspaceTriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/incidents/$incidentId': typeof WorkspaceIncidentsIncidentIdRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/_workspace/devices': typeof WorkspaceDevicesRoute
   '/_workspace/team': typeof WorkspaceTeamRoute
   '/_workspace/triggers': typeof WorkspaceTriggersRoute
+  '/api/assessment': typeof ApiAssessmentRoute
   '/_workspace/incidents/$incidentId': typeof WorkspaceIncidentsIncidentIdRoute
   '/api/access/$': typeof ApiAccessSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/devices'
     | '/team'
     | '/triggers'
+    | '/api/assessment'
     | '/incidents/$incidentId'
     | '/api/access/$'
     | '/api/auth/$'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/devices'
     | '/team'
     | '/triggers'
+    | '/api/assessment'
     | '/incidents/$incidentId'
     | '/api/access/$'
     | '/api/auth/$'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/_workspace/devices'
     | '/_workspace/team'
     | '/_workspace/triggers'
+    | '/api/assessment'
     | '/_workspace/incidents/$incidentId'
     | '/api/access/$'
     | '/api/auth/$'
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   DeviceRoute: typeof DeviceRoute
   JoinRoute: typeof JoinRoute
   MonitorRoute: typeof MonitorRoute
+  ApiAssessmentRoute: typeof ApiAssessmentRoute
   ApiAccessSplatRoute: typeof ApiAccessSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiConfigSplatRoute: typeof ApiConfigSplatRoute
@@ -286,6 +299,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/triggers'
       preLoaderRoute: typeof WorkspaceTriggersRouteImport
       parentRoute: typeof WorkspaceRoute
+    }
+    '/api/assessment': {
+      id: '/api/assessment'
+      path: '/api/assessment'
+      fullPath: '/api/assessment'
+      preLoaderRoute: typeof ApiAssessmentRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_workspace/incidents/': {
       id: '/_workspace/incidents/'
@@ -372,6 +392,7 @@ const rootRouteChildren: RootRouteChildren = {
   DeviceRoute: DeviceRoute,
   JoinRoute: JoinRoute,
   MonitorRoute: MonitorRoute,
+  ApiAssessmentRoute: ApiAssessmentRoute,
   ApiAccessSplatRoute: ApiAccessSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiConfigSplatRoute: ApiConfigSplatRoute,

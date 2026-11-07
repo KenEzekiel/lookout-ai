@@ -13,7 +13,7 @@ Think PagerDuty for visual events. Traffic is one use case; the product is desig
 - **Operator:** define incidents, configure roles and alert recipients, receive incidents, replay evidence and respond.
 - **Operational device:** connect CCTV/video/playback and keep monitoring active. Run the decision loop and upload video snippets only when an incident triggers.
 
-The incident path is **operational device → server → operator**. Option A, device-owned Decisions API orchestration, is the default; server-owned assessment of uploaded snippets is deferred. Non-triggered footage is not retained by Lookout. A stateless authenticated relay is recommended for browser API-key protection, with results returned to the device.
+The incident path is **operational device → server → operator**. Option A, device-owned Decisions API orchestration, is the default; server-owned assessment of uploaded snippets is deferred. Non-triggered sampled frames may be cached in memory for 60 seconds to avoid redundant device uploads; they are not written to persistent storage. An authenticated relay protects the model key and returns results to the device. The Worker requires its FRAME_CACHE Durable Object binding and class migration.
 
 ## Product direction and current status
 
@@ -113,6 +113,8 @@ This deployment uses Workers and D1 features available on the Free plan. Do not 
 Deployment verification on November 7, 2026 passed the full `pnpm verify` suite, HTTPS homepage and Chromium rendering checks, and live signup, workspace creation, sign-in, secure-cookie, and sign-out checks. The temporary verification account and workspace were removed afterward.
 
 Add other service bindings as services are selected. Run `pnpm --filter @lookout/app cf-typegen` after changing bindings.
+
+The assessment relay uses the Worker secret `OPENAI_API_KEY`. Leave it empty when not using remote inference; authorized assessment requests return `provider_not_configured`. Set it with `wrangler secret put OPENAI_API_KEY --env production --config wrangler.jsonc` for an authorized deployment. The production environment also declares FRAME_CACHE and its SQLite Durable Object migration. `OPENAI_BASE_URL` defaults to `https://api.openai.com/v1`; the API tests override it with a local HTTP mock and an artificial key. Never point tests at a live provider. The [relay feature record](docs/features/monitoring/F-AI-RELAY.md) documents the typed contract, limits, and remaining device-loop integration.
 
 ## Background push setup
 

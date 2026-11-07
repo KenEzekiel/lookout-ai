@@ -32,6 +32,8 @@ The shell uses the completed account/session portion of F-AUTH-ACCESS through sa
 
 ## Verification
 
+The routing update passed complete-screen integration checks and contained Chromium QA against the production Worker with isolated D1. Devices, Team, Triggers, inbox, detail, and browser history retained the same header and alert controls without replaying the workspace-opening state. Direct links, reload, keyboard navigation, sign-out, inbox error recovery, and 320px/390px layouts passed. Inbox failure/recovery and detail used HTTP fixtures; authentication, workspace, team, configuration, and initial empty-alert reads used real handlers. [PR #74](https://github.com/KenEzekiel/lookout-ai/pull/74) records the tested build, observations, screenshots, and navigation recording.
+
 The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-end checks. Interactive production-build QA exercised signup, workspace creation, invitation-based joining, invalid-code recovery, pairing, keyboard focus, cancellation, revocation, capture entry, and same-browser switching at desktop and narrow widths. [Screenshots and observations](https://github.com/KenEzekiel/lookout-ai/pull/53) record the changed journeys.
 
 [Route integration tests](../../../apps/app/tests/integration/app.test.tsx) cover the home redirect, direct Devices and Team links, visitor denial, persistent header and access connection, path navigation, browser back and forward, and unknown-route fallback. [Capture UI tests](../../../apps/app/tests/integration/device.test.tsx) cover paired-device entry and visitor denial. Run `pnpm test`. [Access browser journeys](../../../tests/e2e/access.spec.ts) exercise entry, joining, and monitoring-mode navigation against the built app.
