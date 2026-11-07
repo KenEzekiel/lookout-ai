@@ -1,3 +1,10 @@
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Link } from "@tanstack/react-router";
 import { Activity, Camera, Clock3, FileVideo, Play, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -114,7 +121,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
 
             <div
               className={cn(
-                "relative isolate aspect-[1.35] min-h-[260px] overflow-hidden rounded-[18px]",
+                "relative isolate aspect-[1.35] min-h-[260px] w-full overflow-hidden rounded-[18px]",
                 "border border-white/10 bg-[radial-gradient(ellipse_at_65%_25%,#354b50,#172126_60%,#10171b)]",
                 "shadow-[0_22px_60px_#0003] sm:aspect-[1.56] sm:min-h-[420px]",
               )}
@@ -231,15 +238,21 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                 <label className="text-xs text-muted-foreground" htmlFor="source-kind">
                   Source type
                 </label>
-                <select
-                  id="source-kind"
-                  className={selectClass}
+                <Select<SourceChoice>
+                  items={{ camera: "Camera", file: "Local video" }}
                   value={sourceChoice}
-                  onChange={(event) => changeSource(event.target.value as SourceChoice)}
+                  onValueChange={(value) => {
+                    if (value) changeSource(value);
+                  }}
                 >
-                  <option value="camera">Camera</option>
-                  <option value="file">Local video</option>
-                </select>
+                  <SelectTrigger id="source-kind" className={selectClass}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="camera">Camera</SelectItem>
+                    <SelectItem value="file">Local video</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {sourceChoice === "file" && (
                 <div className="mt-4 flex flex-col gap-2">

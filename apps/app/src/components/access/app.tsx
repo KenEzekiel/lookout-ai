@@ -4,6 +4,7 @@ import { type Principal, principalSchema } from "@/lib/access";
 import { mutate, request, message } from "@/lib/api";
 import { RuleWorkspace } from "@/components/rules/workspace";
 import { IncidentDetail, IncidentInbox } from "@/components/incidents/workspace";
+import { IncomingAlerts } from "@/components/incidents/incoming-alerts";
 import { DeviceScreen } from "@/components/device-screen";
 import { Account } from "./account";
 import { Brand } from "./brand";
@@ -161,6 +162,9 @@ export function AccessApp({
         </div>
       </header>
       <main id="main-content" className="mx-auto max-w-6xl px-5 sm:px-8">
+        {!error && actor?.kind === "member" && !pairing && (
+          <IncomingAlerts key={actor.workspaceId + actor.userId} actor={actor} />
+        )}
         {error ? (
           <Panel title="We couldn’t open your workspace">
             <p role="alert" className="mb-6 text-sm leading-relaxed text-destructive">

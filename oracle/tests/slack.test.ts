@@ -138,7 +138,6 @@ test("membership verification accepts teammates and refuses external people and 
     },
     idle: async () => {},
     retryPending: () => {},
-    drain: async () => {},
     close: async () => {},
   };
   const transport = createSlackTransport({
@@ -386,7 +385,6 @@ test("native stop events reject foreign members, bots, malformed payloads and un
     },
     idle: async () => {},
     retryPending: () => {},
-    drain: async () => {},
     close: async () => {},
   };
   const transport = createSlackTransport({

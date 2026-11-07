@@ -6,7 +6,7 @@ Depends on: F-AUTH-ACCESS, F-RULE-CONFIG
 
 ## Behavior
 
-An accepted device report persists one workspace incident with event time, source and rule snapshots, severity, configured recipients, owner, and timeline. Evidence remains pending and notification delivery remains not-sent in this slice. Operators can respond before a saved clip exists.
+An accepted device report persists one workspace incident with event time, source and rule snapshots, severity, configured recipients, owner, and timeline. Evidence remains pending and background notification delivery remains not-sent in this slice. Operators can respond before a saved clip exists.
 
 Acknowledge changes open to acknowledged and records the responding member as owner. Resolve changes acknowledged to resolved. Dismiss changes open or acknowledged to dismissed and records incorrect-alert feedback. Dismissed and resolved are distinct terminal states. Opening an incident changes nothing. Every response requires the last-read version, increments it, and appends one timeline entry atomically. Any current workspace member can respond, including resolving a colleague's acknowledged incident. Ownership is preserved after resolution or dismissal.
 
@@ -14,7 +14,7 @@ Acknowledge changes open to acknowledged and records the responding member as ow
 
 Members open **Incidents** in shared navigation, then select an inbox row. `/incidents` shows up to 100 incidents with open and acknowledged responses first. `/incidents/$incidentId` shows context, evidence availability, ownership, and response actions. Both refresh every five seconds and offer explicit reload. Failed reads hide the data and response controls. Conflicting commands show an error and require current state before another successful response.
 
-Devices use the HTTP endpoints below. There is no production synthetic-event button. Scene-clear observations, incoming alerts, and evidence updates are not connected yet and never auto-resolve an incident.
+Devices use the HTTP endpoints below. There is no production synthetic-event button. F-ALERT-INAPP now consumes incident reads and commands for incoming response; scene-clear observations and evidence updates remain unconnected and never auto-resolve an incident.
 
 ## Wiring and compatibility
 
@@ -30,7 +30,7 @@ The idempotency key is device, session, event ID, and rule ID. The producer must
 
 `GET /api/incidents/inbox` returns `{incidents}`. `GET /api/incidents/detail/:id` returns the shared incident view. `POST /api/incidents/commands/:id` accepts `{action,version}` with acknowledge, dismiss, or resolve and returns the updated incident. Unavailable or stale transitions return 409 without a write. Reads are workspace scoped. The list is bounded to 100 rows and has no pagination yet.
 
-[Shared schemas and transitions](../../../apps/app/src/lib/incidents.ts) publish the report, receipt, incident view, and command contract for assessment, alerts, evidence, escalation, and MCP. Evidence upload, notification delivery, scheduling, and external-agent authentication remain unimplemented. No alert or follow-up is claimed as delivered or scheduled. Future paging must consult incident status so acknowledgment or a terminal response prevents new attempts. A response never deletes capture data.
+[Shared schemas and transitions](../../../apps/app/src/lib/incidents.ts) publish the report, receipt, incident view, and command contract for assessment, alerts, evidence, escalation, and MCP. `GET /api/incidents/alerts` now supplies F-ALERT-INAPP with open incidents addressed to the current workspace member. It uses snapshotted recipients and the same incident identity. Incoming response uses the existing versioned commands. Local open or silence never writes the incident. Evidence upload, background notification delivery, scheduling, and external-agent authentication remain unimplemented. The not-sent notification placeholder means no background delivery receipt is recorded; in-app rendering has no persisted receipt. Future paging must consult incident status so acknowledgment or a terminal response prevents new attempts. A response never deletes capture data.
 
 ## Implementation
 
@@ -54,4 +54,4 @@ The current PR introduces this contract. Synthesis decision: reuse D1 and the co
 
 ## Open questions
 
-Connect local capture runs and assessment to session start/end and report retries. Integrate observation enrichment, private evidence, alerts, and escalation against the published incident identity and version. Long-lived capture needs a new session after the 12-hour lease. No session-renewal endpoint, incident pagination, reopening, or reassignment is included. Feedback does not imply automatic retraining.
+Connect local capture runs and assessment to session start/end and report retries. Integrate observation enrichment, private evidence, background notifications, and escalation against the published incident identity and version. Incoming alerts are connected through F-ALERT-INAPP. Long-lived capture needs a new session after the 12-hour lease. No session-renewal endpoint, incident pagination, reopening, or reassignment is included. Feedback does not imply automatic retraining.

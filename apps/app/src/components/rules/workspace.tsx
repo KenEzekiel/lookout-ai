@@ -1,4 +1,12 @@
-import { useEffect, useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ActionForm, Field } from "@/components/access/forms";
 import { request, message } from "@/lib/api";
@@ -11,6 +19,7 @@ import {
 import { RuleEditor, RuleSummary } from "./editor";
 
 export function RuleWorkspace() {
+  const editorTrigger = useRef<HTMLButtonElement | null>(null);
   const [configuration, setConfiguration] = useState<OperatorConfiguration>();
   const [editor, setEditor] = useState<
     { kind: "closed" } | { kind: "new" } | { kind: "edit"; rule: Rule }
@@ -64,7 +73,8 @@ export function RuleWorkspace() {
           <ActionForm submit="Reload triggers" pendingLabel="Reloading triggers…" action={reload} />
           <Button
             disabled={!configuration?.sources.length}
-            onClick={() => {
+            onClick={(event) => {
+              editorTrigger.current = event.currentTarget;
               setEditor({ kind: "new" });
               setNotice("");
             }}
@@ -117,16 +127,25 @@ export function RuleWorkspace() {
               }}
             >
               <Field label="Source name" name="name" maxLength={80} />
-              <label className="grid gap-2 text-sm font-medium">
-                Source type
-                <select
+              <div className="grid gap-2 text-sm font-medium">
+                <label htmlFor="rule-source-type">Source type</label>
+                <Select
+                  items={{ camera: "Live camera", replay: "Replayed footage" }}
                   name="kind"
-                  className="h-11 rounded-md border border-input bg-background px-3"
+                  defaultValue="camera"
                 >
-                  <option value="camera">Live camera</option>
-                  <option value="replay">Replayed footage</option>
-                </select>
-              </label>
+                  <SelectTrigger
+                    id="rule-source-type"
+                    className="h-11 w-full rounded-md border border-input bg-background px-3"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="camera">Live camera</SelectItem>
+                    <SelectItem value="replay">Replayed footage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </ActionForm>
           </details>
           {configuration.rules.length === 0 && editor.kind === "closed" && (
@@ -138,13 +157,31 @@ export function RuleWorkspace() {
             </p>
           )}
           {editor.kind !== "closed" && (
-            <RuleEditor
-              key={editor.kind === "edit" ? editor.rule.id : "new"}
-              configuration={configuration}
-              rule={editor.kind === "edit" ? editor.rule : undefined}
-              onSaved={saved}
-              onCancel={() => setEditor({ kind: "closed" })}
-            />
+            <Dialog
+              open
+              onOpenChange={(open) => {
+                if (!open) setEditor({ kind: "closed" });
+              }}
+            >
+              <DialogContent
+                finalFocus={editorTrigger}
+                className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:max-w-xl"
+              >
+                <DialogTitle className="pr-6 text-xl font-semibold">
+                  {editor.kind === "edit" ? "Edit trigger" : "New trigger"}
+                </DialogTitle>
+                <DialogDescription>
+                  Choose what to watch for and review who should receive the alert.
+                </DialogDescription>
+                <RuleEditor
+                  key={editor.kind === "edit" ? editor.rule.id : "new"}
+                  configuration={configuration}
+                  rule={editor.kind === "edit" ? editor.rule : undefined}
+                  onSaved={saved}
+                  onCancel={() => setEditor({ kind: "closed" })}
+                />
+              </DialogContent>
+            </Dialog>
           )}
           <div className="grid items-start gap-6 md:grid-cols-2">
             {configuration.rules.map((rule) => (
@@ -152,7 +189,8 @@ export function RuleWorkspace() {
                 key={rule.id}
                 rule={rule}
                 configuration={configuration}
-                onEdit={() => {
+                onEdit={(trigger) => {
+                  editorTrigger.current = trigger;
                   setEditor({ kind: "edit", rule });
                   setNotice("");
                 }}
