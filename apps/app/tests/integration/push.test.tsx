@@ -121,7 +121,7 @@ async function open() {
   await router.load();
   render(<RouterProvider router={router} />);
   const user = userEvent.setup();
-  await user.click(await screen.findByText("Background alerts", { selector: "summary" }));
+  await user.click(await screen.findByRole("button", { name: "Background alerts" }));
   return user;
 }
 
