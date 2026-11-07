@@ -16,19 +16,27 @@ Use a slim top bar for the lowercase wordmark, camera or place selector, primary
 
 On a wide desktop, the video occupies about two thirds of the main width. The incident panel occupies the rest. Use roughly 24 to 32 px outer padding and a 20 to 24 px gutter. The video is the largest object, while the incident title and response buttons remain visible without scrolling. Avoid a wall of small cards around the footage.
 
-Place three evidence moments beneath the video when an incident is selected. Show a frame before the event, the earliest visible event frame supported by the evidence, and a later frame. Detection may happen after the event begins. Each moment needs an absolute time and a short description. Put a longer observation history in incident detail, rather than making the strip dense. When there is no incident, show a quiet monitoring state instead of filler analytics.
+Place three evidence moments beneath the video when an incident is selected. Show a frame before the event, the earliest visible event frame supported by the evidence, and a later frame. Detection may happen after the event begins. Each moment needs an absolute time and a short description. These frames can support the first alert while the event clip is still being saved. Put a longer observation history in incident detail, rather than making the strip dense. When there is no incident, show a quiet monitoring state instead of filler analytics.
 
-The incident panel starts with a plain-language title, such as **Possible fall** or **Possible crash**. Place the camera or location, event time, and sentence-case status nearby. Then show one evidence preview, a short timeline, the current owner and notification state, and the available actions. If no one has acknowledged the incident, show the configured escalation step and when it is due. The sequence answers what might have happened, where and when, what supports the alert, who owns the response, and what the recipient can do.
+The incident panel starts with a plain-language title, such as **Possible fall** or **Possible crash**. Place the camera or location, event time, and sentence-case status nearby. Then show the available evidence, replay availability, a short timeline, the current owner and alert state, and the response actions. If no one has acknowledged the incident, show the configured escalation step and when it is due. The sequence answers what might have happened, where and when, what supports the alert, who owns the response, and what the recipient can do.
 
-At narrower desktop widths, give the incident panel enough space to keep its actions readable, or place it below the video. If a phone view is built later, lead with the incident, evidence, and response actions. A polished mobile app is outside the current demo scope.
+At narrower desktop widths, give the incident panel enough space to keep its actions readable, or place it below the video. On a phone, lead with the incoming alert or selected incident, then the response actions and available evidence. Keep the owner, event time, and evidence status visible without requiring a wide monitor view. The same responsive web app serves capture and response, including when those roles use different devices. A polished native mobile app is outside the current demo scope.
 
 ## Video and incident point
 
-Keep video controls in a compact dark strip along the bottom of the image. Show play or pause, replay duration, volume when audio exists, and full screen. Controls must not cover the event itself. A live source gets a clear live label. Show recent-history controls only when that footage can actually be replayed.
+Keep video controls in a compact dark strip along the bottom of the image. Show play or pause, replay duration, volume when audio exists, and full screen. Controls must not cover the event itself. A live source gets a clear live label. Label prerecorded input as replayed footage. When an incident appears on the main live camera, place a small amber event cue along the video's lower edge and link it to the incident panel. Show a seekable incident replay only after the saved clip is ready; the capture device's local buffer does not imply that a responder can replay it.
 
-The video timeline has two distinct positions. A blue playhead marks the frame on screen. An amber incident point marks the earliest visible moment of the event supported by the evidence. The event time may precede the model's flag, review, and call times. If onset is uncertain, label the point as approximate rather than implying frame-level precision. The amber point remains in place while the user seeks elsewhere. Hovering or focusing it reveals the event time and a short label. Activating it jumps to that frame. If several incidents share a clip, each point needs a distinct accessible name. Do not turn the bar into unlabeled dots.
+The replay timeline has two distinct positions. A blue playhead marks the frame on screen. An amber incident point marks the earliest visible moment of the event supported by the evidence. The event time may precede the model's flag, review, and alert times. If onset is uncertain, label the point as approximate rather than implying frame-level precision. The amber point remains in place while the user seeks elsewhere. Hovering or focusing it reveals the event time and a short label. Activating it jumps to that frame. If several incidents share a clip, each point needs a distinct accessible name. Do not turn the bar into unlabeled dots.
 
 An outline over the video is optional evidence annotation. Draw one only when the analysis has a meaningful region to show. Keep it thin and amber, and do not hide the scene. The temporal incident point remains useful even without a spatial outline, such as when a crash or fall spans much of the frame.
+
+## Alert and evidence states
+
+When an incident is confirmed, show an alert without waiting for the capture device to upload video. On an open desktop or phone app, use a prominent incoming-alert view with the incident summary, **Open incident**, and **Acknowledge**. Sound is optional and only plays when the user has enabled it and the browser permits it. Keep the alert readable and actionable without sound or animation.
+
+Offer an explicit **Enable alerts** step and a test sound in setup. Where supported and permitted, a background web push opens the incident. On iPhone and iPad, background web push depends on a supported Home Screen web app and permission granted after a user action. Show a clear setup limitation when push is unavailable or denied. Do not imply guaranteed lock-screen delivery, a system call screen, or a continuous ringtone. A background notification does not keep a capture tab recording.
+
+Show replay availability on the incident as **Preparing replay**, **Uploading replay**, **Replay ready**, or **Replay unavailable**. Keep sampled frames and incident details visible while the clip is being saved. If replay fails, explain the reason when known and keep the incident actionable. Show a playback control and amber incident point only when the server confirms the clip is ready. The clip should include footage around the event where the capture device has it; never label an unsaved clip as saved.
 
 ## Color and contrast
 
@@ -86,18 +94,19 @@ Use shadcn/ui components when they provide useful interaction and accessibility 
 | Incident status                            | A small Badge or custom chip with sentence-case text.                           |
 | Camera or place selection                  | Select or Popover, based on list length and search needs.                       |
 | Evidence inspection                        | Dialog with the larger snippet and observation details.                         |
+| Incoming alert                             | Responsive Dialog or focused alert view with direct response actions.           |
 | Trigger setup                              | Form controls in a Dialog for a short rule, or a full page for more conditions. |
 | Incident point details                     | Tooltip on hover and focus, with a separate accessible activation target.       |
 | Long incident history                      | ScrollArea only when the content overflows.                                     |
 | Video seeking                              | An accessible range control with explicit event markers.                        |
 
-Trigger setup must make the rule's source, observable event, severity, recipient, and escalation delay visible. Offer starter templates and a blank custom trigger. Show a duration condition when persistence matters, without imposing one on crashes or falls. Let users review who will be called before they turn a rule on.
+Trigger setup must make the rule's source, observable event, severity, recipient, and escalation delay visible. Offer starter templates and a blank custom trigger. Show a duration condition when persistence matters, without imposing one on crashes or falls. Let users review who will receive an alert before they turn a rule on.
 
 The top destinations are pages, so use navigation links rather than Tabs for their visual appearance alone. The seek bar must support keyboard input, visible focus, and a screen-reader name with the current time. The amber incident point needs its own accessible name and jump action.
 
-Keep severity, incident workflow, and notification state separate. A critical incident can be acknowledged. A call can be ringing while the incident still needs acknowledgment. **Acknowledge** means "I'm handling it" and stops further paging for that incident. After acknowledgment, keep **Resolve** available as the separate action that closes the response. **Dismiss** means the alert was incorrect and records feedback. If nobody acknowledges, the panel shows the configured follow-up step. A cleared scene adds evidence; it does not resolve the incident for the person. More observations of the same event update its incident and evidence instead of opening duplicates or placing repeated initial calls.
+Keep severity, incident workflow, notification state, and replay availability separate. A critical incident can be acknowledged while its clip is still uploading. Opening a push or closing the incoming-alert view does not acknowledge the incident; closing the view only silences that device. **Acknowledge** means "I'm handling it" and stops further paging for that incident. After acknowledgment, keep **Resolve** available as the separate action that closes the response. **Dismiss** means the alert was incorrect and records feedback. If nobody acknowledges, the panel shows the configured follow-up step. A cleared scene adds evidence; it does not resolve the incident for the person. More observations of the same event update its incident and evidence instead of opening duplicates or sending repeated initial alerts.
 
-Prefer "Possible fall in living room" to "Anomaly detected." Say "Calling owner," "Call connected," or "Call failed" based on the actual result. Separate what the camera shows from the model's assessment. Do not show a confidence percentage without a calibrated product meaning. Keep alert text short enough to scan during an interruption.
+Prefer "Possible fall in living room" to "Anomaly detected." Say "Alert sent," "Push unavailable," or "Alert delivery failed" only when that state is known. Keep alert delivery separate from replay availability. Separate what the camera shows from the model's assessment. Do not show a confidence percentage without a calibrated product meaning. Keep alert text short enough to scan during an interruption.
 
 ## Motion
 
@@ -108,7 +117,7 @@ Use motion to explain a change, not to make the dashboard busy. The app now inst
 - The incident point can appear once when the event is created, then remain still.
 - The playhead should follow playback position directly, without easing that makes it appear late.
 - A new incident can briefly draw attention through color and a short entrance. Avoid looping pulses and bouncing alerts.
-- Acknowledgment, dismissal, and call outcomes need immediate text feedback. Animation is not the only confirmation.
+- Acknowledgment, dismissal, alert delivery, and replay availability need immediate text feedback. Animation is not the only confirmation.
 
 Respect reduced-motion preferences. Motion for React provides `MotionConfig reducedMotion="user"` and `useReducedMotion`. Replace large transforms with opacity or an immediate state change when appropriate. Keep keyboard focus stable as panels change. See the [Motion accessibility guide](https://motion.dev/docs/react-accessibility).
 
@@ -118,7 +127,7 @@ The app uses Tailwind CSS 4. Its semantic shadcn variables live in `apps/app/src
 
 The app's `apps/app/components.json` selects `base-nova`, CSS variables, and Lucide. Button, Badge, Select, Dialog, and Tooltip are installed as local shadcn/ui components. Add further components only when a working screen needs them. Build the video player, temporal incident markers, and evidence strip as product components. Use Motion for actual state transitions rather than animating every container.
 
-The current `apps/app/src/routes/index.tsx` remains a placeholder. The design setup does not wire video, incidents, or calls. This document records the target so implementation can be reviewed against one source.
+The current `apps/app/src/routes/index.tsx` remains a placeholder. The design setup does not wire video, incidents, alerts, or replay. This document records the target so implementation can be reviewed against one source.
 
 ## Preferences to preserve
 
