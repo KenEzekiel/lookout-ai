@@ -26,7 +26,7 @@ The [peer route](../../../apps/app/src/routes/api/peer/$.ts) accepts same-origin
 
 The existing D1 binding stores source presence and offer/answer metadata, never media. Three-second polling renews 15-second source and viewer leases. Expired or invalid sessions become inaccessible and are deleted lazily by subsequent signaling requests. Membership removal, device revocation, source-run replacement, and source expiry invalidate viewing. Clients close their connection on signaling failure, including an eight-second request timeout. Revocation is detected on the next successful poll or timeout, not synchronously at the click. This is an application-controlled browser client, not a guarantee against a modified endpoint retaining received frames.
 
-F-SOURCE-CAPTURE owns source capture, monitoring resources, and memory buffers. [getPeerStream](../../../apps/app/src/lib/capture-session.ts) lends separate outgoing tracks to the peer lifecycle. Source identity is the paired device plus a fresh live-source run ID and camera/file kind. Configured F-RULE-CONFIG source IDs and incident assessment sessions remain separate and unconnected. Live viewing neither creates another capture loop nor changes saved incident reporting or replay.
+F-SOURCE-CAPTURE owns source capture, monitoring resources, and memory buffers. [getPeerStream](../../../apps/app/src/lib/capture-session.ts) lends separate outgoing tracks to the peer lifecycle. Source identity is the paired device plus a fresh live-source run ID and camera/file kind. Peer run IDs remain separate from configured F-RULE-CONFIG source IDs and the incident sessions now connected by F-DETECT-REVIEW. Live viewing neither creates another capture loop nor changes saved incident reporting or replay.
 
 ## Implementation
 
