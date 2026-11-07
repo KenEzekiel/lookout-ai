@@ -2,7 +2,7 @@
 
 **Let us be on the lookout, so you don’t have to.**
 
-Cameras capture everything, but catching what matters still means being constantly on the lookout.
+Cameras record. People still have to keep watch.
 
 Lookout is an AI-assisted visual monitoring and incident-response project. Users describe events they care about, connect a camera or video source, and configure how to reach the responsible person. The intended flow combines visual assessment, evidence, client alerts, acknowledgment, and escalation.
 
