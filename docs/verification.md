@@ -73,6 +73,8 @@ API integration tests live in `apps/app/tests/api` under `vitest.api.config.ts`.
 
 For each changed behavior, cover its successful result and its important failure or permission boundary.
 Assert observable responses, rendered UI, or persisted state. Avoid snapshots of implementation details.
+The multipart device journey uses a dedicated environment that keeps jsdom for DOM rendering and Node's native Blob, File, FormData, Request, and Response for its native Fetch/MSW transport. Mixing jsdom multipart values with Node streams can abort request bodies before HTTP handlers receive them. [The environment adapter](../apps/app/tests/support/browser-environment.ts) preserves those transport constructors before jsdom setup. Ordinary form-screen tests keep jsdom FormData because they construct it from an HTML form.
+
 Use asynchronous Testing Library queries to wait for visible results. Do not use fixed sleeps, skipped tests, or focused tests in committed changes.
 
 UI integration tests may mock our backend API and external services at the HTTP boundary with MSW.

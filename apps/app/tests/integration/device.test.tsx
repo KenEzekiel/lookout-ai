@@ -1,3 +1,4 @@
+// @vitest-environment ./tests/support/browser-environment.ts
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -279,6 +280,10 @@ function monitoringApi({
     http.post("/api/assessment", async ({ request }) => {
       const form = await request.formData();
       const metadata = JSON.parse(String(form.get("metadata")));
+      const image = form.get("frame-0");
+      if (!image || typeof image === "string") throw new Error("Missing captured JPEG.");
+      expect(image.type).toBe("image/jpeg");
+      expect(new Uint8Array(await image.arrayBuffer())).toEqual(new Uint8Array([0, 0, 0]));
       observations.push(metadata.observation);
       if (metadata.observation.stage === "assessment")
         return HttpResponse.json({
