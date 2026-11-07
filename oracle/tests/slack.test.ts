@@ -31,6 +31,32 @@ const stopClick = {
 const route = (wire: unknown, owns = false, listener: "mention" | "message" = "message") =>
   routeSlack({ event: wire, listener, identity, teamId: identity.team_id, owns: () => owns });
 
+test("native agent stop events route to the existing thread cancellation command", () => {
+  assert.deepEqual(
+    routeSlack({
+      event: {
+        type: "agent_session_stopped",
+        channel: event.channel,
+        thread_ts: event.ts,
+        user: "UTEAMMATE1",
+        event_ts: "1900000000.000004",
+        streaming_message_ts: [],
+      },
+      listener: "agent_session_stopped",
+      identity,
+      teamId: identity.team_id,
+      owns: () => true,
+    }),
+    {
+      address: { channel: event.channel, rootTs: event.ts },
+      ts: "1900000000.000004",
+      actor: "UTEAMMATE1",
+      text: "stop",
+      route: "thread",
+    },
+  );
+});
+
 test("mention and message listeners produce the same canonical input", () => {
   assert.deepEqual(route(event, false, "mention"), route(event));
   assert.equal(route(event)?.text, "inspect <@UOTHER1>");
