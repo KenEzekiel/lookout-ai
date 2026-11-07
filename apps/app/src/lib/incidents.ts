@@ -35,7 +35,7 @@ const incidentBaseSchema = z.object({
   rule: ruleSchema,
   version: z.number().int().positive(),
   evidenceStatus: z.literal("pending"),
-  notificationStatus: z.literal("not-sent"),
+  notificationStatus: z.enum(["not-sent", "attempting", "accepted", "failed"]),
   timeline: z.array(
     z.object({
       kind: z.enum(["reported", "acknowledged", "dismissed", "resolved"]),
