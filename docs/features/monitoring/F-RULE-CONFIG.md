@@ -8,6 +8,8 @@ Depends on: F-AUTH-ACCESS
 
 Reload triggers and New trigger share the same default button size, with reload and add icons respectively. Reload is outlined as a secondary action. The toolbar wraps at narrow widths. Source creation, save, edit, disable, and cancel also have decorative action icons; pending forms keep descriptive labels and reject repeat submissions.
 
+Initial operator and device configuration reads show card skeletons. Source and trigger submissions and manual reloads use the shared busy button while keeping existing configuration visible.
+
 Workspace owners and operators create named camera or replay sources, then define incidents in plain language with optional exclusions. The editor starts blank instead of offering a fixed event catalog. Existing template definitions remain readable and open as editable text; saving converts them to custom definitions without changing their observable condition. Each trigger selects one source, warning/critical severity, current workspace recipients, and one escalation delay. The owner is the default recipient. Duration is optional and never imposed on falls or crashes. Duration and escalation delay accept whole seconds from 1 to 3600.
 
 Triggers save enabled or disabled. Every edit, disable, or re-enable increments the version. A stale edit cannot overwrite another save. Invalid conditions, cross-workspace sources, and unauthorized recipients reject the entire save. Removing an operator disables and version-bumps every rule naming that recipient in the same D1 transaction.
@@ -44,6 +46,8 @@ F-ALERT-ESCALATE consumes the incident's immutable rule snapshot to schedule one
 
 ## Verification
 
+[Loading journey integration tests](../../../apps/app/tests/integration/loading.test.tsx) cover delayed access, lists, configuration, navigation away, submission failure, and refresh retention. [Incident integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover pending responses and replay loading, buffering, failure, and retry. Existing feature tests remain the regression checks for this consumer. Browser observations and evidence for the current change belong in its PR.
+
 The incident-definition update, integrated with incoming alerts on main, passed `pnpm verify` with 38 UI integration tests and 19 real-handler D1 API tests. The keyboard test waits for the selected option to receive initial focus before sending End because Base UI schedules opening focus on an animation frame. Coverage includes blank definitions, exclusions preserved through save and device configuration, inline source creation, validation recovery, disabled saves, reload, and dropdown/dialog focus. Initial production-build Chromium QA verified the creation and editing journey and 320/390-pixel layouts; follow-up Chromium QA verified source-menu keyboard selection and focus, Cancel focus restoration, and conversion of a stored template to a custom definition with exclusions. Screenshots and recordings are recorded in the PR.
 
 The Horizon shell merge preserves the Triggers destination, device configuration polling, and denial behavior. New form consumers provide action-specific pending labels. The route integration suite covers navigation from Devices to Triggers and Team with one active destination. Production-build QA created a source and fall trigger through the merged shell, then verified the received enabled version in device mode at 390 pixels without overflow or page errors. [Merged Triggers screen](https://github.com/user-attachments/assets/c9de9b10-a3f1-4d4c-a53c-c35a7879efa4) and [mobile device configuration](https://github.com/user-attachments/assets/05ff7f7d-56ec-4005-aa6d-320fb8c32434) show the integration.
@@ -61,6 +65,8 @@ Dropdown panels open outside the trigger with a six-pixel gap and matching width
 ## Decisions and sources
 
 Kenneth requested consistent button sizes and action icons. [Trigger actions](../../../apps/app/src/components/rules/workspace.tsx), [editor actions](../../../apps/app/src/components/rules/editor.tsx), and [device configuration refresh](../../../apps/app/src/components/access/monitor.tsx) inherit F-APP-SHELL sizing and icons. [Complete-route tests](../../../apps/app/tests/integration/rules.test.tsx) exercise visible action icons, accessible labels, pending reload, failed reload, duplicate-submit prevention, and successful retry. No configuration schema, version, or consumer-wiring contract changes.
+
+The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.
 
 Ken approved the revised issue #18 flow in the implementation conversation: incident definitions are authored by the operator and will feed Decisions assessment, rather than being fixed UI choices. The [fall experiment](../../../experiments/decisions-falls/experiment.py) and [crash experiment](../../../experiments/decisions-crashes/experiment.py) supply the predicate/exclusions and separate uncertainty-question pattern. This change stores the definition only; it does not impose the experiments' candidate threshold or sampling cadence, call Decisions, or implement candidate review.
 

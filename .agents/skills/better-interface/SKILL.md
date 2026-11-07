@@ -24,7 +24,7 @@ Use existing components and tokens before creating new ones. Do not replace the 
 
 ## Work and verify
 
-For authorized implementation, identify the user journey, relevant states and smallest change first. Include loading, empty, error and recovery states where applicable. Preserve keyboard operation and mobile response controls. Keep capture controls in the operational client and incident response in the operator client.
+For authorized implementation, identify the user journey, relevant states and smallest change first. Include loading, empty, error and recovery states where applicable. Apply [loading-state guidance](loading-states.md) to every async boundary in the changed journey, including shared controls and background refreshes. Preserve keyboard operation and mobile response controls. Keep capture controls in the operational client and incident response in the operator client.
 
 For a review, inspect source and the rendered journey when tools permit. Consolidate findings by root cause, with the concrete trigger, affected workflow, evidence and smallest fix. Distinguish observed failures from unverified risks. Do not report personal style preferences as defects or measured contrast without a measurement.
 

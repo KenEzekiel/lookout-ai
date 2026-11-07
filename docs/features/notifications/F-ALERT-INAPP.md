@@ -8,6 +8,8 @@ Depends on: F-INCIDENT-RESPONSE
 
 Alert actions display decorative icons alongside their visible labels. Acknowledge, Open incident, and Silence here share default sizing; sound preferences and retry use the shared compact size. Open incident remains a navigation link and still silences only this browser.
 
+Initial connection has a compact indicator. Alert retry, sound loading, and acknowledgment show specific busy feedback and prevent duplicate user submissions. Regular polling does not replace the current screen with a loader.
+
 An open operator client shows a prominent incoming alert for an open incident naming that member in its snapshotted recipients. It shows the trigger summary, source, event time, severity, and current evidence status. Open incident navigates to detail and silences locally. Silence here hides only that incident in the current browser tab. Neither action acknowledges it. Acknowledge alert uses the existing versioned command and records shared ownership.
 
 Sound starts off. Enable sound and test requests browser playback and plays an original 1.2-second, three-pulse incident alarm with sharp alternating 960/720 Hz tones and restrained harmonics. While enabled, the current incoming incident repeats the alarm every six seconds until silenced, opened, acknowledged, superseded by shared state, or disconnected. Test sound and Turn sound off remain available. Unsupported, suspended, or denied playback leaves a visible explanation and actionable alert. Sound permission is local to the shared workspace layout. It survives navigation between Devices, Team, Triggers, inbox, and detail, and must be enabled again after leaving that layout or reloading. No background delivery, continuous ringtone, or OS sound bypass is promised.
@@ -34,6 +36,8 @@ The in-app incident consumer is implemented. Assessment and capture-to-report in
 
 ## Verification
 
+[Loading journey integration tests](../../../apps/app/tests/integration/loading.test.tsx) cover delayed access, lists, configuration, navigation away, submission failure, and refresh retention. [Incident integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover pending responses and replay loading, buffering, failure, and retry. Existing feature tests remain the regression checks for this consumer. Browser observations and evidence for the current change belong in its PR.
+
 [Complete-screen integration tests](../../../apps/app/tests/integration/incoming-alerts.test.tsx) cover connected arrival, duplicate delivery, local silence across remount, open without acknowledgment, versioned acknowledgment, remote response removal, ordered waiting incidents, blocked playback, failed delivery/retry, and conflict refresh. [Real-handler tests](../../../apps/app/tests/api/access.test.ts) use the built Worker, isolated D1 and real migrations to verify recipient and workspace boundaries, device/member denial, duplicate report delivery, immutable recipients, shared ownership, and removal after acknowledgment.
 
 `pnpm verify` passed locally with 36 UI integration tests and 19 API integration tests. Contained Chromium QA used the production Worker, isolated D1 and real reports with two operator sessions. It verified context, duplicate delivery, local silence, opening without acknowledgment, cross-session acknowledgment, keyboard Enter, and 390/320-pixel layouts without overflow. Temporary HTTP interceptions verified 503/retry and 409/refresh paths. A real Web Audio analyser measured a nonzero chime signal and no further oscillator starts after sound-off, silence or shared acknowledgment. Physical speaker output was not perceptually assessed. The final build repeated arrival, deduplication, keyboard silence and mobile checks after copy refinements; the PR records both tested builds, screenshots and video attachments.
@@ -45,6 +49,8 @@ The follow-up PR adds complete-screen coverage for re-alerting an initially sile
 ## Decisions and sources
 
 Kenneth requested clearer action icons and consistent sizing. [Incoming alert controls](../../../apps/app/src/components/incidents/incoming-alerts.tsx) use F-APP-SHELL Button sizes, including buttonVariants for the incident link. Sound, polling, local silence, and shared acknowledgment semantics remain unchanged.
+
+The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.
 
 The current routing PR moves member dashboard pages under one persistent layout at Arsa’s request. Incoming alerts stay in that layout, preserving connection and sound state across child-route navigation. Polling cadence, recipient checks, local silence, and acknowledgment semantics remain unchanged.
 

@@ -1,4 +1,5 @@
 import { RotateCw, X } from "lucide-react";
+import { LoadingStatus } from "@/components/ui/loading";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { mutate, request, message } from "@/lib/api";
@@ -125,15 +126,22 @@ export function LiveView({
         {sourceKind === "file" ? "Replay · local video" : "Live camera"}. Direct connection. No
         server recording.
       </p>
-      <video
-        ref={video}
-        aria-label="Live device video"
-        autoPlay
-        muted
-        playsInline
-        controls
-        className="mt-4 aspect-video w-full rounded-lg bg-black"
-      />
+      <div className="relative mt-4">
+        <video
+          ref={video}
+          aria-label="Live device video"
+          autoPlay
+          muted
+          playsInline
+          controls
+          className="aspect-video w-full rounded-lg bg-black"
+        />
+        {state.kind === "connecting" && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/90 p-5">
+            <LoadingStatus label="Connecting to the device…" />
+          </div>
+        )}
+      </div>
       {state.kind === "error" ? (
         <div className="mt-4">
           <p role="alert" className="text-sm text-destructive">
@@ -143,11 +151,11 @@ export function LiveView({
             Retry live view
           </Button>
         </div>
-      ) : (
+      ) : state.kind === "live" ? (
         <output className="mt-3 text-sm text-muted-foreground">
-          {state.kind === "live" ? "Connected directly to the device" : "Connecting to the device…"}
+          Connected directly to the device
         </output>
-      )}
+      ) : null}
     </section>
   );
 }

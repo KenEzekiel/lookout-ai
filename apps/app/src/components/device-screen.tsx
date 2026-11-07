@@ -1,3 +1,4 @@
+import { LoadingStatus } from "@/components/ui/loading";
 import {
   Select,
   SelectContent,
@@ -156,9 +157,14 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                 </div>
               )}
               {starting && (
-                <output className="absolute inset-0 flex items-center justify-center bg-[#10171b]/80 text-sm text-foreground">
-                  Connecting source…
-                </output>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/90 p-6 text-center">
+                  <LoadingStatus label="Connecting source…" />
+                  <p className="max-w-xs text-sm text-muted-foreground">
+                    {sourceChoice === "camera"
+                      ? "Allow camera access if your browser asks. You can stop while connecting."
+                      : "Opening your local video. You can stop while connecting."}
+                  </p>
+                </div>
               )}
               <div
                 className={cn(
@@ -166,7 +172,13 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                   "bg-[#0d1114]/75 px-3 py-2 text-[11px] text-white backdrop-blur-sm",
                 )}
               >
-                {running ? "Capture running" : paused ? "Playback paused" : "Capture stopped"}
+                {starting
+                  ? "Connecting source"
+                  : running
+                    ? "Capture running"
+                    : paused
+                      ? "Playback paused"
+                      : "Capture stopped"}
               </div>
             </div>
 

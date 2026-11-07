@@ -1,4 +1,5 @@
-import { Bell, BellOff, LoaderCircle } from "lucide-react";
+import { Bell, BellOff } from "lucide-react";
+import { LoadingStatus } from "@/components/ui/loading";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { message, mutate, request } from "@/lib/api";
@@ -135,7 +136,7 @@ export function PushSetup() {
           Opening one does not acknowledge it. Delivery depends on your browser and device settings.
         </p>
         {setup.kind === "loading" ? (
-          <output>Checking background alerts…</output>
+          <LoadingStatus label="Checking background alerts…" />
         ) : setup.kind === "unavailable" ? (
           <output>{setup.message}</output>
         ) : (
@@ -147,10 +148,10 @@ export function PushSetup() {
             </output>
             <Button
               size="sm"
-              icon={pending ? LoaderCircle : setup.enabled ? BellOff : Bell}
+              icon={setup.enabled ? BellOff : Bell}
               className="w-fit"
               variant="outline"
-              disabled={pending}
+              loading={pending}
               onClick={() => void toggle()}
             >
               {pending

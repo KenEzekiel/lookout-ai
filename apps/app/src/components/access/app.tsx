@@ -1,4 +1,5 @@
 import { LogIn, LogOut, RotateCw } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { type Principal, principalSchema } from "@/lib/access";
@@ -154,9 +155,7 @@ export function AccessApp({
             </div>
           </Panel>
         ) : !actor ? (
-          <output className="block py-16 text-center text-sm text-muted-foreground">
-            Opening your workspace…
-          </output>
+          <LoadingState label="Opening your workspace…" layout="screen" />
         ) : actor.kind === "device" ? (
           <Monitor actor={actor} />
         ) : pairing ? (
