@@ -64,6 +64,13 @@ The development command selects port 3000. Open `http://localhost:3000` once the
 
 CI runs `pnpm verify`. Playwright stays outside CI. For manual browser QA, install Chromium once with `pnpm exec playwright install chromium`. See [verification conventions](docs/verification.md) for mocking rules, temporary database requirements, and the comment ban. Generated route files and vendored agent tooling are excluded from the application formatting/lint scope. See [package scripts](package.json), [app scripts](apps/app/package.json), and [formatter configuration](.oxfmtrc.json) for exact behavior.
 
+## Hackathon pitch deck
+
+Run `pnpm pitchdeck` to open the HTML slide player. Edit individual slides in
+`packages/pitchdeck/slides/`, then rebuild. The package produces a single offline
+HTML file with keyboard navigation, fullscreen, and speaker notes. See the
+[pitch deck guide](packages/pitchdeck/README.md).
+
 ## Oracle
 
 The engineering factory lives in `oracle/`. Its dispatcher receives authorized
