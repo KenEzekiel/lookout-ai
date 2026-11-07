@@ -1,1 +1,92 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;color:var(--foreground);font-family:var(--font-sans,system-ui);line-height:1.5}.box{padding:16px;margin:12px 0;border:1px solid var(--border);border-radius:var(--radius,12px);background:var(--card)}h2{font-size:18px;margin:0 0 8px}p{margin:5px 0}.arrow{text-align:center;color:var(--muted-foreground)}.selected{border:2px solid var(--primary)}small{color:var(--muted-foreground)}</style></head><body><small>Proposed design: two clients, option A selected</small><section class="box selected"><h2>1. Operational-device client</h2><p>Connect CCTV, camera, local video or playback. Start monitoring and keep recent footage locally.</p><p>Device owns the Decisions API assessment and review loop. Model inference runs at OpenAI.</p><p>Browser credential transport: authenticated stateless relay. Results return to the device; no non-triggered media is retained by Lookout.</p></section><div class="arrow">Triggered incident report + event video snippet &darr;</div><section class="box"><h2>2. Shared server</h2><p>Validate device scope, create or update the incident, notify configured operators and save the event clip for private replay.</p><p>Own definitions, roles, recipients, incident state and escalation. Send assigned configuration back to operational devices.</p></section><div class="arrow">Incident alert + replay + shared status &darr;</div><section class="box"><h2>3. Operator client</h2><p>Define incidents, assign rules, configure roles and recipients. Receive alerts, replay clips, acknowledge, dismiss or resolve.</p><p>Desktop and mobile. Closing this client does not stop a separate active operational device.</p></section><section class="box"><h2>Decision location</h2><p><strong>A selected:</strong> device requests and receives decisions before reporting triggers and uploading clips.</p><p><strong>B deferred:</strong> device uploads snippets for the server to assess.</p><small>Lower latency is the intent, not a measured result. Always-on monitoring depends on an active capable device. The credential relay does not move decision ownership to the server.</small></section></body></html>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      body {
+        margin: 0;
+        color: var(--foreground);
+        font-family: var(--font-sans, system-ui);
+        line-height: 1.5;
+      }
+      .box {
+        padding: 16px;
+        margin: 12px 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius, 12px);
+        background: var(--card);
+      }
+      h2 {
+        font-size: 18px;
+        margin: 0 0 8px;
+      }
+      p {
+        margin: 5px 0;
+      }
+      .arrow {
+        text-align: center;
+        color: var(--muted-foreground);
+      }
+      .selected {
+        border: 2px solid var(--primary);
+      }
+      small {
+        color: var(--muted-foreground);
+      }
+    </style>
+  </head>
+  <body>
+    <small>Proposed design: two clients, option A selected</small>
+    <section class="box selected">
+      <h2>1. Operational-device client</h2>
+      <p>
+        Connect CCTV, camera, local video or playback. Start monitoring and keep recent footage
+        locally.
+      </p>
+      <p>
+        Device owns the Decisions API assessment and review loop. Model inference runs at OpenAI.
+      </p>
+      <p>
+        Browser credential transport: authenticated stateless relay. Results return to the device;
+        no non-triggered media is retained by Lookout.
+      </p>
+    </section>
+    <div class="arrow">Triggered incident report + event video snippet &darr;</div>
+    <section class="box">
+      <h2>2. Shared server</h2>
+      <p>
+        Validate device scope, create or update the incident, notify configured operators and save
+        the event clip for private replay.
+      </p>
+      <p>
+        Own definitions, roles, recipients, incident state and escalation. Send assigned
+        configuration back to operational devices.
+      </p>
+    </section>
+    <div class="arrow">Incident alert + replay + shared status &darr;</div>
+    <section class="box">
+      <h2>3. Operator client</h2>
+      <p>
+        Define incidents, assign rules, configure roles and recipients. Receive alerts, replay
+        clips, acknowledge, dismiss or resolve.
+      </p>
+      <p>
+        Desktop and mobile. Closing this client does not stop a separate active operational device.
+      </p>
+    </section>
+    <section class="box">
+      <h2>Decision location</h2>
+      <p>
+        <strong>A selected:</strong> device requests and receives decisions before reporting
+        triggers and uploading clips.
+      </p>
+      <p><strong>B deferred:</strong> device uploads snippets for the server to assess.</p>
+      <small
+        >Lower latency is the intent, not a measured result. Always-on monitoring depends on an
+        active capable device. The credential relay does not move decision ownership to the
+        server.</small
+      >
+    </section>
+  </body>
+</html>

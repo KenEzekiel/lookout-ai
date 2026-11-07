@@ -4,17 +4,17 @@ High-level responsibilities for the [two-client design](design.md). These are pr
 
 ## Main components
 
-| Component | Responsibility | Interactions |
-| --- | --- | --- |
-| Operator client | Define incidents and rules, configure roles and recipients, receive alerts, replay and handle incidents. | Reads and changes authorized configuration and incident state through the server. |
-| Operational-device client | Connect CCTV/video/playback, start continuous monitoring, retain a local buffer and show health. | Loads assigned rules, requests AI decisions, reports triggered events and uploads their clips. |
-| Device assessment loop, option A | Initiate Decisions and second-stage review, interpret results and preserve the event interval. | Runs under the operational client; receives remote model results before reporting a trigger. |
-| Secure AI transport | Protect model credentials and enforce device scope and usage limits. | Recommended stateless relay for browser clients; forwards bounded assessment requests without retaining non-triggered media. |
-| Server configuration and access | Store incident definitions, source assignments, roles and recipients; authorize operators and devices separately. | Distributes configuration to devices and validates reports against their assignments. |
-| Server incident management | Own incident identity, deduplication, timeline, acknowledgment and escalation. | Accepts triggered reports and routes alerts to configured operators. |
-| Private clip storage and replay | Store event clips after triggers and expose authorized replay. | Associates uploads with incidents and reports preparing/uploading/ready/unavailable evidence. |
-| Notification delivery | Deliver in-app alerts and supported web push. | Reaches operator clients independently of clip-upload completion. |
-| MCP, P2 | Inspect and acknowledge incidents as an authorized agent. | Uses the same server incident actions as the operator client. |
+| Component                        | Responsibility                                                                                                    | Interactions                                                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Operator client                  | Define incidents and rules, configure roles and recipients, receive alerts, replay and handle incidents.          | Reads and changes authorized configuration and incident state through the server.                                            |
+| Operational-device client        | Connect CCTV/video/playback, start continuous monitoring, retain a local buffer and show health.                  | Loads assigned rules, requests AI decisions, reports triggered events and uploads their clips.                               |
+| Device assessment loop, option A | Initiate Decisions and second-stage review, interpret results and preserve the event interval.                    | Runs under the operational client; receives remote model results before reporting a trigger.                                 |
+| Secure AI transport              | Protect model credentials and enforce device scope and usage limits.                                              | Recommended stateless relay for browser clients; forwards bounded assessment requests without retaining non-triggered media. |
+| Server configuration and access  | Store incident definitions, source assignments, roles and recipients; authorize operators and devices separately. | Distributes configuration to devices and validates reports against their assignments.                                        |
+| Server incident management       | Own incident identity, deduplication, timeline, acknowledgment and escalation.                                    | Accepts triggered reports and routes alerts to configured operators.                                                         |
+| Private clip storage and replay  | Store event clips after triggers and expose authorized replay.                                                    | Associates uploads with incidents and reports preparing/uploading/ready/unavailable evidence.                                |
+| Notification delivery            | Deliver in-app alerts and supported web push.                                                                     | Reaches operator clients independently of clip-upload completion.                                                            |
+| MCP, P2                          | Inspect and acknowledge incidents as an authorized agent.                                                         | Uses the same server incident actions as the operator client.                                                                |
 
 ## Interactions
 
@@ -47,13 +47,13 @@ A is the selected decision owner. B, uploading snippets for a server-owned asses
 
 ## Work areas
 
-| Area | Deliverable |
-| --- | --- |
-| Operator experience | Incident-definition editor, roles/recipients, alert inbox, replay and response controls. |
-| Operational device | Dedicated source setup, start/stop and health view, local buffer and device-owned assessment loop. |
-| Shared server | Configuration distribution, operator/device permissions, incident reporting, deduplication and escalation. |
-| Evidence and notifications | Trigger-only clip saving, private replay, in-app and web-push alerts. |
-| Integration | Both demo sources feeding a separate operator device, including failures and reconnects. |
+| Area                       | Deliverable                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Operator experience        | Incident-definition editor, roles/recipients, alert inbox, replay and response controls.                   |
+| Operational device         | Dedicated source setup, start/stop and health view, local buffer and device-owned assessment loop.         |
+| Shared server              | Configuration distribution, operator/device permissions, incident reporting, deduplication and escalation. |
+| Evidence and notifications | Trigger-only clip saving, private replay, in-app and web-push alerts.                                      |
+| Integration                | Both demo sources feeding a separate operator device, including failures and reconnects.                   |
 
 Retain the existing React/TanStack Start app foundation. Separate client routes or entrypoints may share code. Cloudflare remains preferred for server components and private evidence storage; exact deployment separation is open.
 
