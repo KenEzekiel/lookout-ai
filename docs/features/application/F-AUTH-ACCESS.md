@@ -32,7 +32,7 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 
 [API integration tests](../../../apps/app/tests/api/access.test.ts) exercise real built Worker handlers and isolated D1 migrations, including concurrent invitation redemption, workspace isolation, restricted device access, session invalidation, expiry, attempt limits, and revocation. [UI integration tests](../../../apps/app/tests/integration/access.test.tsx) cover complete screens through MSW HTTP boundaries, including invitation-aware onboarding, copyable invitation links, invalid pairing codes, confirmation and cancellation, role restrictions, and load retry. Both run in `pnpm verify`.
 
-[Browser journey](../../../tests/e2e/access.spec.ts) verifies separate owner/operator/device sessions, link registration, refresh, owner sign-out, revocation, member removal, same-browser switching, and recovery. Interactive Playwright QA on the production build also exercised code-based joining, an invalid invitation, keyboard navigation, narrow-screen layout, and cross-tab access changes without internal mocks. The current PR records the tested revision and results. Cloud deployment and monitoring consumers remain unverified.
+[Browser journey](../../../tests/e2e/access.spec.ts) verifies separate owner/operator/device sessions, link registration, refresh, owner sign-out, revocation, member removal, same-browser switching, and recovery. Interactive Playwright QA on the production build also exercised code-based joining, an invalid invitation, keyboard navigation, narrow-screen layout, and cross-tab access changes without internal mocks. The current PR records the tested revision and results. Cloud deployment verification on November 7, 2026 exercised signup, workspace creation, sign-in, secure cookies, and sign-out against the deployed Worker and D1 database. The temporary account and workspace were removed. [Deployment setup](../../../README.md#cloudflare-deployment) records the production origin and commands. Monitoring consumers remain unverified.
 
 ## Decisions and sources
 
@@ -42,4 +42,4 @@ This PR implements the user-approved access-flow and copy refinement. API schema
 
 ## Open questions
 
-Connect the planned monitoring and incident consumers before claiming complete product access enforcement. Cloud deployment still needs a real D1 binding, deployed origin, auth secret, and target-runtime verification. Ownership transfer, promotions, workspace deletion, and password recovery are outside this demo slice.
+Connect the planned monitoring and incident consumers before claiming complete product access enforcement. Cloud deployment now has a real D1 binding, deployed origin, auth secret, and live access verification. Ownership transfer, promotions, workspace deletion, and password recovery are outside this demo slice.

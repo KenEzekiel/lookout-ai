@@ -85,22 +85,24 @@ and verification boundaries.
 
 ## Cloudflare deployment
 
-The Worker configuration is in [apps/app/wrangler.jsonc](apps/app/wrangler.jsonc). Confirm the account and intended Worker before deploying.
+The production app uses [lookout-app.lookout-ai.workers.dev](https://lookout-app.lookout-ai.workers.dev). The `production` environment in [apps/app/wrangler.jsonc](apps/app/wrangler.jsonc) pins the Cloudflare account, the `lookout-access` D1 database, and the HTTPS origin. The default environment keeps localhost and a placeholder database ID for local development.
 
 ```sh
-# Build and validate the deployment bundle without uploading it.
-pnpm --filter @lookout/app deploy:check
-
-# Authenticate, then build and deploy when deployment is authorized.
 pnpm --filter @lookout/app exec wrangler login
-pnpm --filter @lookout/app deploy
+pnpm --filter @lookout/app deploy:check
+pnpm --filter @lookout/app exec wrangler d1 migrations apply DB --remote --env production --config wrangler.jsonc
+pnpm --filter @lookout/app run deploy
 ```
 
-The committed D1 database ID is a local-development placeholder. Before an authorized deployment, create the `lookout-access` D1 database, replace its ID in `apps/app/wrangler.jsonc`, set `APP_URL` to the exact deployed HTTPS origin, and set `BETTER_AUTH_SECRET` with `wrangler secret put`. Apply the committed migrations with `wrangler d1 migrations apply DB --remote` before deploying. Use a separate database for staging. Password hashing has been exercised locally in Workers; check the target account’s CPU allowance during deployment verification.
+Use `run deploy` explicitly because `pnpm deploy` invokes pnpm's own workspace deployment command. Both deployment scripts build with `CLOUDFLARE_ENV=production`; ordinary development and builds keep the local configuration. Review migrations before applying them to production. Use a separate database for staging.
 
-Add other service bindings as services are selected. Run `pnpm --filter @lookout/app cf-typegen` after changing bindings. Local secrets belong in `apps/app/.dev.vars`, which Git ignores; use Wrangler secrets for production values. Do not commit credentials.
+`BETTER_AUTH_SECRET` is configured as a Cloudflare Worker secret and is required by the production environment. Preserve it across deployments. For a new environment, generate a random value of at least 32 characters and upload it with `wrangler secret put BETTER_AUTH_SECRET --env production --config wrangler.jsonc` from `apps/app`. Never commit credentials. Local secrets belong in the ignored `apps/app/.dev.vars` file.
 
-Local Worker integration and browser journeys exercise the built application. Cloud provisioning and deployment have not been performed for this access slice.
+This deployment uses Workers and D1 features available on the Free plan. Do not upgrade the account or enable paid services for this demo. Wrangler's OAuth token cannot read billing subscriptions, so the account's existing plan must be checked in the Cloudflare dashboard.
+
+Deployment verification on November 7, 2026 passed the full `pnpm verify` suite, HTTPS homepage and Chromium rendering checks, and live signup, workspace creation, sign-in, secure-cookie, and sign-out checks. The temporary verification account and workspace were removed afterward.
+
+Add other service bindings as services are selected. Run `pnpm --filter @lookout/app cf-typegen` after changing bindings.
 
 ## Working together
 
