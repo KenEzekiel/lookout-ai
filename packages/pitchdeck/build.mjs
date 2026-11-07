@@ -8,6 +8,12 @@ const font = await readFile(
 const camera = await readFile(new URL("assets/parking-camera.jpg", root));
 const slackRequest = await readFile(new URL("assets/oracle-slack-request.jpg", root));
 const slackChecks = await readFile(new URL("assets/oracle-slack-checks.jpg", root));
+const appShots = await Promise.all(
+  ["video", "incident", "alert", "respond"].map(async (name) => [
+    `__APP_${name.toUpperCase()}__`,
+    `data:image/png;base64,${(await readFile(new URL(`assets/app-${name}.png`, root))).toString("base64")}`,
+  ]),
+);
 const files = (await readdir(new URL("slides/", root)))
   .filter((file) => file.endsWith(".html"))
   .sort();
@@ -27,8 +33,8 @@ const html = template
       .replaceAll("__CAMERA_IMAGE__", camera.toString("base64")),
   )
   .replace("{{slides}}", () =>
-    slides
-      .join("\n")
+    appShots
+      .reduce((markup, [token, data]) => markup.replace(token, data), slides.join("\n"))
       .replace(
         "__SLACK_REQUEST_SCREENSHOT__",
         `data:image/jpeg;base64,${slackRequest.toString("base64")}`,
