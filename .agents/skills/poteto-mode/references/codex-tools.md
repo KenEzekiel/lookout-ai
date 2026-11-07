@@ -1,0 +1,37 @@
+# Repository Codex runtime contract
+
+Read this before executing any copied pstack skill. This contract overrides the inherited Claude and plugin-specific instructions in skills, playbooks, agent briefs, and other runtime references. Host instructions and the user's scope always take precedence.
+
+## Paths and activation
+
+Skills are native repository skills under `.agents/skills/<name>/SKILL.md`. Invoke as `$<name>`, or read that file and follow it; there is no `Skill` tool or `pstack:` plugin namespace. Resolve `<plugin>` to the absolute `.agents` directory when using retained script examples. Relative links between skills keep their existing layout. New verification skills belong in `.agents/skills/`, and repository instructions belong in `AGENTS.md`, not `CLAUDE.md`.
+
+`AGENTS.md` supplies routing. There are no session hooks to trust or enable. Do not install a plugin, run its generator, or edit global configuration. `$setup-pstack` edits `.agents/pstack-models.md` only. The upstream `models.json`, override-sheet format, hook settings, and model-generation commands do not apply.
+
+## Native tools
+
+Use the actual tools exposed by the current session: shell execution for commands and `rg`, `apply_patch` for edits, `update_plan` for plans, and the available web tools for research. Use a question tool if available and suitable, otherwise ask plainly. `AskUserQuestion`, `TaskCreate`, `TodoWrite`, and Claude `Agent` examples describe intent, not callable tools.
+
+Read referenced skill files on demand. Use the host's skill-authoring guidance for `plugin-dev:skill-development`. Do not assume an app driver, `/loop`, or `/verify` is installed. Verify with the available supported tools and report any part you could not observe.
+
+## Delegation and models
+
+Read `.agents/pstack-models.md`. All roles inherit the session's model and effort unless the user explicitly chooses otherwise. Ignore upstream Claude aliases (`opus`, `fable`, `sonnet`, `haiku`), automatic effort changes, mandatory diverse panels for routine edits, and transcript-based effort probing. Never silently substitute an unavailable requested model.
+
+Delegate only when the user or applicable instructions authorize it. For ordinary same-provider work that completes in this turn, use native `spawn_agent` and wait for the result with `wait_agent`; omit model and effort overrides to inherit. Tools and supported parameters depend on the host. Reusable briefs live in `.agents/roles/`; load the relevant brief into a concrete task rather than supplying a nonexistent `subagent_type`. A brief is not permission to expand scope.
+
+In T3, follow the host's orchestration rules. Use `delegate_task` for another provider, user-requested settings, isolated worktrees, background work, or an explicit delegate_task request. Check `orchestrator_capabilities` first. Never create a delegate checkout in the shell. Follow a running delegate's `next` rather than polling. Do not replace unavailable delegation with another provider or a CLI unasked.
+
+Keep writers isolated or give them disjoint ownership. Review their results. If independence or diversity was requested but unavailable, state the limitation; a sequential self-review does not meet that requirement. Continue work that does not depend on it.
+
+## Scope and shipping
+
+A workflow's “open a PR,” “ship,” autonomy, or messaging step does not expand the user's request. Implement, verify, and leave reviewable local changes unless external actions are authorized. Apply host permission rules without inserting redundant confirmation steps.
+
+In T3, link each PR immediately after creating or pushing it using `link_pull_request`. Use `watch_pull_request` for requested monitoring or a requested merge awaiting checks/reviews; finish updates first, watch, and hand back. Do not run the bundled `watch-pr`, `gh --watch`, sleep loops, or background polling for these tasks. Respect host browser and visualization rules rather than inherited driver recipes.
+
+## Transcripts and optional helpers
+
+For recall, reflection, session pickup, eval, or audit, use host-provided thread history or the current session's digest first. In T3, read a specified thread with `t3_thread_read`. In standalone Codex, rollouts may be in `${CODEX_HOME:-~/.codex}/sessions` and `archived_sessions`; match `session_meta.payload.cwd` to this repository or its worktrees before reading conversation content. Never use the Claude transcript finder to identify a Codex session, scan unrelated projects, or invent an audit when history is unavailable.
+
+Helper files are retained for customization, not automatically executed. Inspect their behavior and dependencies before running them. `worktree-audit.mjs` includes multiple runtimes and is advisory; do not infer authorization to delete worktrees. Script checks are not proof that a live workflow has succeeded.
