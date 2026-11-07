@@ -11,6 +11,9 @@ Read the [repository runtime contract](../poteto-mode/references/codex-tools.md)
 
 1. Use a short-lived feature branch based on current `main`. Preserve unrelated changes. Every PR targets `main`; wait for a prerequisite PR to merge before building on it.
 2. Apply the [feature compatibility contract](../poteto-mode/references/codex-tools.md#lookout-feature-compatibility). Confirm affected feature records reflect the diff, required consumer wiring and verification are complete or explicitly partial, and `pnpm check:features` passes. Review the diff with [deslop](../deslop/SKILL.md). Run the checks required by `AGENTS.md` and `docs/verification.md`, including any required manual verification. If a required verification is blocked, publish only a draft and explain the blocker.
+
+   Before committing, inspect the staged diff for QA screenshots, videos, traces, and reports. Keep them in ignored or temporary storage, upload images/videos as PR attachments following `docs/verification.md`, and verify the saved attachment URLs. Never commit evidence as an upload workaround.
+
 3. Commit the focused change and push the feature branch. Reuse its existing open PR when present. Otherwise create a PR against `main` with a concise Conventional Commit title and a description of the problem, resulting behavior, validation, and remaining gaps. Follow `.github/pull_request_template.md`, including affected feature codes, consumer checks, and wiring gaps, or a reason for no Lookout feature impact. Use a structured body or `gh --body-file`.
 4. Link the PR with `link_pull_request` as the next tool call after creation or a push to an existing PR. Do not stop at publishing. Continue with CI follow-up, including for documentation-only PRs.
 

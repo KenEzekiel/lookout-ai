@@ -28,7 +28,7 @@ All existing access and configuration handlers use this boundary. F-RULE-CONFIG 
 
 ## Verification
 
-The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-end checks. Interactive production-build QA exercised signup, workspace creation, invitation-based joining, invalid-code recovery, pairing, keyboard focus, cancellation, revocation, capture entry, and same-browser switching at desktop and narrow widths. [Screenshots and observations](../../qa/horizon-access/README.md) record the changed journeys.
+The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-end checks. Interactive production-build QA exercised signup, workspace creation, invitation-based joining, invalid-code recovery, pairing, keyboard focus, cancellation, revocation, capture entry, and same-browser switching at desktop and narrow widths. [Screenshots and observations](https://github.com/KenEzekiel/lookout-ai/pull/53) record the changed journeys.
 
 [API integration tests](../../../apps/app/tests/api/access.test.ts) exercise real built Worker handlers and isolated D1 migrations, including concurrent invitation redemption, workspace isolation, restricted device access, session invalidation, expiry, attempt limits, and revocation. [UI integration tests](../../../apps/app/tests/integration/access.test.tsx) cover complete screens through MSW HTTP boundaries, including invitation-aware onboarding, copyable invitation links, invalid pairing codes, confirmation and cancellation, role restrictions, and load retry. Both run in `pnpm verify`.
 
