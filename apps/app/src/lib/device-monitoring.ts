@@ -238,15 +238,33 @@ export class DeviceMonitoring {
         await this.report(state, signal, revision);
         return;
       }
-      const samples = this.capture
+      const captured = this.capture
         .getSamples()
         .filter(
           (frame, index, all) =>
             frame.epoch === this.epoch &&
             (all.at(-1)?.mediaTimeMs ?? frame.mediaTimeMs) - frame.mediaTimeMs <= 30_000 &&
             (!all[index - 1] || frame.mediaTimeMs > (all[index - 1]?.mediaTimeMs ?? -1)),
-        )
-        .slice(-8);
+        );
+      const continuous = captured.slice(
+        captured.reduce(
+          (start, frame, index) =>
+            index > 0 &&
+            frame.mediaTimeMs - (captured[index - 1]?.mediaTimeMs ?? frame.mediaTimeMs) > 5000
+              ? index
+              : start,
+          0,
+        ),
+      );
+      const previousEnd = state.event.kind === "observing" ? state.event.window.to : null;
+      const window =
+        previousEnd === null
+          ? continuous.slice(-8)
+          : continuous.filter((frame) => frame.mediaTimeMs >= previousEnd);
+      const selected = new Set(
+        Array.from({ length: 8 }, (_, index) => Math.round((index * (window.length - 1)) / 7)),
+      );
+      const samples = window.filter((_, index) => selected.has(index));
       const first = samples[0];
       const last = samples.at(-1);
       if (!first || !last || last.id === state.lastFrame) return;
@@ -291,7 +309,7 @@ export class DeviceMonitoring {
         } else {
           if (
             state.event.kind === "observing" &&
-            (state.positiveSince === null || last.mediaTimeMs - state.event.window.to > 5000)
+            (state.positiveSince === null || first.mediaTimeMs - state.event.window.to > 5000)
           ) {
             state.event = { kind: "armed" };
             state.positiveSince = null;
