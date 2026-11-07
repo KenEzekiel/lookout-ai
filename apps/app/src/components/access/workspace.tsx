@@ -1,9 +1,11 @@
+import { LoadingState } from "@/components/ui/loading";
 import { useEffect, useState } from "react";
 import { AppWindow, Monitor, Plus, RotateCw, Trash2, Users, Video } from "lucide-react";
 import { type z } from "zod";
 import { type Member, teamSchema } from "@/lib/access";
 import { request, message } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { ActionForm } from "./forms";
 import { Badge } from "@/components/ui/badge";
 import { LiveView } from "@/components/live-view";
 import { WorkspaceActions, type WorkspaceAction } from "./workspace-actions";
@@ -112,22 +114,18 @@ export function Workspace({
           <p role="alert" className="text-sm text-destructive">
             {error}
           </p>
-          <Button
+          <ActionForm
+            submit="Try again"
+            pendingLabel="Trying again…"
             variant="secondary"
             icon={RotateCw}
-            onClick={() => {
-              void refresh("").catch((error) => setError(message(error)));
+            action={async () => {
+              await refresh("");
             }}
-          >
-            Try again
-          </Button>
+          />
         </div>
       )}
-      {!team && !error && (
-        <output className="block py-12 text-sm text-muted-foreground">
-          Loading {devices ? "devices" : "team"}…
-        </output>
-      )}
+      {!team && !error && <LoadingState label={`Loading ${devices ? "devices" : "team"}…`} />}
       {team &&
         (devices ? (
           team.devices.length === 0 ? (

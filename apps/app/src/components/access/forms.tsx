@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode, type ComponentProps } from "react";
-import { LoaderCircle, type LucideIcon } from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { message } from "@/lib/api";
 
@@ -45,6 +45,7 @@ export function ActionForm({
   variant = "default",
   size = "default",
   icon,
+  disabled = false,
 }: {
   children?: ReactNode;
   submit: string;
@@ -53,6 +54,7 @@ export function ActionForm({
   variant?: ComponentProps<typeof Button>["variant"];
   size?: ComponentProps<typeof Button>["size"];
   icon: LucideIcon;
+  disabled?: boolean;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -62,7 +64,7 @@ export function ActionForm({
       aria-busy={pending}
       onSubmit={async (event) => {
         event.preventDefault();
-        if (pending) return;
+        if (pending || disabled) return;
         const form = event.currentTarget;
         const data = new FormData(form);
         setPending(true);
@@ -86,12 +88,24 @@ export function ActionForm({
       <Button
         type="submit"
         variant={variant}
-        disabled={pending}
+        loading={pending}
+        disabled={disabled}
         size={size}
-        icon={pending ? LoaderCircle : icon}
+        icon={icon}
       >
-        <span key={pending ? "pending" : "idle"} className="motion-feedback">
-          {pending ? pendingLabel : submit}
+        <span className="grid">
+          <span
+            aria-hidden={pending}
+            className={pending ? "invisible col-start-1 row-start-1" : "col-start-1 row-start-1"}
+          >
+            {submit}
+          </span>
+          <span
+            aria-hidden={!pending}
+            className={pending ? "col-start-1 row-start-1" : "invisible col-start-1 row-start-1"}
+          >
+            {pendingLabel}
+          </span>
         </span>
       </Button>
     </form>

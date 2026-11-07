@@ -8,6 +8,8 @@ Depends on: F-AUTH-ACCESS, F-RULE-CONFIG
 
 Inbox/detail reload and acknowledge, resolve, and dismiss actions use shared default sizing with descriptive icons and visible labels. Decorative icons do not change the accessible action names.
 
+Inbox and detail first reads use layout-shaped skeletons. Manual reloads keep existing content visible with a busy button. Response buttons identify the active acknowledgment, resolution, or dismissal and disable conflicting responses until completion. Evidence preparation remains independent of response controls.
+
 An accepted device report persists one workspace incident with event time, source and rule snapshots, severity, configured recipients, owner, and timeline. Evidence starts preparing and can become uploading, ready, or unavailable through F-EVIDENCE-REPLAY. F-ALERT-PUSH records independent initial background-notification attempts. Operators can respond before a saved clip exists.
 
 Acknowledge changes open to acknowledged and records the responding member as owner. Resolve changes acknowledged to resolved. Dismiss changes open or acknowledged to dismissed and records incorrect-alert feedback. Dismissed and resolved are distinct terminal states. Opening an incident changes nothing. Every response requires the last-read version, increments it, and appends one timeline entry atomically. Any current workspace member can respond, including resolving a colleague's acknowledged incident. Ownership is preserved after resolution or dismissal.
@@ -50,6 +52,8 @@ Inbox and incident detail use the shared 30 px page-title role with level-one he
 
 ## Verification
 
+[Loading journey integration tests](../../../apps/app/tests/integration/loading.test.tsx) cover delayed access, lists, configuration, navigation away, submission failure, and refresh retention. [Incident integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover pending responses and replay loading, buffering, failure, and retry. Existing feature tests remain the regression checks for this consumer. Browser observations and evidence for the current change belong in its PR.
+
 [Real-handler API tests](../../../apps/app/tests/api/access.test.ts) use the built Worker, isolated D1, and committed migrations. The incident cases passed locally and cover concurrent retries, persisted reads, immutable source/rule context, idempotency collisions, stale or disabled rules, stale and expired sessions, invalid event times, device revocation, origin checks, workspace and membership boundaries, acknowledgment ownership, competing operators, stale commands, terminal states, and distinct dismissal.
 
 [Complete-screen UI tests](../../../apps/app/tests/integration/incidents.test.tsx) passed locally through MSW HTTP boundaries. They cover inbox and detail loading, empty and failed reads, reload recovery, opening without acknowledgment, evidence status changes, acknowledge then resolve, dismissal, stale-action recovery, current navigation, and device exclusion.
@@ -59,6 +63,8 @@ Inbox and incident detail use the shared 30 px page-title role with level-one he
 ## Decisions and sources
 
 Kenneth requested button consistency and action icons. [Incident controls](../../../apps/app/src/components/incidents/workspace.tsx) use F-APP-SHELL Button sizing and explicit icons. Response transitions, version checks, and permissions remain unchanged.
+
+The current PR implements the user’s request for app-wide loading feedback. It reuses [shared loading UI](../../../apps/app/src/components/ui/loading.tsx) and [busy buttons](../../../apps/app/src/components/ui/button.tsx) without changing backend contracts or unfinished feature status.
 
 [Issue #19](https://github.com/KenEzekiel/lookout-ai/issues/19), [product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
 

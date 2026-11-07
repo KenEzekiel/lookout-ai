@@ -2,6 +2,9 @@ import { Check, Hand, RotateCw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, Clock, Video } from "lucide-react";
+import { ActionForm } from "@/components/access/forms";
+import { LoadingIndicator, LoadingState } from "@/components/ui/loading";
+import { SavedReplay } from "./saved-replay";
 import { Button } from "@/components/ui/button";
 import { message, request } from "@/lib/api";
 import {
@@ -85,16 +88,20 @@ export function IncidentInbox() {
             Review what happened and take ownership of the response.
           </p>
         </div>
-        <Button icon={RotateCw} variant="secondary" onClick={() => void refresh()}>
-          Reload inbox
-        </Button>
+        <ActionForm
+          icon={RotateCw}
+          submit="Reload inbox"
+          pendingLabel="Reloading inbox…"
+          variant="secondary"
+          action={refresh}
+        />
       </div>
       {error ? (
         <p role="alert" className="text-destructive">
           {error}
         </p>
       ) : !incidents ? (
-        <output>Loading incidents…</output>
+        <LoadingState label="Loading incidents…" />
       ) : incidents.length === 0 ? (
         <div className="rounded-2xl bg-card p-8">
           <h3 className="text-panel-title">No incidents yet</h3>
@@ -152,7 +159,7 @@ export function IncidentDetail({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState<IncidentCommand["action"] | null>(null);
   const sequence = useRef(0);
   const refresh = useCallback(async () => {
     const current = ++sequence.current;
@@ -202,7 +209,7 @@ export function IncidentDetail({ id }: { id: string }) {
   }, [id]);
   async function respond(action: IncidentCommand["action"]) {
     if (!incident || pending) return;
-    setPending(true);
+    setPending(action);
     setActionError("");
     setNotice("");
     sequence.current++;
@@ -223,7 +230,7 @@ export function IncidentDetail({ id }: { id: string }) {
     } catch (error) {
       setActionError(message(error));
     } finally {
-      setPending(false);
+      setPending(null);
     }
   }
   return (
@@ -232,24 +239,24 @@ export function IncidentDetail({ id }: { id: string }) {
         <Link to="/incidents" className="text-signal underline underline-offset-4">
           Back to inbox
         </Link>
-        <Button
+        <ActionForm
           icon={RotateCw}
+          disabled={pending !== null}
+          submit="Reload incident"
+          pendingLabel="Reloading incident…"
           variant="secondary"
-          disabled={pending}
-          onClick={() => {
+          action={async () => {
             setActionError("");
-            void refresh();
+            await refresh();
           }}
-        >
-          Reload incident
-        </Button>
+        />
       </div>
       {error ? (
         <p role="alert" className="text-destructive">
           {error}
         </p>
       ) : !incident ? (
-        <output>Loading incident…</output>
+        <LoadingState label="Loading incident…" layout="detail" />
       ) : (
         <>
           <header>
@@ -279,16 +286,7 @@ export function IncidentDetail({ id }: { id: string }) {
                 {incident.evidenceStatus === "ready" ? (
                   <>
                     <h3 className="text-panel-title">Saved event replay</h3>
-                    <video
-                      controls
-                      aria-label="Event clip replay"
-                      preload="metadata"
-                      className="w-full max-w-2xl rounded-xl bg-black"
-                      src={`/api/incidents/evidence/${encodeURIComponent(incident.id)}`}
-                    >
-                      <track kind="captions" src="data:text/vtt,WEBVTT" />
-                      Your browser cannot play this video.
-                    </video>
+                    <SavedReplay id={incident.id} />
                     {incident.evidenceExpiresAt && (
                       <p className="text-sm text-muted-foreground">
                         Available until <EventTime at={incident.evidenceExpiresAt} />
@@ -297,7 +295,11 @@ export function IncidentDetail({ id }: { id: string }) {
                   </>
                 ) : (
                   <>
-                    <Video aria-hidden="true" className="size-8 text-muted-foreground" />
+                    {incident.evidenceStatus === "unavailable" ? (
+                      <Video aria-hidden="true" className="size-8 text-muted-foreground" />
+                    ) : (
+                      <LoadingIndicator className="size-8 text-muted-foreground" />
+                    )}
                     <h3 className="text-panel-title">{evidenceLabels[incident.evidenceStatus]}</h3>
                     <p className="max-w-sm text-muted-foreground">
                       {incident.evidenceStatus === "unavailable"
@@ -348,25 +350,32 @@ export function IncidentDetail({ id }: { id: string }) {
                   {incident.status === "open" && (
                     <Button
                       icon={Hand}
-                      disabled={pending}
+                      disabled={pending !== null}
+                      loading={pending === "acknowledge"}
                       onClick={() => void respond("acknowledge")}
                     >
-                      Acknowledge
+                      {pending === "acknowledge" ? "Acknowledging…" : "Acknowledge"}
                     </Button>
                   )}
                   {incident.status === "acknowledged" && (
-                    <Button icon={Check} disabled={pending} onClick={() => void respond("resolve")}>
-                      Resolve
+                    <Button
+                      icon={Check}
+                      disabled={pending !== null}
+                      loading={pending === "resolve"}
+                      onClick={() => void respond("resolve")}
+                    >
+                      {pending === "resolve" ? "Resolving…" : "Resolve"}
                     </Button>
                   )}
                   {(incident.status === "open" || incident.status === "acknowledged") && (
                     <Button
                       icon={X}
                       variant="outline"
-                      disabled={pending}
+                      disabled={pending !== null}
+                      loading={pending === "dismiss"}
                       onClick={() => void respond("dismiss")}
                     >
-                      Dismiss as incorrect
+                      {pending === "dismiss" ? "Dismissing…" : "Dismiss as incorrect"}
                     </Button>
                   )}
                 </div>

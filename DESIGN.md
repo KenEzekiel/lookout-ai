@@ -175,3 +175,7 @@ The `/device` route supports local video and permitted camera capture for a pair
 - Use monospace sparingly.
 - Do not set subtitles in all caps.
 - Use periods in titles only when the tone calls for them.
+
+## Loading feedback
+
+Use the shared loading components for initial workspace, list, configuration, and incident reads. Skeletons reserve content space and remain decorative; a specific status names what is loading. Keep navigation and existing content visible during refreshes. Pending buttons show a spinner and action label, prevent duplicate submissions, and retain form values on failure. Media waits stay inside the reserved video area, with response and stop controls usable. Reduced motion keeps the labels and placeholders static. Never show invented progress or hold completed content for an animation.
