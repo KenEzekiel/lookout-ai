@@ -21,7 +21,18 @@ Use `src/style.css` for shared slide styles. Edit the document title and toolbar
 
 The Lookout starter is based on the repository README and product direction. It is an editable pitch outline, not proof of implemented features. Before the hackathon, update the demo checklist to match the working app and add your team, verified results, and demo URL.
 
-## Present
+## Present with two screens on one laptop
+
+1. Connect the second display or projector and choose extended displays in your operating system. Mirroring shows the same content on both screens.
+2. Open the deck and click **Presenter view**. Allow the audience pop-up if the browser blocks it.
+3. Move the new audience window to the second screen. Double-click the slide, or press **F**, to enter fullscreen. Escape exits fullscreen.
+4. Keep the original window on your laptop. It shows the current slide, the next-slide preview, speaker notes, and navigation controls. Changes in either window keep the slides synchronized.
+
+The audience window contains no visible controls or speaker notes. The **N** shortcut cannot reveal notes there. Click **Open audience window** to focus an existing audience window or reopen it after closing it. Reloading the audience window reconnects it to the current slide. Reloading or closing the presenter closes its audience window; start Presenter view again after a presenter reload.
+
+Both windows run in the same browser on one laptop. Synchronization works offline through direct window messages. There is no shared session for separate devices. If fullscreen is unavailable, use the browser's fullscreen command on the audience window.
+
+## Present on one screen
 
 - Click **Present** or press **F** to toggle fullscreen. Browser permissions can prevent fullscreen; the player explains how to continue.
 - Use arrow keys, Page Up, Page Down, or Space to navigate. Home and End jump to the first and last slide.
@@ -32,7 +43,7 @@ The Lookout starter is based on the repository README and product direction. It 
 
 ## Package design and verification
 
-The builder sorts HTML files and embeds their markup, the shared stylesheet, and the player into one document. The player owns a bounded active slide index. It derives the picker, counter, and notes from the slide markup, so authors do not maintain a separate slide manifest.
+The builder sorts HTML files and embeds their markup, the shared stylesheet, and the player into one document. The presenter owns a bounded active slide index and sends it only to its audience window. The audience accepts updates only from its opener. It derives the picker, counter, and notes from the slide markup, so authors do not maintain a separate slide manifest.
 
 Bundling the HTML avoids runtime fetches and permits direct file opening. Separate iframe pages would isolate styling but complicate keyboard navigation and offline packaging. The shared document keeps the hackathon workflow small.
 

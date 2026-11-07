@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lookout AI · Hackathon pitch</title>
+    <script>
+      document.documentElement.dataset.view =
+        new URLSearchParams(location.search).get("view") === "audience" ? "audience" : "deck";
+    </script>
     <style>
       {{styles}}
     </style>
@@ -12,9 +16,21 @@
     <header class="toolbar">
       <a class="brand" href="#1">LOOKOUT <span>AI</span></a>
       <span class="deck-label">Hackathon pitch</span>
+      <button id="presenter" type="button">Presenter view</button>
       <button id="present" type="button">Present</button>
     </header>
-    <main id="slides" aria-label="Pitch slides">{{slides}}</main>
+    <p id="presenter-help" hidden>
+      Move the audience window to your second screen and double-click its slide to enter fullscreen.
+      Keep this window on your laptop. Use extended displays, not mirroring.
+    </p>
+    <div class="workspace">
+      <main id="slides" aria-label="Pitch slides">{{slides}}</main>
+      <section id="next-panel" aria-label="Next slide preview" hidden>
+        <h2 class="panel-title">Up next</h2>
+        <div id="next-slide" aria-hidden="true" inert></div>
+        <p id="next-caption"></p>
+      </section>
+    </div>
     <aside id="notes-panel" aria-label="Speaker notes" hidden>
       <h2>Speaker notes</h2>
       <div id="notes-content"></div>
@@ -31,7 +47,7 @@
       <span class="keyboard-hint">← → navigate · F fullscreen · N notes</span>
     </footer>
     <p id="notice" role="alert" hidden></p>
-    <script type="module">
+    <script id="player" type="module">
       __PITCHDECK_PLAYER__;
     </script>
   </body>

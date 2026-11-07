@@ -269,3 +269,120 @@ h2 {
     margin-top: 12px;
   }
 }
+
+.workspace {
+  margin-block: auto;
+}
+#presenter-help {
+  margin: 0;
+  padding: 16px 32px;
+  color: #b9c3b2;
+  line-height: 1.5;
+}
+#next-panel {
+  min-width: 0;
+  padding: 20px;
+  background: #1a2116;
+}
+.panel-title {
+  font-size: 16px;
+  letter-spacing: 0;
+  margin: 0 0 16px;
+}
+#next-caption {
+  color: #b9c3b2;
+  margin: 16px 0 0;
+  line-height: 1.5;
+}
+[data-view="audience"] .toolbar,
+[data-view="audience"] .controls,
+[data-view="audience"] #notes-panel,
+[data-view="audience"] #next-panel,
+[data-view="audience"] #presenter-help,
+[data-view="audience"] #notice {
+  display: none !important;
+}
+[data-view="audience"] #slides {
+  max-width: none;
+}
+[data-view="audience"] .slide {
+  min-height: 100dvh;
+}
+[data-view="presenter"] .workspace {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  padding: 20px 32px;
+  margin: 0;
+}
+[data-view="presenter"] #slides,
+#next-slide {
+  container-type: inline-size;
+}
+[data-view="presenter"] .workspace .slide {
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  padding: 4cqw 6cqw;
+}
+[data-view="presenter"] .workspace h1 {
+  font-size: 8.2cqw;
+  margin-bottom: 3cqw;
+}
+[data-view="presenter"] .workspace .slide h2 {
+  font-size: 5.5cqw;
+  margin-bottom: 3cqw;
+}
+[data-view="presenter"] .workspace .eyebrow {
+  font-size: 1.4cqw;
+  margin-bottom: 3cqw;
+}
+[data-view="presenter"] .workspace .lead {
+  font-size: 2.8cqw;
+}
+[data-view="presenter"] .workspace .detail {
+  font-size: 1.8cqw;
+  margin: 3cqw 0 0;
+}
+[data-view="presenter"] .workspace li {
+  font-size: 2.8cqw;
+}
+[data-view="presenter"] .workspace ul,
+[data-view="presenter"] .workspace ol {
+  font-size: 2.8cqw;
+}
+[data-view="presenter"] .workspace li + li {
+  margin-top: 1.5cqw;
+}
+[data-view="presenter"] .keyboard-hint {
+  display: none;
+}
+@media (max-width: 800px) {
+  [data-view="presenter"] .workspace {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  [data-view="presenter"] #next-panel {
+    max-width: 400px;
+  }
+  .toolbar {
+    flex-wrap: wrap;
+  }
+}
+@media print {
+  #next-panel,
+  #presenter-help {
+    display: none !important;
+  }
+  [data-view="presenter"] .workspace {
+    display: block;
+  }
+}
+@media (min-width: 801px) {
+  [data-view="presenter"] #slides {
+    max-width: min(100%, calc((100dvh - 390px) * 16 / 9));
+  }
+  [data-view="presenter"] #notes-panel {
+    max-height: 22dvh;
+    overflow: auto;
+  }
+}

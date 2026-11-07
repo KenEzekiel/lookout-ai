@@ -8,10 +8,83 @@ export function mountDeck(doc) {
   const notesToggle = doc.querySelector("#notes-toggle");
   const notesPanel = doc.querySelector("#notes-panel");
   const notice = doc.querySelector("#notice");
+  const presenter = doc.querySelector("#presenter");
+  const nextPanel = doc.querySelector("#next-panel");
+  const nextSlide = doc.querySelector("#next-slide");
+  const audience = new URLSearchParams(win.location.search).get("view") === "audience";
+  doc.documentElement.dataset.view = audience ? "audience" : "deck";
+  let audienceWindow = null;
   let index = 0;
 
+  function sendSlide() {
+    if (audienceWindow && !audienceWindow.closed) {
+      audienceWindow.postMessage({ type: "lookout-slide", index }, "*");
+    }
+  }
+
+  function openPresenter() {
+    notice.hidden = true;
+    if (audienceWindow && !audienceWindow.closed) {
+      audienceWindow.focus();
+      sendSlide();
+      return;
+    }
+    const url = new URL(win.location.href);
+    url.searchParams.set("view", "audience");
+    audienceWindow = win.open(url.href, "_blank", "popup,width=1280,height=720");
+    if (!audienceWindow) {
+      notice.textContent =
+        "The audience window was blocked. Allow pop-ups for this page, then click Presenter view again.";
+      notice.hidden = false;
+      return;
+    }
+    doc.documentElement.dataset.view = "presenter";
+    presenter.textContent = "Open audience window";
+    doc.querySelector("#presenter-help").hidden = false;
+    nextPanel.hidden = false;
+    notesPanel.hidden = false;
+    notesToggle.hidden = true;
+    show(index);
+  }
+
+  function onMessage(event) {
+    const message = event.data;
+    if (!message || typeof message !== "object") return;
+    if (audience && event.source === win.opener && event.source !== null) {
+      if (
+        message.type === "lookout-slide" &&
+        Number.isInteger(message.index) &&
+        message.index >= 0 &&
+        message.index < slides.length
+      )
+        show(message.index);
+    } else if (!audience && audienceWindow && event.source === audienceWindow) {
+      if (message.type === "lookout-ready") sendSlide();
+      else if (
+        message.type === "lookout-navigate" &&
+        Number.isInteger(message.index) &&
+        message.index >= 0 &&
+        message.index < slides.length
+      )
+        show(message.index);
+    }
+  }
+
+  function navigate(position) {
+    show(position);
+    if (audience && win.opener && !win.opener.closed) {
+      win.opener.postMessage({ type: "lookout-navigate", index }, "*");
+    }
+  }
+
+  function slideTitle(slide) {
+    const heading = slide.querySelector("h1, h2").cloneNode(true);
+    heading.querySelectorAll("br").forEach((lineBreak) => lineBreak.replaceWith(" "));
+    return heading.textContent.trim();
+  }
+
   slides.forEach((slide, position) => {
-    const title = slide.querySelector("h1, h2").textContent;
+    const title = slideTitle(slide);
     slide.setAttribute("role", "group");
     slide.setAttribute("aria-roledescription", "slide");
     slide.setAttribute("aria-label", `${position + 1} of ${slides.length}: ${title}`);
@@ -31,8 +104,24 @@ export function mountDeck(doc) {
     next.disabled = index === slides.length - 1;
     doc.querySelector("#counter").textContent = `${index + 1} / ${slides.length}`;
     doc.querySelector("#notes-content").textContent =
-      slides[index].querySelector("aside[data-notes]")?.textContent ?? "No notes for this slide.";
+      slides[index].querySelector("aside[data-notes]")?.textContent.trim() ??
+      "No notes for this slide.";
     win.history.replaceState(null, "", `#${index + 1}`);
+    if (!audience) {
+      const upcoming = slides[index + 1];
+      nextSlide.replaceChildren();
+      if (upcoming) {
+        const preview = upcoming.cloneNode(true);
+        preview.hidden = false;
+        preview.removeAttribute("id");
+        preview.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+        nextSlide.append(preview);
+      }
+      doc.querySelector("#next-caption").textContent = upcoming
+        ? slideTitle(upcoming)
+        : "End of presentation";
+      sendSlide();
+    }
   }
 
   function fromHash() {
@@ -41,6 +130,7 @@ export function mountDeck(doc) {
   }
 
   function toggleNotes() {
+    if (audience || doc.documentElement.dataset.view === "presenter") return;
     notesPanel.hidden = !notesPanel.hidden;
     notesToggle.setAttribute("aria-expanded", String(!notesPanel.hidden));
   }
@@ -50,8 +140,10 @@ export function mountDeck(doc) {
     try {
       if (doc.fullscreenElement) await doc.exitFullscreen();
       else {
-        notesPanel.hidden = true;
-        notesToggle.setAttribute("aria-expanded", "false");
+        if (doc.documentElement.dataset.view !== "presenter") {
+          notesPanel.hidden = true;
+          notesToggle.setAttribute("aria-expanded", "false");
+        }
         await doc.documentElement.requestFullscreen();
       }
     } catch {
@@ -82,7 +174,7 @@ export function mountDeck(doc) {
     };
     if (Object.hasOwn(moves, event.key)) {
       event.preventDefault();
-      show(moves[event.key]);
+      navigate(moves[event.key]);
     } else if (event.key.toLowerCase() === "f") {
       event.preventDefault();
       void toggleFullscreen();
@@ -92,9 +184,9 @@ export function mountDeck(doc) {
 
   const controller = new win.AbortController();
   const options = { signal: controller.signal };
-  previous.addEventListener("click", () => show(index - 1), options);
-  next.addEventListener("click", () => show(index + 1), options);
-  picker.addEventListener("change", () => show(Number(picker.value)), options);
+  previous.addEventListener("click", () => navigate(index - 1), options);
+  next.addEventListener("click", () => navigate(index + 1), options);
+  picker.addEventListener("change", () => navigate(Number(picker.value)), options);
   notesToggle.addEventListener("click", toggleNotes, options);
   present.addEventListener("click", toggleFullscreen, options);
   doc.addEventListener("keydown", onKey, options);
@@ -106,6 +198,22 @@ export function mountDeck(doc) {
     options,
   );
   win.addEventListener("hashchange", fromHash, options);
+  win.addEventListener("message", onMessage, options);
+  win.addEventListener("pagehide", () => audienceWindow?.close(), options);
+  presenter.addEventListener("click", openPresenter, options);
+  if (audience) {
+    doc.title = "Lookout AI · Audience";
+    doc
+      .querySelectorAll(".toolbar, .controls, #notes-panel, #next-panel, #presenter-help")
+      .forEach((element) => {
+        element.hidden = true;
+      });
+    slides.forEach((slide) =>
+      slide.querySelectorAll("aside[data-notes]").forEach((note) => note.remove()),
+    );
+    doc.querySelector("#slides").addEventListener("dblclick", toggleFullscreen, options);
+  }
   fromHash();
+  if (audience && win.opener) win.opener.postMessage({ type: "lookout-ready" }, "*");
   return () => controller.abort();
 }

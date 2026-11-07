@@ -9,7 +9,7 @@ execFileSync(process.execPath, ["build.mjs"]);
 const html = readFileSync("dist/index.html", "utf8");
 const bundledScript = new DOMParser()
   .parseFromString(html, "text/html")
-  .querySelector("script").textContent;
+  .querySelector("#player").textContent;
 const mountDeck = new Function(
   "document",
   bundledScript
@@ -90,4 +90,30 @@ test("invalid and out-of-range links resolve to a real slide", async () => {
   window.dispatchEvent(new HashChangeEvent("hashchange"));
   expect(window.location.hash).toBe("#6");
   expect(screen.getAllByRole("group")).toHaveLength(1);
+});
+
+test("audience mode exposes only slides and cannot reveal speaker notes", async () => {
+  window.history.replaceState(null, "", "/?view=audience#2");
+  unmount = mountDeck(document);
+  const user = userEvent.setup();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByRole("complementary")).toBeNull();
+  expect(screen.getByRole("heading").textContent).toContain("Cameras record");
+  expect(document.querySelectorAll("aside[data-notes]")).toHaveLength(0);
+  await user.keyboard("n");
+  expect(screen.queryByRole("complementary")).toBeNull();
+  await user.keyboard("{ArrowRight}");
+  expect(window.location.hash).toBe("#3");
+  window.dispatchEvent(new MessageEvent("message", { data: { type: "lookout-slide", index: 4 } }));
+  expect(window.location.hash).toBe("#3");
+});
+
+test("blocked audience windows leave the original deck usable", async () => {
+  unmount = mountDeck(document);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Presenter view" }));
+  expect(screen.getByRole("alert").textContent).toContain("Allow pop-ups");
+  expect(screen.queryByRole("complementary")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Next slide" }));
+  expect(window.location.hash).toBe("#2");
 });
