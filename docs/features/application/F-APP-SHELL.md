@@ -6,9 +6,7 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
-The animated header icon uses a lighter blue base (`#829aff`) and pale blue highlights (`#c4d2ff`) for stronger contrast against the dark background, following Ken's request. The static fallback and animation settings are unchanged.
-
-The shared header mark now layers Paper Liquid Metal over the original Horizon SVG using a local [mask](../../../apps/app/public/horizon-mask.svg). The wordmark, accessible name, footprint, and favicon stay unchanged. The shader loads only on the client, unmounts for reduced motion or hidden documents, and leaves the static SVG visible while loading or when WebGL cannot render. This decision follows Ken's request to animate the logo with Paper shaders.
+The shared header mark renders the static Horizon SVG in the theme's signal color. It does not load a shader or create a WebGL canvas. The wordmark, accessible name, footprint, and favicon stay unchanged. This replaces the animated Paper Liquid Metal treatment following Ken's request to remove shaders from the in-app logo. The static mark requires no asynchronous loading state.
 
 Action buttons share a 40-pixel minimum height, 16-pixel icons, and consistent spacing. Compact header, row, and alert-preference actions use the explicit 36-pixel size. Inline text actions keep their compact layout. Labels wrap on narrow screens; icons supplement visible labels and remain hidden from assistive technology.
 
@@ -46,7 +44,7 @@ The shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel
 
 ## Verification
 
-Browser QA at 390 × 844 confirmed changing shader pixels, reduced-motion unmounting and restoration, and a visible static mark with WebGL disabled, without page errors. The access integration suite checks the retained home link and static mark. QA media remains outside version control; PR attachment publication remains pending.
+The access integration suite checks the retained home link, visible static mark, and absence of a shader canvas. Production-build browser QA at 1280 × 800 and 390 × 844 confirmed the static blue SVG and wordmark, retained home-link accessible name and destination, and no canvas or shader asset requests. Reduced-motion emulation and keyboard navigation were not exercised. QA media remains outside version control.
 
 The [rendered-button regression](../../../tests/e2e/buttons.spec.ts) checks actual production CSS dimensions and decorative icons at 1280px and 320px. It covers default trigger/source/dialog/inbox actions, compact header/alert/device-row actions, reload pending/failure/recovery, and overflow. Run `pnpm exec playwright test tests/e2e/buttons.spec.ts` after building, or `pnpm qa:browser` for the full browser suite. Reinstating the historical form height and standalone-button size made both viewport cases fail with a 44px Reload where 40px was expected; restoring the shared sizes made them pass. HTTP principal, team, configuration, and incident fixtures keep this a UI layout regression rather than backend verification. Browser tests remain outside required CI under the repository verification policy.
 
