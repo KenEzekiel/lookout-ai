@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { Button } from "@/components/ui/button";
+import { LoadingStatus } from "@/components/ui/loading";
 import { request } from "@/lib/api";
 import { type CaptureSession, type CaptureSnapshot } from "@/lib/capture-session";
 import { DeviceMonitoring, type MonitoringStatus } from "@/lib/device-monitoring";
 import { deviceConfigurationSchema, type DeviceConfiguration } from "@/lib/rules";
 import { HealthReporting } from "@/components/device-health-reporting";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -163,7 +164,27 @@ export function MonitoringControls({
             Source interval: {(status.latest.from / 1000).toFixed(1)}–
             {(status.latest.to / 1000).toFixed(1)}s
           </p>
-          <p>Replay unavailable. Clip upload is not connected.</p>
+          {status.latest.evidence.kind === "preparing" ||
+          status.latest.evidence.kind === "uploading" ? (
+            <LoadingStatus
+              label={
+                status.latest.evidence.kind === "preparing"
+                  ? "Preparing incident video…"
+                  : "Uploading incident video…"
+              }
+            />
+          ) : status.latest.evidence.kind === "ready" ? (
+            <output>Incident video ready for replay.</output>
+          ) : (
+            <div>
+              <output>Incident video unavailable. {status.latest.evidence.reason}</output>
+              {status.latest.evidence.retryable && (
+                <Button className="mt-2" onClick={() => controller.current?.retryEvidence()}>
+                  Retry video upload
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
