@@ -46,7 +46,7 @@ export function WorkspaceActions({
         "On the other device, open Lookout and choose “Set up this device”. Enter the code shown there.",
     },
     activate: {
-      title: "Use this device",
+      title: "Switch to device mode",
       description:
         "This signs you out of workspace management in every tab of this browser and switches to device mode. You can sign in again to return.",
     },

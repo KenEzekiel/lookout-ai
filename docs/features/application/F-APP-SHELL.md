@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+The shared header mark now layers Paper Liquid Metal over the original Horizon SVG using a local [mask](../../../apps/app/public/horizon-mask.svg). The wordmark, accessible name, footprint, and favicon stay unchanged. The shader loads only on the client, unmounts for reduced motion or hidden documents, and leaves the static SVG visible while loading or when WebGL cannot render. This decision follows Ken's request to animate the logo with Paper shaders.
+
 Action buttons share a 40-pixel minimum height, 16-pixel icons, and consistent spacing. Compact header, row, and alert-preference actions use the explicit 36-pixel size. Inline text actions keep their compact layout. Labels wrap on narrow screens; icons supplement visible labels and remain hidden from assistive technology.
 
 Initial access and route waits use shared, labeled skeletons. List and detail placeholders reserve content space without exposing protected records. Route fallback starts after 200 ms and imposes no minimum wait. Reduced motion keeps all loading indicators static. Shared buttons support an explicit busy state. Background polling retains existing content while requests are in flight.
@@ -17,6 +19,8 @@ Shared controls use the [interaction motion styles](../../../apps/app/src/styles
 Devices separates an owner-only **This browser** card from the **Connected devices** list. The card explains local capture and cross-tab sign-out. Device rows pair authorization status with a primary Live view action and secondary owner-only removal. The layout wraps at narrow widths and reuses the shared Button and Badge components.
 
 ## Entry points
+
+Every workspace page exposes **Switch to device mode** in the shared header. The [device-mode action](../../../apps/app/src/components/access/device-mode-action.tsx) uses F-AUTH-ACCESS membership to open the owner's existing activation dialog or send an operator to `/monitor` for owner-approved pairing. Header actions wrap on narrow screens. The pairing screen offers **Back to workspace** before a successful device claim. Visitors, unassigned users, paired devices, and the pairing screen do not receive the switch action.
 
 The shared member navigation also opens `/incidents` and `/incidents/$incidentId` through the existing access gate. Devices do not receive incident response controls. [Incident routes and screens](../../../apps/app/src/components/incidents/workspace.tsx) use the existing theme, buttons, and responsive layout.
 
@@ -36,6 +40,8 @@ Button action text uses a unitless 1.4 line height with the 15 px action size so
 
 The shared [typography scale](../../../apps/app/src/styles.css) gives Devices, Team, Triggers, Incidents, incident detail, and Capture a 30 px page title, 20 px panel/dialog headings, 15 px body/actions, and 13 px metadata. Account panels retain 24 px titles. Geist Variable, semantic colors, and existing navigation remain shared. Sizes use rem units with unitless line heights; editable controls use 16 px on narrow screens. [Production-browser typography journeys](../../../tests/e2e/typography.spec.ts) check desktop and narrow screens, computed typography, focus return, and overflow. This PR introduces the consistency fix requested in Slack; per-run browser evidence is recorded in its PR description.
 
+The shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel.tsx) uses the base-nova shadcn [collapsible](../../../apps/app/src/components/ui/collapsible.tsx). Its measured height transitions in both directions over 220 ms, including interrupted toggles. Children stay mounted to preserve form values. Reduced motion removes the transition. This implements Ken’s request to animate all disclosure state changes. Production Chromium verification passed all five panels at 320, 390, and 1280 px in normal and reduced-motion modes, including intermediate opening/closing heights, keyboard toggling, rapid reversal, hidden-panel visibility, and retained source drafts. No browser or network errors were recorded. `pnpm verify` passed 84 UI and 70 API tests.
+
 [Workspace navigation](../../../apps/app/src/components/access/workspace-navigation.tsx) renders typed router links and a decorative shared-layout indicator inside the persistent header. Router link state owns both the active styling and indicator; the animation does not delay navigation or change keyboard semantics.
 
 [Trigger route](../../../apps/app/src/routes/_workspace.triggers.tsx) and [rule-screen integration tests](../../../apps/app/tests/integration/rules.test.tsx) add authenticated configuration navigation under F-RULE-CONFIG.
@@ -43,6 +49,10 @@ The shared [typography scale](../../../apps/app/src/styles.css) gives Devices, T
 [Workspace layout](../../../apps/app/src/routes/_workspace.tsx), [Devices route](../../../apps/app/src/routes/_workspace.devices.tsx), [Team route](../../../apps/app/src/routes/_workspace.team.tsx), [member context](../../../apps/app/src/components/access/workspace-context.tsx), [home redirect](../../../apps/app/src/routes/index.tsx), [capture route](../../../apps/app/src/routes/device.tsx), [root route](../../../apps/app/src/routes/__root.tsx), [router](../../../apps/app/src/router.tsx), [access UI](../../../apps/app/src/components/access/app.tsx), [brand](../../../apps/app/src/components/access/brand.tsx), and [favicon](../../../apps/app/public/favicon.svg).
 
 ## Verification
+
+Browser QA at 390 × 844 confirmed changing shader pixels, reduced-motion unmounting and restoration, and a visible static mark with WebGL disabled, without page errors. The access integration suite checks the retained home link and static mark. QA media remains outside version control; PR attachment publication remains pending.
+
+The [access integration tests](../../../apps/app/tests/integration/access.test.tsx) verify the header action from Team for both member roles, cancellation, activation retry, and the operator pairing journey. Production-build Chromium QA verified owner entry from Devices, Team, Triggers, and Incidents, keyboard activation and dismissal, and both roles reaching restricted device mode. The main-branch integration recheck preserved the browser-card shortcut. Header, owner-dialog, and operator-pairing checks passed at 1280, 390, and 320 pixels. The implementation PR records the isolated runtime, one mocked activation failure, and screenshots.
 
 The [rendered-button regression](../../../tests/e2e/buttons.spec.ts) checks actual production CSS dimensions and decorative icons at 1280px and 320px. It covers default trigger/source/dialog/inbox actions, compact header/alert/device-row actions, reload pending/failure/recovery, and overflow. Run `pnpm exec playwright test tests/e2e/buttons.spec.ts` after building, or `pnpm qa:browser` for the full browser suite. Reinstating the historical form height and standalone-button size made both viewport cases fail with a 44px Reload where 40px was expected; restoring the shared sizes made them pass. HTTP principal, team, configuration, and incident fixtures keep this a UI layout regression rather than backend verification. Browser tests remain outside required CI under the repository verification policy.
 
@@ -59,6 +69,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 [Route integration tests](../../../apps/app/tests/integration/app.test.tsx) cover the home redirect, direct Devices and Team links, visitor denial, persistent header and access connection, path navigation, browser back and forward, and unknown-route fallback. [Capture UI tests](../../../apps/app/tests/integration/device.test.tsx) cover paired-device entry and visitor denial. Run `pnpm test`. [Access browser journeys](../../../tests/e2e/access.spec.ts) exercise entry, joining, and monitoring-mode navigation against the built app.
 
 ## Decisions and sources
+
+[Issue #86](https://github.com/KenEzekiel/lookout-ai/issues/86) adds device-mode entry in the shared member header while retaining the owner-only **This browser** card introduced by [PR #84](https://github.com/KenEzekiel/lookout-ai/pull/84). Model the Domain keeps role-dependent header entry in one component using the existing `Member` shape. Both owner shortcuts use the existing activation dialog and endpoint. Owner-approved operator pairing, capture entry, and device restrictions retain their existing endpoints and permissions.
 
 The current PR implements Ken’s approved browser-card mockup and request to restore and emphasize connected-device Live view. Existing access and peer behavior is preserved. Complete-screen access integration tests cover activation confirmation/cancellation, role restrictions, viewing entry/retry/close, and removal of viewing access after revocation. Manual QA results belong in the PR.
 
