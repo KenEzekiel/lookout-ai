@@ -1,3 +1,4 @@
+import { Bell, BellOff, LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { message, mutate, request } from "@/lib/api";
@@ -145,6 +146,8 @@ export function PushSetup() {
                 : "Background alerts are off for this browser session."}
             </output>
             <Button
+              size="sm"
+              icon={pending ? LoaderCircle : setup.enabled ? BellOff : Bell}
               className="w-fit"
               variant="outline"
               disabled={pending}
