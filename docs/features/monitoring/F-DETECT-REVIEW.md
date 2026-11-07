@@ -14,6 +14,8 @@ Start monitoring an assigned source and rule. Show assessment failures rather th
 
 ## Wiring and compatibility
 
+F-RULE-CONFIG now publishes [versioned rule snapshots](../../../apps/app/src/lib/rules.ts) through `GET /api/config/device`, including disabled rules. The future device loop must stop disabled versions, use `conditionText` for template/custom text, and report `sourceId`, rule `id`, and `version`. Receiving a snapshot alone is not assessment readiness. This consumer remains unimplemented.
+
 Use the capture session and rule version in reports. Preserve the event interval on confirmation and report before waiting for upload. Repeated observations of an ongoing event update its incident.
 
 ## Implementation

@@ -68,6 +68,10 @@ pull request. If that branch is already checked out, inspect and use its existin
 task worktree when working on that PR. Preserve unrelated changes and other
 active work. Never force a branch into two worktrees.
 
+Other conversations may be working at the same time. Never edit another active
+conversation's worktree or branch. Inspect its status and coordinate ownership
+before continuing an existing PR there.
+
 Resume unfinished work on follow-ups. Use a new feature branch for a new task
 after the previous work is complete. All pull requests target `main`.
 

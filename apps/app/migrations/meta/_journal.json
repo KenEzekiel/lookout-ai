@@ -15,6 +15,13 @@
       "when": 1794026075080,
       "tag": "0001_access",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794028155543,
+      "tag": "0002_rule_configuration",
+      "breakpoints": true
     }
   ]
 }

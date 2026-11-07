@@ -73,4 +73,10 @@ The access slice uses Better Auth for email/password accounts and human sessions
 
 Route adapters load server modules within server handlers. Shared components call same-origin HTTP endpoints. Mutation handlers validate Origin. Credentials stay in HttpOnly cookies, device token hashes stay in D1, and short-code endpoints enforce database-backed attempt limits. No additional auth service or generalized permission framework is introduced.
 
-The current UI confirms device authorization only. Source capture, AI decisions, incident responses, and source configuration remain later slices. The access tests prove that devices cannot call the existing human administration handlers. Each new incident or monitoring handler must add its own integration coverage at the same boundary.
+The access UI confirms device authorization and received configuration. The separate capture station runs local camera or video capture. AI decisions and incident responses remain later slices. Source and rule configuration now use the contract below. The access tests prove that devices cannot call the existing human administration handlers. Each new incident or monitoring handler must add its own integration coverage at the same boundary.
+
+## Implemented configuration boundary
+
+`apps/app/src/lib/rules.ts` owns source and versioned rule schemas. Members use `/triggers` and `/api/config/operator`; paired devices use `/api/config/device`. Sources are named camera/replay metadata, not capture sessions. All devices in a workspace receive the same snapshot, including disabled rule versions. Devices poll every five seconds. This does not acknowledge applied monitoring configuration.
+
+`server/rules.ts` validates source and recipient membership in the same D1 statement that writes the rule. Updates require the last-read version and increment it atomically. Member removal disables and versions dependent rules in its D1 batch. Settings include severity, current member IDs, optional duration, and one follow-up delay to those same recipients. Capture, relay, incident reports, notification delivery, and escalation must consume this contract when implemented. The [feature record](../features/monitoring/F-RULE-CONFIG.md) records endpoint shapes, verification, and remaining wiring.

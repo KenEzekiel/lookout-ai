@@ -8,7 +8,7 @@ The approved identity is **Horizon**: a rising semicircle above a separate horiz
 
 Use cobalt `#3459E6` for primary actions, graphite `#1A1A1D` for the canvas, warm white `#F7F6F2` for foregrounds, and periwinkle `#829AFF` for the mark and links on dark backgrounds. Amber remains an incident color. Access screens use restrained 8 px controls, 12 px list containers, and 24–30 px headings. Keep Geist Variable. Forms sit directly on the canvas; dialogs are raised surfaces.
 
-The access shell has a small wordmark, the workspace name without a dropdown, Devices and Team navigation links, and account sign-out. Devices is the default destination; the `view` search parameter preserves Team navigation through reload and browser history. On narrow screens navigation wraps below the header, workspace names can wrap, and row actions remain readable.
+The access shell has a small wordmark, the workspace name without a dropdown, Devices, Team, and Triggers navigation links, and account sign-out. Devices is the default destination; the `view` search parameter preserves Team navigation through reload and browser history. On narrow screens navigation wraps below the header, workspace names can wrap, and row actions remain readable.
 
 Sign-in offers a secondary **Set up this device** link for password-free pairing. Signup explains the current password-reset limitation beside the password field. New accounts get one workspace-creation form and a secondary invitation-code action. Invitation links lead to joining directly; invalid links or codes have recovery actions without losing the account.
 

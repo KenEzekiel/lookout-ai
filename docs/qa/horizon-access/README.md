@@ -1,8 +1,10 @@
 # Horizon access UI verification
 
-Verified the production build for this PR on top of `main` at `9f716e1`, using Chromium through Playwright. The browser server used Wrangler's Worker harness, real migrations, and isolated temporary D1 storage at `http://127.0.0.1:4173`. Test users Alex Lane and Taylor Reed and workspace Westside studio were created through visible forms. No HTTP or service mocks were used in this manual run.
+Verified the production build for this PR with `main` through `7b78114`, using Chromium through Playwright. The browser server used Wrangler's Worker harness, real migrations, and isolated temporary D1 storage at `http://127.0.0.1:4173`. Test users Alex Lane and Taylor Reed and workspace Westside studio were created through visible forms. No HTTP or service mocks were used in this manual run.
 
 ## Observed journeys
+
+- Checked the merged trigger feature: navigated Devices → Triggers → Team, created a source and fall trigger, then switched to device mode and received enabled version 1. Desktop and 390-pixel layouts showed no page errors or horizontal overflow. [Merged Triggers](triggers-merged.png) and [mobile device configuration](configuration-merged-mobile.png).
 
 - Signed up and created a workspace. The focused onboarding form led to Devices. [Sign-in](sign-in.png) and [onboarding](onboarding.png).
 - Opened Add device using Enter. Focus moved to Device name; Escape returned focus to Add device. Tab stayed within the open dialog.
@@ -17,7 +19,7 @@ Verified the production build for this PR on top of `main` at `9f716e1`, using C
 
 ## Automated checks
 
-- `pnpm verify` passed: formatting, lint, comment policy, types, feature records, dependency boundaries, 16 app UI tests, 8 API tests, 80 Oracle tests, 7 pitch-deck tests, harness validation, and production builds.
+- `pnpm verify` passed: formatting, lint, comment policy, types, feature records, dependency boundaries, 22 app UI tests, 13 API tests, 92 Oracle tests, 7 pitch-deck tests, harness validation, and production builds.
 - `pnpm exec playwright test` passed all three checks, including separate owner/operator/device sessions, membership removal, revocation, cross-tab switching, capture entry, and reloads.
 - UI integration tests use MSW at the HTTP boundary. API tests and browser checks use the real Worker and isolated D1 storage.
 

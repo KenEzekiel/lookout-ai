@@ -3,10 +3,15 @@
 Oracle receives mentions and direct messages from verified members of its connected
 Slack workspace, then follows replies in threads it owns. Bots, external workspace
 members, edits, and ambient channel messages do not start work. The former
-`SLACK_ALLOWED_USER_IDS` setting is no longer used. Every session runs in its own visible T3 Code thread. One global
-FIFO keeps Oracle's project turns serial. Exact `stop`, `cancel`, or `abort` requests
-abort active work and cancel queued work for that conversation. A fresh direct
-request resumes a stopped conversation.
+`SLACK_ALLOWED_USER_IDS` setting is no longer used. Every session runs in its own
+visible T3 Code thread. Up to 24 conversations run concurrently by default, with
+one active turn per conversation and ordered follow-ups. Set
+`ORACLE_MAX_CONCURRENT_SESSIONS` in `oracle/.env` to an integer from 1 to 128 to
+change the limit. Requests beyond the active limit wait in the existing bounded
+queue. CI-waiting conversations release their execution slots and retain their
+place ahead of their own follow-ups. They do not stop unrelated ready work.
+Exact `stop`, `cancel`, or `abort` requests abort active work and cancel queued
+work only for that conversation. A fresh direct request resumes it.
 
 Each accepted request posts an acknowledgment with a **Stop Oracle** button in
 its Slack thread before coding starts. Verified workspace teammates can click it
@@ -32,10 +37,10 @@ Oxlint, and Oxfmt tooling and shared lockfile. From the repository root, run
 `pnpm oracle` to start the dispatcher and `pnpm check` to verify the monorepo.
 Tests use fake T3 and Slack adapters and a local HTTP fixture.
 
-Oracle always requests high reasoning effort for the configured T3 model. It pins
-high effort on new threads and reapplies it before every coding turn, including
-saved conversations. If T3 cannot acknowledge the setting, Oracle does not send the
-coding request.
+Oracle always requests high reasoning effort and fast mode for the configured T3
+model. It pins `reasoningEffort=high` and `serviceTier=priority` on new threads and
+reapplies both before every coding turn, including saved conversations. If T3
+cannot acknowledge the settings, Oracle does not send the coding request.
 
 Run the service from `.worktree/oracle` on branch `oracle`. Set `ORACLE_WORKSPACE`
 in that checkout's `oracle/.env` to the absolute runtime worktree path. It must
@@ -58,7 +63,7 @@ already checked out there. It preserves unrelated changes and active work.
 Only the runtime `oracle` branch and the primary `main` checkout are reserved.
 
 The workspace owner fetches `origin/main` before every coding turn and every 30
-seconds while idle. It applies an update only after the `Verify` workflow succeeds
+seconds in the background. It applies an update only after the `Verify` workflow succeeds
 for that exact commit on `main`. CI already runs on pull requests and pushes to
 `main`, including merges. Pending, failed, missing, or unreadable checks leave the
 current checkout in place. Coding requests wait when a newer commit is unverified.
@@ -67,9 +72,12 @@ Oracle saves the original request, acknowledges the wait once, and retries every
 Users do not need to resend. Waiting does not consume the coding turn timeout.
 Logs identify the main commit and whether the checkout is current or waiting for CI.
 
-Sync and complete coding turns share one queue, so Git never updates files during
-a turn. Local commits survive merges. Dirty files defer an update, and conflicting
-merges are aborted. Slack reports runtime dirty files, merge conflicts, and a
+Runtime sync and task-worktree preparation share a short Git queue. Coding turns
+run outside that queue in their separate worktrees. Each new worktree starts at
+the exact verified main commit captured during preparation. Updating the runtime
+never updates an active task's files. Local runtime commits survive merges. Dirty
+runtime files defer an update, and conflicting merges are aborted. Slack reports
+runtime dirty files, merge conflicts, and a
 changed runtime branch with the maintainer action needed before a fresh request.
 Task worktree edits do not block runtime updates. The primary checkout and `main`
 are reserved for the maintainer. Feature changes use short-lived branches and PRs.
@@ -167,8 +175,11 @@ Enable the app's Agents feature for the native processing indicator. Oracle uses
 [Slack agent guide](https://docs.slack.dev/ai/developing-agents/).
 
 `pnpm oracle` supervises the dispatcher. Source and configuration changes trigger
-an automatic restart once their contents settle and accepted work finishes. The
-supervisor starts a replacement only after the old process exits and releases its
+an automatic restart once their contents settle and active turns finish. The
+dispatcher stops starting new turns while draining. It still persists incoming
+requests, and queued requests resume after the restart. New arrivals cannot keep
+the old process running indefinitely. Startup logs include the concurrency limit.
+The supervisor starts a replacement only after the old process exits and releases its
 lock. A failure or uncertain backend shutdown stops the service rather than
 restarting over a potentially active coding turn. Runtime state and logs do not
 trigger reloads. Install changed dependencies before expecting new code to start.

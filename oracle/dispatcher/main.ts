@@ -96,15 +96,10 @@ async function main(): Promise<void> {
   });
   oracle = await createOracle({
     sessions,
-    runner: {
-      recover: async () => {
-        await runner.recover?.();
-      },
-      run: (args) => workspace.run(() => runner.run(args)),
-    },
+    runner,
     publish: slack.publish,
     setStatus: slack.setStatus,
-    limits: defaultLimits,
+    limits: { ...defaultLimits, maxConcurrentSessions: config.maxConcurrentSessions },
     onFault,
   });
   await syncWorkspace();
@@ -128,7 +123,7 @@ async function main(): Promise<void> {
       reloading = true;
       log("oracle_reload_requested");
       void (async () => {
-        await oracle?.idle();
+        await oracle?.drain();
         if (closing) return;
         await slack?.close();
         await oracle?.idle();
@@ -142,6 +137,9 @@ async function main(): Promise<void> {
     },
   });
   log("oracle_listening");
+  process.stderr.write(
+    `${JSON.stringify({ event: "oracle_concurrency", maxConcurrentSessions: config.maxConcurrentSessions })}\n`,
+  );
   process.stderr.write(
     `${JSON.stringify({ event: "oracle_backend", instanceId: config.t3.instanceId, model: config.t3.model })}\n`,
   );

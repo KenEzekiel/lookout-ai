@@ -211,7 +211,7 @@ test("device approval errors preserve fields and a cancelled device switch keeps
       };
       return HttpResponse.json({ status: "paired" });
     }),
-    http.get("/api/access/devices/status", () => HttpResponse.json(principal)),
+    http.get("/api/config/device", () => HttpResponse.json({ sources: [], rules: [] })),
   );
   const user = await open();
   await user.click(await screen.findByRole("button", { name: "Add device" }));

@@ -14,6 +14,8 @@ Configure delay and destination with the rule. Inspect the due follow-up in the 
 
 ## Wiring and compatibility
 
+F-RULE-CONFIG now stores [recipient IDs and escalation delay](../../../apps/app/src/lib/rules.ts) in the rule definition. The delay is 1 to 3600 whole seconds. The demo policy is one follow-up to the same configured recipients. The future incident/escalation implementation must derive this policy from the authoritative rule version; saving it does not schedule or deliver a notification.
+
 Use authoritative shared incident state and the configured policy. Handle retries and restarts without duplicate follow-up attempts. Cancellation must agree across operator devices.
 
 ## Implementation

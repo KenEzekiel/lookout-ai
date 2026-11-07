@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type Principal, principalSchema } from "@/lib/access";
 import { mutate, request, message } from "@/lib/api";
+import { RuleWorkspace } from "@/components/rules/workspace";
 import { DeviceScreen } from "@/components/device-screen";
 import { Account } from "./account";
 import { Brand } from "./brand";
@@ -13,11 +14,13 @@ import { ActionForm, Panel } from "./forms";
 export function AccessApp({
   pairing = false,
   capture = false,
+  triggers = false,
   invitation,
   view = "devices",
 }: {
   pairing?: boolean;
   capture?: boolean;
+  triggers?: boolean;
   invitation?: string;
   view?: "devices" | "team";
 }) {
@@ -88,18 +91,25 @@ export function AccessApp({
               <Link
                 to="/"
                 search={{ view: "devices" }}
-                aria-current={view === "devices" ? "page" : undefined}
-                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${view === "devices" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
+                aria-current={!triggers && view === "devices" ? "page" : undefined}
+                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${!triggers && view === "devices" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
               >
                 Devices
               </Link>
               <Link
                 to="/"
                 search={{ view: "team" }}
-                aria-current={view === "team" ? "page" : undefined}
-                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${view === "team" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
+                aria-current={!triggers && view === "team" ? "page" : undefined}
+                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${!triggers && view === "team" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
               >
                 Team
+              </Link>
+              <Link
+                to="/triggers"
+                aria-current={triggers ? "page" : undefined}
+                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${triggers ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
+              >
+                Triggers
               </Link>
             </nav>
           )}
@@ -175,6 +185,10 @@ export function AccessApp({
               await navigate({ to: "/", search: { view: "devices" }, replace: true });
             }}
           />
+        ) : triggers ? (
+          <section className="py-8 sm:py-12">
+            <RuleWorkspace key={actor.workspaceId} />
+          </section>
         ) : (
           <>
             <p className="mt-5 break-words text-sm text-muted-foreground sm:hidden">
