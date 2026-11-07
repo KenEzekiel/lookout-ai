@@ -9,7 +9,7 @@ import { createSessionStore } from "../session/index.js";
 import { defaultLimits } from "../session/domain.js";
 import { createT3Runner } from "../session/run.js";
 import { createWorkspace } from "../session/workspace.js";
-import { deferred, directory, input, testNow } from "./helpers.js";
+import { deferred, directory, input, testNow, untilAborted } from "./helpers.js";
 
 const execute = promisify(execFile);
 const workspaceFor = (root: string) =>
@@ -394,6 +394,118 @@ test("a Slack request uses latest main without waiting for CI", async (t) => {
   await oracle.idle();
   assert.deepEqual(replies, ["Answered without waiting for CI"]);
   assert.equal(sessions.snapshot(request.address)?.events[0]?.status, "completed");
+});
+
+test("reload cancels the old run and resumes it once in the same T3 thread and worktree", async (t) => {
+  const { worktree, advance } = await fixture(t);
+  const workspace = workspaceFor(worktree);
+  const storeOptions = { directory: await directory(t), limits: defaultLimits, now: () => testNow };
+  const entered = deferred<void>();
+  const sends: { requestId: string; message: string; threadId: string }[] = [];
+  const replies: string[] = [];
+  let boundPath: string | undefined;
+  let activeRun: string | null = null;
+  let launches = 0;
+  let stops = 0;
+  let build = "old build";
+  const client: Parameters<typeof createT3Runner>[0]["client"] = {
+    launch: async ({ workspace: path }) => {
+      launches++;
+      boundPath = path;
+      return { threadId: "reload-thread", projectId: "project", runId: null };
+    },
+    read: async () => ({
+      threadId: "reload-thread",
+      projectId: "project",
+      status: activeRun ? "running" : "idle",
+      activeRunId: activeRun,
+      latestRunId: activeRun,
+      pendingRequestCount: 0,
+      worktreePath: boundPath ?? null,
+    }),
+    send: async ({ threadId, requestId, message }) => {
+      assert.equal(activeRun, null);
+      assert.ok(boundPath);
+      sends.push({ requestId, message, threadId });
+      activeRun = `reload-run-${sends.length}`;
+      if (sends.length === 1) await writeFile(join(boundPath, "progress.txt"), "completed step\n");
+      else
+        assert.equal(await readFile(join(boundPath, "progress.txt"), "utf8"), "completed step\n");
+      return { threadId, runId: activeRun, delivery: "started" };
+    },
+    finish: async ({ signal }) => {
+      if (sends.length === 1) {
+        entered.resolve();
+        await untilAborted(signal);
+        return { kind: "ended", status: "interrupted" };
+      }
+      activeRun = null;
+      return {
+        kind: "completed",
+        reply: JSON.stringify({ kind: "reply", text: "Finished on new build" }),
+      };
+    },
+    stopAndDrain: async () => {
+      stops++;
+      activeRun = null;
+    },
+  };
+  const create = async () => {
+    const sessions = createSessionStore(storeOptions);
+    const runner = createT3Runner({
+      client,
+      sessions,
+      projectId: "project",
+      instanceId: "instance",
+      model: "model",
+      workspace: workspace.task,
+      policy: async () => build,
+      context: async () => ({ kind: "unavailable" }),
+      profiles: async () => ({
+        users: [],
+        unresolved: [],
+        mappings: "available",
+        truncated: false,
+      }),
+    });
+    const oracle = await createOracle({
+      sessions,
+      runner,
+      limits: defaultLimits,
+      now: () => testNow,
+      publish: async (_, text) => {
+        replies.push(text);
+      },
+    });
+    t.after(() => oracle.close());
+    return { oracle, sessions };
+  };
+  const old = await create();
+  const request = input("Finish the task");
+  const followup = input("Then check the result", { address: request.address, route: "thread" });
+  await old.oracle.receive(request);
+  await entered.promise;
+  await old.oracle.receive(followup);
+  const originalPath = boundPath;
+  await old.oracle.close("reload");
+  assert.ok(stops > 0);
+  assert.equal(activeRun, null);
+  await advance("new build\n");
+  build = "new build";
+  const next = await create();
+  next.oracle.retryPending();
+  next.oracle.retryPending();
+  await next.oracle.idle();
+  assert.equal(sends.length, 3);
+  assert.equal(launches, 1);
+  assert.equal(boundPath, originalPath);
+  assert.ok(sends.every((sent) => sent.threadId === "reload-thread"));
+  assert.equal(new Set(sends.map((sent) => sent.requestId)).size, 3);
+  assert.ok(sends[1]?.message.startsWith("new build"));
+  assert.deepEqual(replies, ["Finished on new build", "Finished on new build"]);
+  assert.equal(await next.oracle.receive(request), "duplicate");
+  assert.equal(sends.length, 3);
+  assert.deepEqual(next.sessions.pending(), []);
 });
 
 test("a concurrent fetch cannot substitute an unverified commit after the CI check", async (t) => {
