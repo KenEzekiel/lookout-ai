@@ -8,6 +8,13 @@ Lookout is an AI-assisted visual monitoring and incident-response project. Users
 
 Think PagerDuty for visual events. Traffic is one use case; the product is designed around configurable rules rather than a single incident category.
 
+## Two clients
+
+- **Operator:** define incidents, configure roles and alert recipients, receive incidents, replay evidence and respond.
+- **Operational device:** connect CCTV/video/playback and keep monitoring active. Run the decision loop and upload video snippets only when an incident triggers.
+
+The incident path is **operational device → server → operator**. Option A, device-owned Decisions API orchestration, is the default; server-owned assessment of uploaded snippets is deferred. Non-triggered footage is not retained by Lookout. A stateless authenticated relay is recommended for browser API-key protection, with results returned to the device.
+
 ## Product direction and current status
 
 The hackathon demos target a **prerecorded car crash** and a **person falling in real time**, safely staged with a consenting participant. Both should use the same response flow:
