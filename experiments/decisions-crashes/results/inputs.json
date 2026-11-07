@@ -1,0 +1,680 @@
+{
+  "ffmpeg_version": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "jobs": [
+    {
+      "clip": "crash-tbone",
+      "expected": "crash",
+      "source_onset_seconds": 1.0,
+      "window_start": 0.0,
+      "window_end": 3.5,
+      "frames": [
+        "sampled/crash-tbone/0001.jpg",
+        "sampled/crash-tbone/0002.jpg",
+        "sampled/crash-tbone/0003.jpg",
+        "sampled/crash-tbone/0004.jpg",
+        "sampled/crash-tbone/0005.jpg",
+        "sampled/crash-tbone/0006.jpg",
+        "sampled/crash-tbone/0007.jpg",
+        "sampled/crash-tbone/0008.jpg"
+      ],
+      "frame_sha256": [
+        "3a8755f6adbb95b46a8088d42cc49b669f977989720e3eb86fa34bb7ef44d4c4",
+        "9e638a0b54a7d2c6224510e261257d71e39370936262577a17c7200494be96d5",
+        "9ae73df334c9c07e9fa32182a16f997176cb86582c847a51bf13013bc565a267",
+        "72476546b3b19a6a1e6145a81f27ab5f6e0a83cec19037eda02f5cb4c28c5014",
+        "359b353be47bfc1e7685e110bb6a71c8613151675ef4cc37b4595419f244e149",
+        "b9c8d0ff377334c3b8aeaadf6810e921b1a18c20df89c71cfcafecbfaec82c8d",
+        "a8632d81587ed6cdc3bd8e7e02440a8c7f48dffe7ee9ee670f7fba5d4f6e4697",
+        "15866401b021fc33a3c90f28e868c37c71482ee10246e0c32f6bbe9734d0c267"
+      ]
+    },
+    {
+      "clip": "crash-tbone",
+      "expected": "crash",
+      "source_onset_seconds": 1.0,
+      "window_start": 1.0,
+      "window_end": 4.5,
+      "frames": [
+        "sampled/crash-tbone/0003.jpg",
+        "sampled/crash-tbone/0004.jpg",
+        "sampled/crash-tbone/0005.jpg",
+        "sampled/crash-tbone/0006.jpg",
+        "sampled/crash-tbone/0007.jpg",
+        "sampled/crash-tbone/0008.jpg",
+        "sampled/crash-tbone/0009.jpg",
+        "sampled/crash-tbone/0010.jpg"
+      ],
+      "frame_sha256": [
+        "9ae73df334c9c07e9fa32182a16f997176cb86582c847a51bf13013bc565a267",
+        "72476546b3b19a6a1e6145a81f27ab5f6e0a83cec19037eda02f5cb4c28c5014",
+        "359b353be47bfc1e7685e110bb6a71c8613151675ef4cc37b4595419f244e149",
+        "b9c8d0ff377334c3b8aeaadf6810e921b1a18c20df89c71cfcafecbfaec82c8d",
+        "a8632d81587ed6cdc3bd8e7e02440a8c7f48dffe7ee9ee670f7fba5d4f6e4697",
+        "15866401b021fc33a3c90f28e868c37c71482ee10246e0c32f6bbe9734d0c267",
+        "d21432ef3b04ebcdb0bf8890e07b0fa54b094862630fb801403d8abe0f8be0d3",
+        "364a546f5646a24df0aa448f4171c9dc01b70ef835606e146cef00a60eab6237"
+      ]
+    },
+    {
+      "clip": "crash-tbone",
+      "expected": "crash",
+      "source_onset_seconds": 1.0,
+      "window_start": 2.0,
+      "window_end": 5.5,
+      "frames": [
+        "sampled/crash-tbone/0005.jpg",
+        "sampled/crash-tbone/0006.jpg",
+        "sampled/crash-tbone/0007.jpg",
+        "sampled/crash-tbone/0008.jpg",
+        "sampled/crash-tbone/0009.jpg",
+        "sampled/crash-tbone/0010.jpg",
+        "sampled/crash-tbone/0011.jpg",
+        "sampled/crash-tbone/0012.jpg"
+      ],
+      "frame_sha256": [
+        "359b353be47bfc1e7685e110bb6a71c8613151675ef4cc37b4595419f244e149",
+        "b9c8d0ff377334c3b8aeaadf6810e921b1a18c20df89c71cfcafecbfaec82c8d",
+        "a8632d81587ed6cdc3bd8e7e02440a8c7f48dffe7ee9ee670f7fba5d4f6e4697",
+        "15866401b021fc33a3c90f28e868c37c71482ee10246e0c32f6bbe9734d0c267",
+        "d21432ef3b04ebcdb0bf8890e07b0fa54b094862630fb801403d8abe0f8be0d3",
+        "364a546f5646a24df0aa448f4171c9dc01b70ef835606e146cef00a60eab6237",
+        "1b2c7e57b2276a2a671e02bdcec2cd36668bcf04be1ab12512bfd9125dc9b6a0",
+        "9c489df1812c5791dcfbe4470a6295809d8368f4e943e329c16b2f856c3f1fc8"
+      ]
+    },
+    {
+      "clip": "crash-headon",
+      "expected": "crash",
+      "source_onset_seconds": 3.0,
+      "window_start": 0.0,
+      "window_end": 3.5,
+      "frames": [
+        "sampled/crash-headon/0001.jpg",
+        "sampled/crash-headon/0002.jpg",
+        "sampled/crash-headon/0003.jpg",
+        "sampled/crash-headon/0004.jpg",
+        "sampled/crash-headon/0005.jpg",
+        "sampled/crash-headon/0006.jpg",
+        "sampled/crash-headon/0007.jpg",
+        "sampled/crash-headon/0008.jpg"
+      ],
+      "frame_sha256": [
+        "1457fcb6c51c0f62e16c45b78b7300fd71de83ad18acee682146a263c529e5c2",
+        "d8720155f23f8a96223ba2d386afe3724f98ce95ca73af8b18ecbab5acc956a9",
+        "34c56b7fbaca3a34917347d8cd4892f1fae2a87f194c6147cafa66fa24c213c4",
+        "15d1378a75d21436b0c7ac8f9aafbcdee703091950e16db861ed311927d77417",
+        "2595f1505fa5591df7aadfb159aacf4e26c4b24d141a8f7fafcfa1120a6ea056",
+        "cb77f64993f38991c50401a6f9b481ee7a09433b7920b3d66dcaba2a998d687e",
+        "8d4a5adba2c883684aa0804e849a97e3bc846cce7d52a816f50db43856020528",
+        "df481a0831942bf81e0c6401b4d0b1af38e93448a93277fdc0fa98a111fc1ebb"
+      ]
+    },
+    {
+      "clip": "crash-headon",
+      "expected": "crash",
+      "source_onset_seconds": 3.0,
+      "window_start": 1.0,
+      "window_end": 4.5,
+      "frames": [
+        "sampled/crash-headon/0003.jpg",
+        "sampled/crash-headon/0004.jpg",
+        "sampled/crash-headon/0005.jpg",
+        "sampled/crash-headon/0006.jpg",
+        "sampled/crash-headon/0007.jpg",
+        "sampled/crash-headon/0008.jpg",
+        "sampled/crash-headon/0009.jpg",
+        "sampled/crash-headon/0010.jpg"
+      ],
+      "frame_sha256": [
+        "34c56b7fbaca3a34917347d8cd4892f1fae2a87f194c6147cafa66fa24c213c4",
+        "15d1378a75d21436b0c7ac8f9aafbcdee703091950e16db861ed311927d77417",
+        "2595f1505fa5591df7aadfb159aacf4e26c4b24d141a8f7fafcfa1120a6ea056",
+        "cb77f64993f38991c50401a6f9b481ee7a09433b7920b3d66dcaba2a998d687e",
+        "8d4a5adba2c883684aa0804e849a97e3bc846cce7d52a816f50db43856020528",
+        "df481a0831942bf81e0c6401b4d0b1af38e93448a93277fdc0fa98a111fc1ebb",
+        "90ff30be77fe16ea6fde347b8037e039f4353e45852d08d511c4461e43243390",
+        "bb708c62af559351783c69011a5c30e75f123271477dcbbb896fc36925dae75e"
+      ]
+    },
+    {
+      "clip": "crash-headon",
+      "expected": "crash",
+      "source_onset_seconds": 3.0,
+      "window_start": 2.0,
+      "window_end": 5.5,
+      "frames": [
+        "sampled/crash-headon/0005.jpg",
+        "sampled/crash-headon/0006.jpg",
+        "sampled/crash-headon/0007.jpg",
+        "sampled/crash-headon/0008.jpg",
+        "sampled/crash-headon/0009.jpg",
+        "sampled/crash-headon/0010.jpg",
+        "sampled/crash-headon/0011.jpg",
+        "sampled/crash-headon/0012.jpg"
+      ],
+      "frame_sha256": [
+        "2595f1505fa5591df7aadfb159aacf4e26c4b24d141a8f7fafcfa1120a6ea056",
+        "cb77f64993f38991c50401a6f9b481ee7a09433b7920b3d66dcaba2a998d687e",
+        "8d4a5adba2c883684aa0804e849a97e3bc846cce7d52a816f50db43856020528",
+        "df481a0831942bf81e0c6401b4d0b1af38e93448a93277fdc0fa98a111fc1ebb",
+        "90ff30be77fe16ea6fde347b8037e039f4353e45852d08d511c4461e43243390",
+        "bb708c62af559351783c69011a5c30e75f123271477dcbbb896fc36925dae75e",
+        "7c199dea6936b01cce94287953742dbabe195f1e4b03f751de9736c3628dfa4b",
+        "5c6735cc8bd37528cfe50d31e9144ec76f67335579114e37aca22b098670c754"
+      ]
+    },
+    {
+      "clip": "crash-headon",
+      "expected": "crash",
+      "source_onset_seconds": 3.0,
+      "window_start": 3.0,
+      "window_end": 6.5,
+      "frames": [
+        "sampled/crash-headon/0007.jpg",
+        "sampled/crash-headon/0008.jpg",
+        "sampled/crash-headon/0009.jpg",
+        "sampled/crash-headon/0010.jpg",
+        "sampled/crash-headon/0011.jpg",
+        "sampled/crash-headon/0012.jpg",
+        "sampled/crash-headon/0013.jpg",
+        "sampled/crash-headon/0014.jpg"
+      ],
+      "frame_sha256": [
+        "8d4a5adba2c883684aa0804e849a97e3bc846cce7d52a816f50db43856020528",
+        "df481a0831942bf81e0c6401b4d0b1af38e93448a93277fdc0fa98a111fc1ebb",
+        "90ff30be77fe16ea6fde347b8037e039f4353e45852d08d511c4461e43243390",
+        "bb708c62af559351783c69011a5c30e75f123271477dcbbb896fc36925dae75e",
+        "7c199dea6936b01cce94287953742dbabe195f1e4b03f751de9736c3628dfa4b",
+        "5c6735cc8bd37528cfe50d31e9144ec76f67335579114e37aca22b098670c754",
+        "ee10c7454a8fbfc0ddbdfcd27aa92c2b57a49776b7eb920c8ebf2b1ae357768a",
+        "af349fb03740c44bcb8e1c3cdb22dabf71975edfab31f97a7ccc1f3ffa8aa20d"
+      ]
+    },
+    {
+      "clip": "crash-headon",
+      "expected": "crash",
+      "source_onset_seconds": 3.0,
+      "window_start": 4.0,
+      "window_end": 7.5,
+      "frames": [
+        "sampled/crash-headon/0009.jpg",
+        "sampled/crash-headon/0010.jpg",
+        "sampled/crash-headon/0011.jpg",
+        "sampled/crash-headon/0012.jpg",
+        "sampled/crash-headon/0013.jpg",
+        "sampled/crash-headon/0014.jpg",
+        "sampled/crash-headon/0015.jpg",
+        "sampled/crash-headon/0016.jpg"
+      ],
+      "frame_sha256": [
+        "90ff30be77fe16ea6fde347b8037e039f4353e45852d08d511c4461e43243390",
+        "bb708c62af559351783c69011a5c30e75f123271477dcbbb896fc36925dae75e",
+        "7c199dea6936b01cce94287953742dbabe195f1e4b03f751de9736c3628dfa4b",
+        "5c6735cc8bd37528cfe50d31e9144ec76f67335579114e37aca22b098670c754",
+        "ee10c7454a8fbfc0ddbdfcd27aa92c2b57a49776b7eb920c8ebf2b1ae357768a",
+        "af349fb03740c44bcb8e1c3cdb22dabf71975edfab31f97a7ccc1f3ffa8aa20d",
+        "9500579a70c55883d0b5982d75806eb7e13d126ff7856929fcb9b1d26ade5dd1",
+        "7738f58e7835a1ebe1235b93db5f65e6279c4e0700fc9e69e3c404c45492b4ef"
+      ]
+    },
+    {
+      "clip": "crash-rearend",
+      "expected": "crash",
+      "source_onset_seconds": 1.0,
+      "window_start": 0.0,
+      "window_end": 3.5,
+      "frames": [
+        "sampled/crash-rearend/0001.jpg",
+        "sampled/crash-rearend/0002.jpg",
+        "sampled/crash-rearend/0003.jpg",
+        "sampled/crash-rearend/0004.jpg",
+        "sampled/crash-rearend/0005.jpg",
+        "sampled/crash-rearend/0006.jpg",
+        "sampled/crash-rearend/0007.jpg",
+        "sampled/crash-rearend/0008.jpg"
+      ],
+      "frame_sha256": [
+        "d4374106068043ff992fba4a17e1405dbd3fbda1a1819fe2e1cf46c4a4b08cf6",
+        "45b7937aa93ffe604d75c06929052a2f75fb004d274f35b7f485812b94238965",
+        "5595de3a3a62a882d3dbdf991650c03ce77d5e97ab9466c8465cddf1944a4600",
+        "3b2337866cb8b8f23b104cccfd4d976406b1de189b3a947591784bba3c9bec2f",
+        "0744259a11146dea9178cfd36fcbc886a068760a3a12b09764f1586fc47b6859",
+        "5335ddfe9df696edf357c253238aee2892db0273cd981a9e59320c96325ce2ea",
+        "20db4d7e0e496ee19b74f791146ebddb6ca23d0a9903a6f62064df15cae84e2f",
+        "174103f5e67b40b9f0517af330c33b5a3df72f1b56ed8379813c69d8e7b0c950"
+      ]
+    },
+    {
+      "clip": "crash-rearend",
+      "expected": "crash",
+      "source_onset_seconds": 1.0,
+      "window_start": 1.0,
+      "window_end": 4.5,
+      "frames": [
+        "sampled/crash-rearend/0003.jpg",
+        "sampled/crash-rearend/0004.jpg",
+        "sampled/crash-rearend/0005.jpg",
+        "sampled/crash-rearend/0006.jpg",
+        "sampled/crash-rearend/0007.jpg",
+        "sampled/crash-rearend/0008.jpg",
+        "sampled/crash-rearend/0009.jpg",
+        "sampled/crash-rearend/0010.jpg"
+      ],
+      "frame_sha256": [
+        "5595de3a3a62a882d3dbdf991650c03ce77d5e97ab9466c8465cddf1944a4600",
+        "3b2337866cb8b8f23b104cccfd4d976406b1de189b3a947591784bba3c9bec2f",
+        "0744259a11146dea9178cfd36fcbc886a068760a3a12b09764f1586fc47b6859",
+        "5335ddfe9df696edf357c253238aee2892db0273cd981a9e59320c96325ce2ea",
+        "20db4d7e0e496ee19b74f791146ebddb6ca23d0a9903a6f62064df15cae84e2f",
+        "174103f5e67b40b9f0517af330c33b5a3df72f1b56ed8379813c69d8e7b0c950",
+        "ba4305a6737179251a76102f0ea5b52823b0a39036071b1db82fc1d5a2dac6cf",
+        "d9b02ceec6b2f47876334a1f40800a5aaf1fee4815bd5baa8eeeaf6227e1214e"
+      ]
+    },
+    {
+      "clip": "crash-sideswipe",
+      "expected": "crash",
+      "source_onset_seconds": 4.0,
+      "window_start": 0.0,
+      "window_end": 3.5,
+      "frames": [
+        "sampled/crash-sideswipe/0001.jpg",
+        "sampled/crash-sideswipe/0002.jpg",
+        "sampled/crash-sideswipe/0003.jpg",
+        "sampled/crash-sideswipe/0004.jpg",
+        "sampled/crash-sideswipe/0005.jpg",
+        "sampled/crash-sideswipe/0006.jpg",
+        "sampled/crash-sideswipe/0007.jpg",
+        "sampled/crash-sideswipe/0008.jpg"
+      ],
+      "frame_sha256": [
+        "62b695c42406bf15b5e9ce146bd1ad3b887a6206bf794efedbd8d2c5eb367545",
+        "5db9a04dc460bd023c26d3ad1b6428c58bc1744cb977ba2a36f5721165437cac",
+        "4c1176da5f9cce26341401e1b874ddcdc244f09d3f443bceaee95586d7de8466",
+        "adf5155de4494d1660bb1a8540617d1c0951d7c850226382054e1866e31b8d97",
+        "b098b53ea160c8a98c695d713d84502f3aadcd2e7648a6f914af32b6926f15f6",
+        "ad5ad1f9bbffe25f5a26ac3127dd17d60f5122c1835cfb381205e096eed02f1c",
+        "800b9f4efbcb985f53b7c60cfe958276708312ab17ddf1b5a3cb0faf876d8e9b",
+        "c93f2939d8748c77f72428c045337db240338330a3ef7dcc1f3f49f0b28762e8"
+      ]
+    },
+    {
+      "clip": "crash-sideswipe",
+      "expected": "crash",
+      "source_onset_seconds": 4.0,
+      "window_start": 1.0,
+      "window_end": 4.5,
+      "frames": [
+        "sampled/crash-sideswipe/0003.jpg",
+        "sampled/crash-sideswipe/0004.jpg",
+        "sampled/crash-sideswipe/0005.jpg",
+        "sampled/crash-sideswipe/0006.jpg",
+        "sampled/crash-sideswipe/0007.jpg",
+        "sampled/crash-sideswipe/0008.jpg",
+        "sampled/crash-sideswipe/0009.jpg",
+        "sampled/crash-sideswipe/0010.jpg"
+      ],
+      "frame_sha256": [
+        "4c1176da5f9cce26341401e1b874ddcdc244f09d3f443bceaee95586d7de8466",
+        "adf5155de4494d1660bb1a8540617d1c0951d7c850226382054e1866e31b8d97",
+        "b098b53ea160c8a98c695d713d84502f3aadcd2e7648a6f914af32b6926f15f6",
+        "ad5ad1f9bbffe25f5a26ac3127dd17d60f5122c1835cfb381205e096eed02f1c",
+        "800b9f4efbcb985f53b7c60cfe958276708312ab17ddf1b5a3cb0faf876d8e9b",
+        "c93f2939d8748c77f72428c045337db240338330a3ef7dcc1f3f49f0b28762e8",
+        "2b4bf92eebac2448f0bca74af3de42f1e24f342a849eacef3273362ced5fb91a",
+        "8dc21d7b8598889fc9feb82b35fa0bec1c2b8429d139f71dbc9ee81bd71e11e2"
+      ]
+    },
+    {
+      "clip": "crash-sideswipe",
+      "expected": "crash",
+      "source_onset_seconds": 4.0,
+      "window_start": 2.0,
+      "window_end": 5.5,
+      "frames": [
+        "sampled/crash-sideswipe/0005.jpg",
+        "sampled/crash-sideswipe/0006.jpg",
+        "sampled/crash-sideswipe/0007.jpg",
+        "sampled/crash-sideswipe/0008.jpg",
+        "sampled/crash-sideswipe/0009.jpg",
+        "sampled/crash-sideswipe/0010.jpg",
+        "sampled/crash-sideswipe/0011.jpg",
+        "sampled/crash-sideswipe/0012.jpg"
+      ],
+      "frame_sha256": [
+        "b098b53ea160c8a98c695d713d84502f3aadcd2e7648a6f914af32b6926f15f6",
+        "ad5ad1f9bbffe25f5a26ac3127dd17d60f5122c1835cfb381205e096eed02f1c",
+        "800b9f4efbcb985f53b7c60cfe958276708312ab17ddf1b5a3cb0faf876d8e9b",
+        "c93f2939d8748c77f72428c045337db240338330a3ef7dcc1f3f49f0b28762e8",
+        "2b4bf92eebac2448f0bca74af3de42f1e24f342a849eacef3273362ced5fb91a",
+        "8dc21d7b8598889fc9feb82b35fa0bec1c2b8429d139f71dbc9ee81bd71e11e2",
+        "7240ac28a80727cbd916d82cd8118957bfde73d8f38f086c0d552017c84a8924",
+        "ee3391c53f226a2b7f68c63708730e5317ff9a497103adfde21ed128b5316a12"
+      ]
+    },
+    {
+      "clip": "crash-sideswipe",
+      "expected": "crash",
+      "source_onset_seconds": 4.0,
+      "window_start": 3.0,
+      "window_end": 6.5,
+      "frames": [
+        "sampled/crash-sideswipe/0007.jpg",
+        "sampled/crash-sideswipe/0008.jpg",
+        "sampled/crash-sideswipe/0009.jpg",
+        "sampled/crash-sideswipe/0010.jpg",
+        "sampled/crash-sideswipe/0011.jpg",
+        "sampled/crash-sideswipe/0012.jpg",
+        "sampled/crash-sideswipe/0013.jpg",
+        "sampled/crash-sideswipe/0014.jpg"
+      ],
+      "frame_sha256": [
+        "800b9f4efbcb985f53b7c60cfe958276708312ab17ddf1b5a3cb0faf876d8e9b",
+        "c93f2939d8748c77f72428c045337db240338330a3ef7dcc1f3f49f0b28762e8",
+        "2b4bf92eebac2448f0bca74af3de42f1e24f342a849eacef3273362ced5fb91a",
+        "8dc21d7b8598889fc9feb82b35fa0bec1c2b8429d139f71dbc9ee81bd71e11e2",
+        "7240ac28a80727cbd916d82cd8118957bfde73d8f38f086c0d552017c84a8924",
+        "ee3391c53f226a2b7f68c63708730e5317ff9a497103adfde21ed128b5316a12",
+        "91f7298064e79917b0c60c5a11be3c319775a0dbe8f89438ff1075692317adac",
+        "e92b2988b378f0c2918a8b7df80a3d36f5e12a031b6d7acae0f360456fe0733d"
+      ]
+    },
+    {
+      "clip": "crash-sideswipe",
+      "expected": "crash",
+      "source_onset_seconds": 4.0,
+      "window_start": 4.0,
+      "window_end": 7.5,
+      "frames": [
+        "sampled/crash-sideswipe/0009.jpg",
+        "sampled/crash-sideswipe/0010.jpg",
+        "sampled/crash-sideswipe/0011.jpg",
+        "sampled/crash-sideswipe/0012.jpg",
+        "sampled/crash-sideswipe/0013.jpg",
+        "sampled/crash-sideswipe/0014.jpg",
+        "sampled/crash-sideswipe/0015.jpg",
+        "sampled/crash-sideswipe/0016.jpg"
+      ],
+      "frame_sha256": [
+        "2b4bf92eebac2448f0bca74af3de42f1e24f342a849eacef3273362ced5fb91a",
+        "8dc21d7b8598889fc9feb82b35fa0bec1c2b8429d139f71dbc9ee81bd71e11e2",
+        "7240ac28a80727cbd916d82cd8118957bfde73d8f38f086c0d552017c84a8924",
+        "ee3391c53f226a2b7f68c63708730e5317ff9a497103adfde21ed128b5316a12",
+        "91f7298064e79917b0c60c5a11be3c319775a0dbe8f89438ff1075692317adac",
+        "e92b2988b378f0c2918a8b7df80a3d36f5e12a031b6d7acae0f360456fe0733d",
+        "5b71e58219831c22a5bbf48b69b0c9c722670b05ebf20b01792084cae78f33b3",
+        "137508a071bb6b911d347f0501956913960dc9e662ca4838a6a38e2392c19510"
+      ]
+    },
+    {
+      "clip": "normal-highway",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 0.0,
+      "window_end": 3.5,
+      "frames": [
+        "sampled/normal-highway/0001.jpg",
+        "sampled/normal-highway/0002.jpg",
+        "sampled/normal-highway/0003.jpg",
+        "sampled/normal-highway/0004.jpg",
+        "sampled/normal-highway/0005.jpg",
+        "sampled/normal-highway/0006.jpg",
+        "sampled/normal-highway/0007.jpg",
+        "sampled/normal-highway/0008.jpg"
+      ],
+      "frame_sha256": [
+        "26955fe56ec5ecbf10d78c77bee7b793dda9ad432a463c4bf754c176ba621062",
+        "d54a6d4973e9bdce89505d31783cd2af3274eaf50bae896515c46452c9535c1a",
+        "87bd48b625c36e4bc9b9ca48762a6bf08d5140c728d892ef77a16606e3683d8e",
+        "f3d47dd355ed494e06e4364f228ce64e410d0cc295c45dcee28923cf1fc49402",
+        "ac6f14bcc1eebf2a3c8daa8fe71269f95472627478aa3a7bef075661cce7ad87",
+        "4eceeac2f8ae292f76ac8962f02baa42e7a1a035950d1099e1e52cbdace61971",
+        "fbd105e7ef14359523d92abe1861891601c6b67cf7111b961ef95b894fd9b37e",
+        "0b25e6719b1eadacdf8c7e61a954cce181e8e9bea24458a15777a502f548d540"
+      ]
+    },
+    {
+      "clip": "normal-highway",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 1.0,
+      "window_end": 4.5,
+      "frames": [
+        "sampled/normal-highway/0003.jpg",
+        "sampled/normal-highway/0004.jpg",
+        "sampled/normal-highway/0005.jpg",
+        "sampled/normal-highway/0006.jpg",
+        "sampled/normal-highway/0007.jpg",
+        "sampled/normal-highway/0008.jpg",
+        "sampled/normal-highway/0009.jpg",
+        "sampled/normal-highway/0010.jpg"
+      ],
+      "frame_sha256": [
+        "87bd48b625c36e4bc9b9ca48762a6bf08d5140c728d892ef77a16606e3683d8e",
+        "f3d47dd355ed494e06e4364f228ce64e410d0cc295c45dcee28923cf1fc49402",
+        "ac6f14bcc1eebf2a3c8daa8fe71269f95472627478aa3a7bef075661cce7ad87",
+        "4eceeac2f8ae292f76ac8962f02baa42e7a1a035950d1099e1e52cbdace61971",
+        "fbd105e7ef14359523d92abe1861891601c6b67cf7111b961ef95b894fd9b37e",
+        "0b25e6719b1eadacdf8c7e61a954cce181e8e9bea24458a15777a502f548d540",
+        "73a2933ce3df139b2117f34d476b32c8ffb386f284f09cc7e3d9df5749be1f0a",
+        "acf4a984ae6cc976d43059dbf3ff9487995c8169ab7a9ffc27c2a822b6b505f1"
+      ]
+    },
+    {
+      "clip": "normal-highway",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 2.0,
+      "window_end": 5.5,
+      "frames": [
+        "sampled/normal-highway/0005.jpg",
+        "sampled/normal-highway/0006.jpg",
+        "sampled/normal-highway/0007.jpg",
+        "sampled/normal-highway/0008.jpg",
+        "sampled/normal-highway/0009.jpg",
+        "sampled/normal-highway/0010.jpg",
+        "sampled/normal-highway/0011.jpg",
+        "sampled/normal-highway/0012.jpg"
+      ],
+      "frame_sha256": [
+        "ac6f14bcc1eebf2a3c8daa8fe71269f95472627478aa3a7bef075661cce7ad87",
+        "4eceeac2f8ae292f76ac8962f02baa42e7a1a035950d1099e1e52cbdace61971",
+        "fbd105e7ef14359523d92abe1861891601c6b67cf7111b961ef95b894fd9b37e",
+        "0b25e6719b1eadacdf8c7e61a954cce181e8e9bea24458a15777a502f548d540",
+        "73a2933ce3df139b2117f34d476b32c8ffb386f284f09cc7e3d9df5749be1f0a",
+        "acf4a984ae6cc976d43059dbf3ff9487995c8169ab7a9ffc27c2a822b6b505f1",
+        "f0d4851687ff0b3d7faeec4aad776f159b25255cc47b225a09c70d6529c5f893",
+        "287ca7ec72f9bd40d1f1911282d3c8453aaf5960f834f8cc651c56fdbae1d002"
+      ]
+    },
+    {
+      "clip": "normal-highway",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 3.0,
+      "window_end": 6.5,
+      "frames": [
+        "sampled/normal-highway/0007.jpg",
+        "sampled/normal-highway/0008.jpg",
+        "sampled/normal-highway/0009.jpg",
+        "sampled/normal-highway/0010.jpg",
+        "sampled/normal-highway/0011.jpg",
+        "sampled/normal-highway/0012.jpg",
+        "sampled/normal-highway/0013.jpg",
+        "sampled/normal-highway/0014.jpg"
+      ],
+      "frame_sha256": [
+        "fbd105e7ef14359523d92abe1861891601c6b67cf7111b961ef95b894fd9b37e",
+        "0b25e6719b1eadacdf8c7e61a954cce181e8e9bea24458a15777a502f548d540",
+        "73a2933ce3df139b2117f34d476b32c8ffb386f284f09cc7e3d9df5749be1f0a",
+        "acf4a984ae6cc976d43059dbf3ff9487995c8169ab7a9ffc27c2a822b6b505f1",
+        "f0d4851687ff0b3d7faeec4aad776f159b25255cc47b225a09c70d6529c5f893",
+        "287ca7ec72f9bd40d1f1911282d3c8453aaf5960f834f8cc651c56fdbae1d002",
+        "d92e87259256646b9738d396f41faed19c6609f83ad70e088bbf4e7cc344499f",
+        "123aff65e5ad4eae2508cd1aca7a192d4398c8d4920c412cf629d4e25cc4ca78"
+      ]
+    },
+    {
+      "clip": "normal-highway",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 4.0,
+      "window_end": 7.5,
+      "frames": [
+        "sampled/normal-highway/0009.jpg",
+        "sampled/normal-highway/0010.jpg",
+        "sampled/normal-highway/0011.jpg",
+        "sampled/normal-highway/0012.jpg",
+        "sampled/normal-highway/0013.jpg",
+        "sampled/normal-highway/0014.jpg",
+        "sampled/normal-highway/0015.jpg",
+        "sampled/normal-highway/0016.jpg"
+      ],
+      "frame_sha256": [
+        "73a2933ce3df139b2117f34d476b32c8ffb386f284f09cc7e3d9df5749be1f0a",
+        "acf4a984ae6cc976d43059dbf3ff9487995c8169ab7a9ffc27c2a822b6b505f1",
+        "f0d4851687ff0b3d7faeec4aad776f159b25255cc47b225a09c70d6529c5f893",
+        "287ca7ec72f9bd40d1f1911282d3c8453aaf5960f834f8cc651c56fdbae1d002",
+        "d92e87259256646b9738d396f41faed19c6609f83ad70e088bbf4e7cc344499f",
+        "123aff65e5ad4eae2508cd1aca7a192d4398c8d4920c412cf629d4e25cc4ca78",
+        "0bad838b5e92146f87aa3aa16007ad5190fc1de0becf7d84ca777b9291546fd8",
+        "b21cc1b87bdfb55b35822204e8b34e809e2450893bf1a4853d588fa3368ad408"
+      ]
+    },
+    {
+      "clip": "normal-traffic",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 0.0,
+      "window_end": 3.5,
+      "frames": [
+        "sampled/normal-traffic/0001.jpg",
+        "sampled/normal-traffic/0002.jpg",
+        "sampled/normal-traffic/0003.jpg",
+        "sampled/normal-traffic/0004.jpg",
+        "sampled/normal-traffic/0005.jpg",
+        "sampled/normal-traffic/0006.jpg",
+        "sampled/normal-traffic/0007.jpg",
+        "sampled/normal-traffic/0008.jpg"
+      ],
+      "frame_sha256": [
+        "2c4690d95ed776fcc28270399dd12c84c42cc18b62995bfac79a680306c5ce54",
+        "d3a86babba0691140acdbd6896a0c194fda0bffdb0298c50d593462f6299988a",
+        "347b794c1791c4944873b3e268d9f4c1cd50cc3f8964f8f69c7237c75d79be5a",
+        "33408c77c12f0890719b885ab1f8a40fcf252b0f18a0d331e6f935c1d19e94b8",
+        "528f787a0f6d135a2e3f4e0dbf9b8e955bd526a7bf1a86b1f55b5caaf4712d84",
+        "9081ebd1976ec962d1d2ba8e24935b75b69e40f4dcf6992575f49d66151ff97a",
+        "57a73e6f300e6dd9f31017af0d58aa5aa5dd4b16412e135fb79aa274720008a7",
+        "1f9463b141c4e6ee4ab80d8b376ecd92585f8079c36ce975f2b92e13b7ff88a2"
+      ]
+    },
+    {
+      "clip": "normal-traffic",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 1.0,
+      "window_end": 4.5,
+      "frames": [
+        "sampled/normal-traffic/0003.jpg",
+        "sampled/normal-traffic/0004.jpg",
+        "sampled/normal-traffic/0005.jpg",
+        "sampled/normal-traffic/0006.jpg",
+        "sampled/normal-traffic/0007.jpg",
+        "sampled/normal-traffic/0008.jpg",
+        "sampled/normal-traffic/0009.jpg",
+        "sampled/normal-traffic/0010.jpg"
+      ],
+      "frame_sha256": [
+        "347b794c1791c4944873b3e268d9f4c1cd50cc3f8964f8f69c7237c75d79be5a",
+        "33408c77c12f0890719b885ab1f8a40fcf252b0f18a0d331e6f935c1d19e94b8",
+        "528f787a0f6d135a2e3f4e0dbf9b8e955bd526a7bf1a86b1f55b5caaf4712d84",
+        "9081ebd1976ec962d1d2ba8e24935b75b69e40f4dcf6992575f49d66151ff97a",
+        "57a73e6f300e6dd9f31017af0d58aa5aa5dd4b16412e135fb79aa274720008a7",
+        "1f9463b141c4e6ee4ab80d8b376ecd92585f8079c36ce975f2b92e13b7ff88a2",
+        "841b76dda4c3927ca063f6216659cc1bc21cdac5c69534d43c4eeb422c9d11b2",
+        "cbc890d55095189f0f41e64744f6cd5e163220290e971c299d4ff099a896845e"
+      ]
+    },
+    {
+      "clip": "normal-traffic",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 2.0,
+      "window_end": 5.5,
+      "frames": [
+        "sampled/normal-traffic/0005.jpg",
+        "sampled/normal-traffic/0006.jpg",
+        "sampled/normal-traffic/0007.jpg",
+        "sampled/normal-traffic/0008.jpg",
+        "sampled/normal-traffic/0009.jpg",
+        "sampled/normal-traffic/0010.jpg",
+        "sampled/normal-traffic/0011.jpg",
+        "sampled/normal-traffic/0012.jpg"
+      ],
+      "frame_sha256": [
+        "528f787a0f6d135a2e3f4e0dbf9b8e955bd526a7bf1a86b1f55b5caaf4712d84",
+        "9081ebd1976ec962d1d2ba8e24935b75b69e40f4dcf6992575f49d66151ff97a",
+        "57a73e6f300e6dd9f31017af0d58aa5aa5dd4b16412e135fb79aa274720008a7",
+        "1f9463b141c4e6ee4ab80d8b376ecd92585f8079c36ce975f2b92e13b7ff88a2",
+        "841b76dda4c3927ca063f6216659cc1bc21cdac5c69534d43c4eeb422c9d11b2",
+        "cbc890d55095189f0f41e64744f6cd5e163220290e971c299d4ff099a896845e",
+        "1136310a9f9a166a6cf5dc5e011b8170c92bd0b079daa9eec10c8077892d431d",
+        "67ef8eceb343d92326041bb3cfb33227565d2129cd5b41f09dbd3cb0907ccf33"
+      ]
+    },
+    {
+      "clip": "normal-traffic",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 3.0,
+      "window_end": 6.5,
+      "frames": [
+        "sampled/normal-traffic/0007.jpg",
+        "sampled/normal-traffic/0008.jpg",
+        "sampled/normal-traffic/0009.jpg",
+        "sampled/normal-traffic/0010.jpg",
+        "sampled/normal-traffic/0011.jpg",
+        "sampled/normal-traffic/0012.jpg",
+        "sampled/normal-traffic/0013.jpg",
+        "sampled/normal-traffic/0014.jpg"
+      ],
+      "frame_sha256": [
+        "57a73e6f300e6dd9f31017af0d58aa5aa5dd4b16412e135fb79aa274720008a7",
+        "1f9463b141c4e6ee4ab80d8b376ecd92585f8079c36ce975f2b92e13b7ff88a2",
+        "841b76dda4c3927ca063f6216659cc1bc21cdac5c69534d43c4eeb422c9d11b2",
+        "cbc890d55095189f0f41e64744f6cd5e163220290e971c299d4ff099a896845e",
+        "1136310a9f9a166a6cf5dc5e011b8170c92bd0b079daa9eec10c8077892d431d",
+        "67ef8eceb343d92326041bb3cfb33227565d2129cd5b41f09dbd3cb0907ccf33",
+        "68f999a4832d9df92b0130dc8e9215799257acc7264a4b40881fe06fd0da6a2a",
+        "1f1f2932492e0273f0f5291fce0fc610a046b04f63b4d977ff32d1033e169c08"
+      ]
+    },
+    {
+      "clip": "normal-traffic",
+      "expected": "no_crash",
+      "source_onset_seconds": null,
+      "window_start": 4.0,
+      "window_end": 7.5,
+      "frames": [
+        "sampled/normal-traffic/0009.jpg",
+        "sampled/normal-traffic/0010.jpg",
+        "sampled/normal-traffic/0011.jpg",
+        "sampled/normal-traffic/0012.jpg",
+        "sampled/normal-traffic/0013.jpg",
+        "sampled/normal-traffic/0014.jpg",
+        "sampled/normal-traffic/0015.jpg",
+        "sampled/normal-traffic/0016.jpg"
+      ],
+      "frame_sha256": [
+        "841b76dda4c3927ca063f6216659cc1bc21cdac5c69534d43c4eeb422c9d11b2",
+        "cbc890d55095189f0f41e64744f6cd5e163220290e971c299d4ff099a896845e",
+        "1136310a9f9a166a6cf5dc5e011b8170c92bd0b079daa9eec10c8077892d431d",
+        "67ef8eceb343d92326041bb3cfb33227565d2129cd5b41f09dbd3cb0907ccf33",
+        "68f999a4832d9df92b0130dc8e9215799257acc7264a4b40881fe06fd0da6a2a",
+        "1f1f2932492e0273f0f5291fce0fc610a046b04f63b4d977ff32d1033e169c08",
+        "a9878acf5a18468e657ba736b81412ab47fbe475a4ed68dfb2231e5a725dfb98",
+        "905c569159d56bb05c6c7818b298cc84e4608c6891a9a6db2f6427159b401e4b"
+      ]
+    }
+  ]
+}
