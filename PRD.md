@@ -1,6 +1,8 @@
 # Lookout AI product direction
 
-**Define what matters in a visual feed. Lookout turns it into an incident someone owns.**
+**Let us be on the lookout, so you don’t have to.**
+
+Cameras capture everything, but catching what matters still means being constantly on the lookout.
 
 This PRD helps the Lookout team make product decisions during the hackathon and afterward. It captures the brief and interview decisions agreed on 7 November 2026. It describes intended behavior, not implementation status; see the [README](README.md) for the current source and development setup.
 
