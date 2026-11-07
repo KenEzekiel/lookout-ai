@@ -14,7 +14,7 @@
     "check": "pnpm format:check && pnpm lint && pnpm check:comments && pnpm typecheck && pnpm check:features && pnpm check:deps && pnpm test",
     "check:comments": "node scripts/check-comments.mjs",
     "check:deps": "node scripts/check-dependencies.mjs",
-    "verify": "pnpm check && python3 scripts/check-harness.py && pnpm build",
+    "verify": "pnpm check && python3 scripts/check-harness.py && pnpm build && pnpm --filter @lookout/app test:api",
     "test": "pnpm -r --if-present test",
     "qa:browser": "pnpm build && playwright test",
     "oracle": "pnpm --filter @lookout/oracle start",

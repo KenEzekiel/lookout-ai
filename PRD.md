@@ -139,3 +139,15 @@ The Lookout team maintains this direction. Update it when an agreed behavior, pr
 This document draws on Ken's brief and interview, the supplied `visual-incident-alerts-lean-canvas.md`, and `[Participants Briefing Materials] ID Sea x OpenAI Hackathon.pdf`. The interview takes precedence over earlier canvas choices. The attachments are session inputs, not files distributed with this repository.
 
 [OpenAI Decisions documentation](https://developers.openai.com/api/docs/guides/decisions) is the reference for the proposed initial assessment stage. Its documentation was checked during the interview; account access and runtime behavior were not verified.
+
+## Demo accounts and device access
+
+Public email/password registration grants immediate access without email verification. Password recovery is deferred. After registration, a person creates a workspace as its owner or joins an existing workspace as an operator. Each person belongs to at most one workspace. Removed operators return to create-or-join onboarding.
+
+Owners manage invitations, operator removal, and device authorization. Operators configure monitoring and handle incidents as those features arrive. There is one owner per workspace in this slice. Ownership transfer, promotions, and workspace deletion are deferred.
+
+An invitation has a shareable link and six-digit code. Either method consumes the same invitation once within 15 minutes. The recipient must sign in, but does not need a matching verified email address. Invitation links survive registration and sign-in.
+
+Monitoring browsers display a five-minute pairing code for owner approval. An owner can also switch their current browser to monitoring mode, ending its human session across tabs. Both methods grant a separate device identity with access to all monitoring sources in its workspace. Per-source assignments are deferred for the hackathon demo. A device cannot manage people or perform human incident responses.
+
+Device pairing survives refresh and browser restart while its cookie remains. Owner sign-out on another browser does not stop the device. Revocation denies its next server request. Returning from monitoring mode clears the local device credential and requires human sign-in. Actual source capture is outside the access slice.
