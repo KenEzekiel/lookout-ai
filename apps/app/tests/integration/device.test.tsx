@@ -283,21 +283,37 @@ function monitoringApi({
   outcome = "positive",
   failReport = false,
   durationSeconds = null,
+  ruleCount = 1,
 }: {
   outcome?: "positive" | "rejected" | "need_more_evidence" | "unavailable";
   failReport?: boolean;
   durationSeconds?: number | null;
+  ruleCount?: number;
 } = {}) {
   const reports: Report[] = [];
-  const observations: { stage: string; frames: { id: string; mediaTimeMs: number }[] }[] = [];
+  const observations: {
+    ruleId: string;
+    stage: string;
+    frames: { id: string; mediaTimeMs: number }[];
+  }[] = [];
   const ended: string[] = [];
   const sessionId = crypto.randomUUID();
   let rule = { ...monitoringRule, definition: { ...monitoringRule.definition, durationSeconds } };
-  let probability = 0.9;
+  let probability: number | null = 0.9;
   let assessmentUnavailable = false;
   server.use(
     http.get("/api/config/device", () =>
-      HttpResponse.json({ sources: [configuredSource], rules: [rule] }),
+      HttpResponse.json({
+        sources: [configuredSource],
+        rules: [
+          rule,
+          ...Array.from({ length: ruleCount - 1 }, (_, index) => ({
+            ...rule,
+            id: `other-rule-${index}`,
+            definition: { ...rule.definition, name: `Other rule ${index}` },
+          })),
+        ],
+      }),
     ),
     http.post("/api/incidents/sessions", () =>
       HttpResponse.json({
@@ -319,15 +335,16 @@ function monitoringApi({
       if (!image || typeof image === "string") throw new Error("Missing captured JPEG.");
       expect(image.type).toBe("image/jpeg");
       expect(new Uint8Array(await image.arrayBuffer())).toEqual(new Uint8Array([0, 0, 0]));
-      observations.push(metadata.observation);
-      if (metadata.observation.stage === "assessment" && assessmentUnavailable)
-        return HttpResponse.json({ kind: "unavailable", reason: "provider_error" });
-      if (metadata.observation.stage === "assessment")
+      observations.push({ ruleId: metadata.rule.id, ...metadata.observation });
+      if (metadata.observation.stage === "assessment") {
+        if (assessmentUnavailable || (metadata.rule.id === rule.id && probability === null))
+          return HttpResponse.json({ kind: "unavailable", reason: "provider_error" });
         return HttpResponse.json({
           kind: "assessment",
-          matchProbability: probability,
+          matchProbability: metadata.rule.id === rule.id ? probability : 0.01,
           unclearProbability: 0.1,
         });
+      }
       return HttpResponse.json(
         outcome === "unavailable"
           ? { kind: "unavailable", reason: "provider_error" }
@@ -374,6 +391,9 @@ function monitoringApi({
     observations,
     ended,
     sessionId,
+    interrupt: (kind: string) => {
+      probability = kind === "unavailable" ? null : 0.5;
+    },
     clear: () => {
       probability = 0.01;
     },
@@ -642,6 +662,83 @@ test("configured duration requires fresh positive observations before review", a
     "review",
   ]);
 }, 10000);
+
+for (const ruleCount of [4, 8]) {
+  test(`${ruleCount} enabled rules preserve duration across fresh positive windows and report once`, async () => {
+    const api = monitoringApi({ durationSeconds: 3, ruleCount });
+    const video = await startMonitoring();
+    const started = performance.now();
+    const playback = setInterval(() => {
+      video.currentTime = (performance.now() - started) / 1000;
+    }, 100);
+    try {
+      await screen.findByText("Latest incident reported", {}, { timeout: 18000 });
+      expect(api.reports).toHaveLength(1);
+      expect(new Set(api.observations.map(({ ruleId }) => ruleId)).size).toBe(ruleCount);
+      const positives = api.observations.filter(
+        ({ ruleId, stage }) => ruleId === monitoringRule.id && stage === "assessment",
+      );
+      expect(positives).toHaveLength(2);
+      expect(
+        (positives[1]?.frames.at(-1)?.mediaTimeMs ?? 0) -
+          (positives[0]?.frames.at(-1)?.mediaTimeMs ?? 0),
+      ).toBeGreaterThan(5000);
+      expect(api.observations.at(-1)?.stage).toBe("review");
+      await screen.findByText(
+        "Event still present. Initial alert will not repeat.",
+        {},
+        { timeout: 15000 },
+      );
+      expect(api.reports).toHaveLength(1);
+    } finally {
+      clearInterval(playback);
+    }
+  }, 35000);
+}
+
+test("a genuine gap inside a positive observation window restarts duration", async () => {
+  const api = monitoringApi({ durationSeconds: 3 });
+  const video = await startMonitoring();
+  await screen.findByText(
+    "Candidate observed. Checking the configured duration.",
+    {},
+    { timeout: 4000 },
+  );
+  video.currentTime = 6;
+  await waitFor(() => expect(api.observations).toHaveLength(2), { timeout: 4000 });
+  expect(api.reports).toHaveLength(0);
+  expect(api.observations.at(-1)?.stage).toBe("assessment");
+  video.currentTime = 9;
+  await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+  expect(api.reports).toHaveLength(1);
+  expect(api.observations[1]?.frames.every(({ mediaTimeMs }) => mediaTimeMs >= 6000)).toBe(true);
+}, 12000);
+
+for (const interruption of ["unavailable", "uncertain"]) {
+  test(`${interruption} assessment interrupts duration even with overlapping frames`, async () => {
+    const api = monitoringApi({ durationSeconds: 3 });
+    const video = await startMonitoring();
+    await screen.findByText(
+      "Candidate observed. Checking the configured duration.",
+      {},
+      { timeout: 4000 },
+    );
+    api.interrupt(interruption);
+    video.currentTime = 3;
+    await screen.findByText(
+      interruption === "unavailable" ? /Assessment unavailable:/ : /Observation uncertain/,
+      {},
+      { timeout: 4000 },
+    );
+    api.positive();
+    video.currentTime = 6;
+    await waitFor(() => expect(api.observations).toHaveLength(3), { timeout: 4000 });
+    expect(api.reports).toHaveLength(0);
+    video.currentTime = 9;
+    await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+    expect(api.reports).toHaveLength(1);
+  }, 15000);
+}
 
 test("fresh clear observations rearm the source and a new event gets a new identity", async () => {
   const api = monitoringApi();
