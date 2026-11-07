@@ -6,6 +6,8 @@ Depends on: F-SOURCE-CAPTURE, F-RULE-CONFIG, F-AI-RELAY, F-INCIDENT-RESPONSE
 
 ## Behavior
 
+The phone capture station puts live AI assessment before setup controls, below a compact video preview. Each enabled rule shows its condition, severity, version, match and uncertainty percentages, 70% review threshold, duration requirement, frame count, source interval, response time, and result receipt time. Scores are labeled as the latest completed AI estimates and remain visible during refresh or degradation. No percentage is shown before a successful assessment. The latest review verdict and explanation remain visible, including positive reviews after reporting. Stop, source replacement, and camera switching clear the displayed run. The controller keeps `latestAssessment` display data separate from F-DEVICE-HEALTH readiness. These are display-only additions to the existing device-owned state; inference thresholds, health reporting, and incident decisions are unchanged.
+
 A paired operational device selects an assigned source at the capture station. Capture can run as preview without an assignment. With a compatible camera or replay source, enabled rules drive remote assessment, candidate review, and incident reporting. Source selection stops capture so a running input cannot silently acquire another source identity. Replay remains labeled.
 
 A Decisions match probability of at least 0.70 creates a candidate without repeated-positive gating. The uncertainty probability does not veto a positive candidate. An optional duration requires successive positive observations across that source-time duration; an unavailable or uncertain observation, pause, configuration interruption, or gap longer than five source seconds restarts duration accumulation. Duration-free fall and crash rules can reach review on their first positive observation.
@@ -40,6 +42,8 @@ F-DEVICE-HEALTH now consumes typed per-rule assessment health, the oldest succes
 
 ## Verification
 
+Complete-route integration coverage now checks displayed match and uncertainty percentages, confirmed review explanations, first-result waiting, retained last-completed scores during provider failure, and clearing scores after Stop or camera switching. Production-browser evidence for this change is recorded in its PR.
+
 The current upload fix adds complete-route coverage for evidence preparation and unavailable footage without stopping monitoring. The real-browser camera journey in [clip checks](../../../tests/clip/clip.spec.ts) verifies confirmation, continued assessment during preparation, MP4 upload, and identical-byte retry without another report. The camera journey failed with no retained footage when given playback time and passed after using the camera frame timestamp. Manual production-build observations are recorded in the PR.
 
 [Complete-route integration tests](../../../apps/app/tests/integration/device.test.tsx) exercise real capture and monitoring code with browser media input and MSW HTTP boundaries. They cover positive delivery, stable retry payloads, dismissed receipts without duplicate reports, rejected/more-evidence/unavailable review outcomes, slow inference with one pending request, Stop, disabled-rule and seek cancellation, configured duration, and deliberate rearming with a new event identity. Existing relay and incident API integration suites retain real Worker/D1 coverage.
@@ -49,6 +53,8 @@ The current upload fix adds complete-route coverage for evidence preparation and
 Required before claiming implemented: permitted fall, harmless, and crash footage with live provider responses. No local provider credential was available; the private secret request timed out. Mocked inference proves control behavior, not detection accuracy. Per-run results, latency, screenshots, video, and blockers belong in the PR. Run `pnpm verify`.
 
 ## Decisions and sources
+
+The current PR implements the user’s hackathon request for richer phone assessment visibility and rear-camera switching. The existing controller owns typed latest-result data; the UI formats it without changing backend contracts.
 
 The current PR fixes incident videos never uploading by connecting confirmed reviews to the existing evidence owner. Reporting remains cancellable and independent of video preparation. Evidence status is separate from detection state.
 
