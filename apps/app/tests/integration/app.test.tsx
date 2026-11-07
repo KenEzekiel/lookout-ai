@@ -14,7 +14,7 @@ test("the home route displays the application", async () => {
   });
   await router.load();
   render(<RouterProvider router={router} />);
-  expect(await screen.findByRole("heading", { name: "Lookout AI" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "Welcome back" })).toBeVisible();
 });
 
 test("an unknown route displays the not-found screen", async () => {

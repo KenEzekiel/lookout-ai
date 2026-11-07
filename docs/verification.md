@@ -31,7 +31,17 @@ Documentation-only changes and backend-only changes do not require browser QA. A
 5. The main agent uses the returned report to add a manual QA section to the PR description with the build or commit tested, runtime, journey steps, expected and observed results, and any mocked services or remaining gaps. Use short bullets under Setup, Steps and results, Evidence, and Gaps and blockers, as shown in the PR template. Give each action or scenario its own bullet with the expected and observed result. Keep automated coverage separate from manually exercised steps. Embed screenshots captured during that manual QA run, with captions identifying the step or state and observed result. Cover the changed flow and its relevant success, error, or recovery states.
 6. Add a short demo video when screenshots cannot adequately show the behavior, such as a multi-step interaction, animation, or timing issue. Embed or link the recording in the PR description and explain what it demonstrates. Traces may supplement this evidence.
 
-Use attachments or stable URLs that PR reviewers can open. Local filesystem paths and screenshots kept only in chat do not satisfy this requirement. Verify that the media renders or opens from the PR description. If capture or publication is blocked, document the exact gap and keep the PR in draft under the verification rule below.
+Keep QA screenshots, videos, traces, and reports outside version control. Capture them in ignored `test-results/` or a temporary directory. Do not commit QA media under `docs/qa` or elsewhere, and do not use raw repository URLs as evidence hosting. Product assets and intentional test fixtures are separate from QA evidence.
+
+Upload images and videos as GitHub PR attachments and embed their returned URLs in the description. Check `gh pr edit --help` for `--attach` support before using the CLI. A supported version can upload local images referenced in a body file and replace their paths with attachment URLs:
+
+```sh
+gh pr edit <number> --body-file /tmp/pr-body.md --attach /absolute/path/to/test-results/screen.png
+```
+
+Use the same absolute image path in the body Markdown and the attachment argument. The authenticated GitHub description editor also supports drag-and-drop uploads. Preserve captions, the tested revision, and the observed results. For existing evidence, upload and verify the attachments before deleting repository copies, then update all documentation links. Keep lasting verification instructions and feature records in the repository; put per-run observations and media in the PR.
+
+Verify every uploaded media URL opens and returns the expected media type, and inspect the saved PR body for attachment links and remaining local or raw repository references. A partial CLI upload can update the description even when the command exits unsuccessfully; inspect the saved body before retrying failed files. Local filesystem paths and screenshots kept only in chat do not satisfy this requirement. If capture or upload is blocked, report the exact gap and keep the PR in draft under the verification rule below. Do not commit media as a fallback. `scripts/check-harness.py` rejects QA media under `docs/qa`; review the staged diff for evidence saved elsewhere.
 
 Use safe test data and identify any HTTP mocks in the evidence. Do not claim to have verified an integration that was mocked.
 Vitest results, a successful build, and `pnpm qa:browser` alone do not satisfy journey verification. The generic smoke suite does not exercise a newly implemented flow.

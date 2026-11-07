@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { mutate } from "@/lib/api";
 import { ActionForm, Field, Panel } from "./forms";
 
@@ -8,43 +10,86 @@ export function Onboarding({
   invitation?: string;
   onJoined: () => Promise<void>;
 }) {
+  const [mode, setMode] = useState<"create" | "code" | "invitation">(
+    invitation ? "invitation" : "create",
+  );
+  const creating = mode === "create";
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <Panel title="Create a workspace">
-        <p className="mb-5 text-sm text-muted-foreground">
-          You will own this workspace and manage access for your team.
-        </p>
-        <ActionForm
-          submit="Create workspace"
-          action={async (data) => {
-            await mutate("/api/access/workspace", { name: data.get("name") });
-            await onJoined();
-          }}
-        >
-          <Field label="Workspace name" name="name" maxLength={80} />
-        </ActionForm>
-      </Panel>
-      <Panel title="Join your team">
-        <p className="mb-5 text-sm text-muted-foreground">
-          Each account belongs to one workspace. Joining gives you operator access.
-        </p>
-        <ActionForm
-          submit={invitation ? "Accept invitation" : "Join workspace"}
-          action={async (data) => {
+    <Panel title={creating ? "Set up your workspace" : "Join your team"}>
+      <p className="mb-8 text-sm leading-relaxed text-muted-foreground">
+        {creating
+          ? "Create a space for your team and devices."
+          : mode === "invitation"
+            ? "Your invitation is ready. Join to access your team’s workspace."
+            : "Enter the six-digit invitation code shared by your workspace owner."}
+      </p>
+      <ActionForm
+        key={mode}
+        submit={creating ? "Create workspace" : "Join workspace"}
+        pendingLabel={creating ? "Creating workspace…" : "Joining workspace…"}
+        action={async (data) => {
+          if (creating) await mutate("/api/access/workspace", { name: data.get("name") });
+          else
             await mutate(
               "/api/access/join",
-              invitation ? { token: invitation } : { code: data.get("code") },
+              mode === "invitation" ? { token: invitation } : { code: data.get("code") },
             );
-            await onJoined();
-          }}
-        >
-          {invitation ? (
-            <p className="text-sm">An invitation link is ready to redeem.</p>
-          ) : (
-            <Field label="Invitation code" name="code" pattern="[0-9]{6}" maxLength={6} />
-          )}
-        </ActionForm>
-      </Panel>
-    </div>
+          await onJoined();
+        }}
+      >
+        {creating ? (
+          <Field
+            label="Workspace name"
+            name="name"
+            maxLength={80}
+            placeholder="e.g. Westside studio"
+          />
+        ) : mode === "code" ? (
+          <Field
+            label="Invitation code"
+            name="code"
+            inputMode="numeric"
+            pattern="[0-9]{6}"
+            maxLength={6}
+            autoComplete="one-time-code"
+            placeholder="6-digit code"
+            hint="Invitations can be used once and expire after 15 minutes."
+          />
+        ) : null}
+      </ActionForm>
+      <div className="mt-8 grid gap-3 border-t border-border pt-6 text-sm text-muted-foreground">
+        {creating ? (
+          <>
+            <p>Invited by someone?</p>
+            <Button
+              variant="link"
+              className="h-auto justify-start p-0 text-signal"
+              onClick={() => setMode("code")}
+            >
+              Join with an invitation code
+            </Button>
+          </>
+        ) : (
+          <>
+            {mode === "invitation" && (
+              <Button
+                variant="link"
+                className="h-auto justify-start p-0 text-signal"
+                onClick={() => setMode("code")}
+              >
+                Use an invitation code instead
+              </Button>
+            )}
+            <Button
+              variant="link"
+              className="h-auto justify-start p-0 text-signal"
+              onClick={() => setMode("create")}
+            >
+              Create a workspace instead
+            </Button>
+          </>
+        )}
+      </div>
+    </Panel>
   );
 }

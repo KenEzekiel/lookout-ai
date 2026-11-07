@@ -16,3 +16,5 @@ dist/
 *.tsbuildinfo
 playwright-report/
 test-results/
+
+docs/qa/
