@@ -5,7 +5,6 @@ import { atomicJson, createSessionStore } from "../session/index.js";
 import { acquireInstanceLock } from "../session/lock.js";
 import { createT3Runner } from "../session/run.js";
 import { connectT3 } from "../session/t3.js";
-import { loadDisclosure } from "../tools/disclosure.js";
 import { loadConfig, loadIdentity, oracleRoot } from "./config.js";
 import { createOracle, type Oracle } from "./index.js";
 import { watchSource } from "./reload.js";
@@ -63,11 +62,6 @@ async function main(): Promise<void> {
     ...(identity ? { expectedIdentity: identity } : {}),
   });
   if (!identity) await atomicJson(join(oracleRoot, ".local", "identity.json"), slack.identity);
-  const disclosure = await loadDisclosure(join(oracleRoot, ".local", "disclosure.json"), [
-    config.slack.botToken,
-    config.slack.appToken,
-    config.t3.token,
-  ]);
   const client = await connectT3({ endpoint: config.t3.endpoint, token: config.t3.token });
   const sessions = createSessionStore({
     directory: join(oracleRoot, ".state", "sessions"),
@@ -77,7 +71,6 @@ async function main(): Promise<void> {
     client,
     sessions,
     policy: () => readFile(join(oracleRoot, "session", "operating.md"), "utf8"),
-    disclosure,
     context: slack.context,
     projectId: config.t3.projectId,
     instanceId: config.t3.instanceId,
@@ -88,7 +81,6 @@ async function main(): Promise<void> {
     runner,
     publish: slack.publish,
     setStatus: slack.setStatus,
-    disclosure,
     limits: defaultLimits,
     onFault,
   });

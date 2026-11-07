@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import type { TurnRunner } from "../dispatcher/index.js";
-import type { Disclosure } from "../tools/disclosure.js";
 import {
   assertActive,
   BoundaryError,
@@ -31,7 +30,6 @@ export function createT3Runner(options: {
   instanceId: string;
   model: string;
   policy: () => Promise<string>;
-  disclosure: Disclosure;
   context: (input: Incoming) => Promise<ThreadContext>;
 }): TurnRunner {
   const { client, sessions } = options;
@@ -59,7 +57,7 @@ export function createT3Runner(options: {
     },
     async run({ input, history, signal, report }) {
       assertActive(signal);
-      const policy = options.disclosure.assert(await options.policy());
+      const policy = await options.policy();
       assertActive(signal);
       let threadId = sessions.snapshot(input.address)?.threadId ?? null;
       if (threadId === null) {
@@ -79,18 +77,7 @@ export function createT3Runner(options: {
       assertActive(signal);
       await inspect(threadId);
       assertActive(signal);
-      const context = await options.context(input);
-      let thread = context;
-      if (context.kind === "available") {
-        const messages = context.messages.filter(
-          (message) => options.disclosure.findings(JSON.stringify(message)).length === 0,
-        );
-        thread = {
-          ...context,
-          messages,
-          truncated: context.truncated || messages.length !== context.messages.length,
-        };
-      }
+      const thread = await options.context(input);
       assertActive(signal);
       const message = [
         policy,
@@ -100,13 +87,10 @@ export function createT3Runner(options: {
           actor: input.actor,
           route: input.route,
           address: input.address,
-          history: history.filter(
-            (item) => options.disclosure.findings(JSON.stringify(item)).length === 0,
-          ),
+          history,
           thread,
         }),
       ].join("\n\n");
-      options.disclosure.assert(message);
       try {
         const sent = await client.send({
           threadId,
@@ -120,7 +104,6 @@ export function createT3Runner(options: {
           signal,
           onProgress: async (text) => {
             assertActive(signal);
-            options.disclosure.assert(text);
             await report(text);
           },
         });
@@ -144,7 +127,6 @@ export function createT3Runner(options: {
         const outcome = outcomeSchema.parse(JSON.parse(text));
         if (outcome.kind === "silent" && input.route === "direct")
           throw new BoundaryError("reply_missing");
-        if (outcome.kind === "reply") options.disclosure.assert(outcome.text);
         return outcome;
       } catch (error) {
         if (

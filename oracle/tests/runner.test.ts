@@ -4,10 +4,9 @@ import { createOracle } from "../dispatcher/index.js";
 import { defaultLimits } from "../session/domain.js";
 import { createSessionStore } from "../session/index.js";
 import { createT3Runner } from "../session/run.js";
-import { createDisclosure } from "../tools/disclosure.js";
 import { directory, input, testNow } from "./helpers.js";
 
-test("thread context and model progress reach the same conversation without a canned ack", async (t) => {
+test("requests, history, progress and replies preserve names, paths and credential examples", async (t) => {
   const sessions = createSessionStore({
     directory: await directory(t),
     limits: defaultLimits,
@@ -16,9 +15,20 @@ test("thread context and model progress reach the same conversation without a ca
   const prompts: string[] = [];
   const sent: { rootTs: string; text: string }[] = [];
   const statuses: string[] = [];
-  let reply = '{"kind":"reply","text":"The reply handler is fixed."}';
-  let progress = "I will trace the reply handler.";
-  let policy = "Operating rules";
+  const example = [
+    "private-test-marker",
+    "/home/example/lookout",
+    "C:\\Users\\example\\lookout",
+    `xoxb-${"a".repeat(25)}`,
+    `xapp-${"z".repeat(25)}`,
+    `sk-${"q".repeat(24)}`,
+    `password=${"p".repeat(20)}`,
+    "-----BEGIN PRIVATE KEY-----",
+  ].join("\n");
+  const answer = `These are test examples.\n${example}`;
+  let reply = JSON.stringify({ kind: "reply", text: answer });
+  let progress = `I will inspect these examples.\n${example}`;
+  let policy = "Operating rules at /home/example/operating.md";
   const client = {
     launch: async () => ({ threadId: "thread", projectId: "project", runId: null }),
     send: async ({ message }) => {
@@ -39,7 +49,6 @@ test("thread context and model progress reach the same conversation without a ca
     },
     stopAndDrain: async () => {},
   } satisfies Parameters<typeof createT3Runner>[0]["client"];
-  const disclosure = createDisclosure(["private-test-marker"]);
   const runner = createT3Runner({
     client,
     sessions,
@@ -47,11 +56,10 @@ test("thread context and model progress reach the same conversation without a ca
     instanceId: "instance",
     model: "model",
     policy: async () => policy,
-    disclosure,
     context: async () => ({
       kind: "available",
       messages: [
-        { actor: "UTEAMMATE1", ts: "1900000000.000000", text: "private-test-marker" },
+        { actor: "UTEAMMATE1", ts: "1900000000.000000", text: example },
         { actor: "UTEAMMATE1", ts: "1900000000.000000", text: "Please inspect the reply handler." },
       ],
       truncated: false,
@@ -62,7 +70,6 @@ test("thread context and model progress reach the same conversation without a ca
     runner,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure,
     publish: async (address, text) => {
       sent.push({ rootTs: address.rootTs, text });
     },
@@ -70,32 +77,36 @@ test("thread context and model progress reach the same conversation without a ca
       statuses.push(status);
     },
   });
-  const first = input("Respond to the latest request in this Slack thread.");
+  const first = input(`Inspect these examples.\n${example}`);
   await oracle.receive(first);
   await oracle.idle();
   assert.deepEqual(sent, [
     { rootTs: first.address.rootTs, text: progress },
-    { rootTs: first.address.rootTs, text: "The reply handler is fixed." },
+    { rootTs: first.address.rootTs, text: answer },
   ]);
   assert.deepEqual(statuses, ["processing", "active"]);
   assert.ok(prompts[0]?.includes('"actor":"UTEAMMATE1"'));
   assert.ok(prompts[0]?.includes("Please inspect the reply handler."));
-  assert.equal(prompts[0]?.includes("private-test-marker"), false);
-  assert.ok(prompts[0]?.includes('"truncated":true'));
+  assert.ok(prompts[0]?.startsWith(`${policy}\n`));
+  assert.ok(prompts[0]?.includes(JSON.stringify(first.text)));
+  assert.ok(
+    prompts[0]?.includes(
+      JSON.stringify({ actor: "UTEAMMATE1", ts: "1900000000.000000", text: example }),
+    ),
+  );
+  assert.ok(prompts[0]?.includes('"truncated":false'));
   assert.equal(sessions.snapshot(first.address)?.deliveries[0]?.kind, "progress");
 
   reply = '{"kind":"silent"}';
   policy = "Updated operating rules";
-  progress = "private-test-marker";
-  await oracle.receive(input("Follow up", { address: first.address }));
+  progress = `I will check the follow-up.\n${example}`;
+  await oracle.receive(input("Follow up", { address: first.address, route: "thread" }));
   await oracle.idle();
-  assert.ok(prompts[1]?.includes('"role":"assistant","text":"The reply handler is fixed."'));
+  assert.ok(prompts[1]?.includes(JSON.stringify({ role: "user", text: first.text })));
+  assert.ok(prompts[1]?.includes(JSON.stringify({ role: "assistant", text: answer })));
   assert.ok(prompts[1]?.startsWith("Updated operating rules\n"));
-  assert.equal(
-    sent.some(({ text }) => text.includes(progress)),
-    false,
-  );
-  assert.match(sent.at(-1)?.text ?? "", /did not pass the disclosure policy/);
+  assert.equal(sent.length, 3);
+  assert.deepEqual(sent.at(-1), { rootTs: first.address.rootTs, text: progress });
 
   progress = "I will check the follow-up.";
   await oracle.receive(input("Please answer", { address: first.address }));
@@ -115,7 +126,6 @@ test("a failed status indicator cannot prevent the final answer", async (t) => {
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    disclosure: createDisclosure(),
     runner: { run: async () => ({ kind: "reply", text: "Checked." }) },
     publish: async (_, text) => {
       messages.push(text);

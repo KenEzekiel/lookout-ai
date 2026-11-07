@@ -12,7 +12,7 @@ test(
   { timeout: 10_000 },
   async (t) => {
     const root = await directory(t);
-    for (const name of ["dispatcher", "session", "tools"]) await mkdir(join(root, name));
+    for (const name of ["dispatcher", "session"]) await mkdir(join(root, name));
     await copyFile(
       new URL("../dispatcher/service.mjs", import.meta.url),
       join(root, "dispatcher/service.mjs"),
