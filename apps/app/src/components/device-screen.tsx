@@ -8,6 +8,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Activity, Camera, Clock3, FileVideo, Play, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { LiveSource } from "@/components/live-source";
 import { Brand } from "@/components/access/brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -228,7 +229,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               </div>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                 {running
-                  ? "Video and recent samples stay on this device. No AI assessment is connected yet."
+                  ? "Recent samples stay on this device. Authorized operators can view the active source. No AI assessment is connected yet."
                   : paused
                     ? "Playback is paused. Resume in the video controls or stop capture."
                     : (snapshot.error ?? "Select a source and start capture when it is ready.")}
@@ -306,6 +307,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
               )}
             </section>
 
+            <LiveSource session={sessionRef} snapshot={snapshot} />
             <section className={panelClass}>
               <div className="flex items-center gap-2.5 text-muted-foreground">
                 <Clock3 size={16} />

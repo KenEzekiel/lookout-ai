@@ -21,6 +21,7 @@ import { Route as ApiAccessSplatRouteImport } from './routes/api/access/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiConfigSplatRouteImport } from './routes/api/config/$'
 import { Route as ApiIncidentsSplatRouteImport } from './routes/api/incidents/$'
+import { Route as ApiPeerSplatRouteImport } from './routes/api/peer/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,11 @@ const ApiIncidentsSplatRoute = ApiIncidentsSplatRouteImport.update({
   path: '/api/incidents/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPeerSplatRoute = ApiPeerSplatRouteImport.update({
+  id: '/api/peer/$',
+  path: '/api/peer/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
+  '/api/peer/$': typeof ApiPeerSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
+  '/api/peer/$': typeof ApiPeerSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/config/$': typeof ApiConfigSplatRoute
   '/api/incidents/$': typeof ApiIncidentsSplatRoute
+  '/api/peer/$': typeof ApiPeerSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/config/$'
     | '/api/incidents/$'
+    | '/api/peer/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/config/$'
     | '/api/incidents/$'
+    | '/api/peer/$'
   id:
     | '__root__'
     | '/'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/config/$'
     | '/api/incidents/$'
+    | '/api/peer/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +196,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiConfigSplatRoute: typeof ApiConfigSplatRoute
   ApiIncidentsSplatRoute: typeof ApiIncidentsSplatRoute
+  ApiPeerSplatRoute: typeof ApiPeerSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIncidentsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/peer/$': {
+      id: '/api/peer/$'
+      path: '/api/peer/$'
+      fullPath: '/api/peer/$'
+      preLoaderRoute: typeof ApiPeerSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -288,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiConfigSplatRoute: ApiConfigSplatRoute,
   ApiIncidentsSplatRoute: ApiIncidentsSplatRoute,
+  ApiPeerSplatRoute: ApiPeerSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -141,6 +141,16 @@ export class CaptureSession {
     return null;
   }
 
+  getPeerStream(): MediaStream | null {
+    if (this.state !== "running") return null;
+    if (this.stream) return this.stream.clone();
+    if ("captureStream" in this.video && typeof this.video.captureStream === "function") {
+      const captured: unknown = this.video.captureStream();
+      return captured instanceof MediaStream ? captured : null;
+    }
+    return null;
+  }
+
   async startCamera() {
     this.stop();
     const generation = this.generation;
