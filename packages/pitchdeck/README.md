@@ -2,7 +2,7 @@
 
 Run `pnpm pitchdeck` from the repository root, then open the local URL printed by Vite. This command builds the deck before serving it. After editing slides, run `pnpm --filter @lookout/pitchdeck build` and reload the page.
 
-To present offline, run `pnpm --filter @lookout/pitchdeck build` and open `packages/pitchdeck/dist/index.html` in a browser. Copy that single file to another computer for the presentation. The starter uses system fonts and has no external assets or requests.
+To present offline, run `pnpm --filter @lookout/pitchdeck build` and open `packages/pitchdeck/dist/index.html` in a browser. Copy that single file to another computer for the presentation. The build embeds Geist Variable, the illustrative parking-area image, and the Oracle Slack captures; it makes no runtime asset requests.
 
 ## Edit the slides
 
@@ -10,16 +10,15 @@ Each file in `slides/` contains one `<section class="slide">` with an `h1` or `h
 
 ```html
 <section class="slide">
-  <p class="eyebrow">The problem</p>
   <h2>Your main point</h2>
   <p class="lead">One short explanation for the audience.</p>
   <aside data-notes hidden>Your speaking notes.</aside>
 </section>
 ```
 
-Use `src/style.css` for shared slide styles. Edit the document title and toolbar in `src/index.html` for a different project. Slide HTML is trusted author content, not an upload format for untrusted files. To keep a copied deck self-contained, embed any added images as data URLs. Remote URLs need a network connection, and relative assets must be copied separately.
+Use `src/style.css` for shared slide styles. Edit the document title and toolbar in `src/index.html` for a different project. Slide HTML is trusted author content, not an upload format for untrusted files. The builder embeds `assets/parking-camera.jpg`, `assets/oracle-slack-request.jpg`, and `assets/oracle-slack-checks.jpg`. If an image is replaced, keep its source in `assets/` and wire it into `build.mjs`; remote URLs need a network connection, and relative assets must be copied separately.
 
-The Lookout starter is based on the repository README and product direction. It is an editable pitch outline, not proof of implemented features. Before the hackathon, update the demo checklist to match the working app and add your team, verified results, and demo URL.
+The six-slide story follows the [PRD](../../PRD.md) and the [feature records](../../docs/features/README.md). Demo logistics and current-build limitations remain in presenter notes, so the audience slides stay focused on the problem, product, and team workflow. The development slide shows two unaltered crops of a [real Oracle Slack thread](https://private-iex6207.slack.com/archives/C0CFQDWTVCJ/p1794029329391749): the issue request and Oracle's verification update. Before presenting a live demo, update its steps and results to match the running app.
 
 ## Present with two screens on one laptop
 
