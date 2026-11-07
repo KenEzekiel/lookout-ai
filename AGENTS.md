@@ -8,9 +8,9 @@ Lookout AI is a hackathon project with a total implementation budget of seven ho
 
 All new repository changes go through a short-lived branch and a pull request targeting `main`. Never push work directly to `main`. Every PR targets `main`, including dependent work; merge its prerequisite first rather than creating a chain of PRs targeting other feature branches.
 
-The user authorizes agents to merge their completed PRs without another person's review or another permission prompt. Review your own diff, run relevant checks, and resolve known blockers before merging. Human approval and an independent subagent verdict are not required by project policy. Research, review, and verification helpers remain optional under the delegation policy below. Respect actual GitHub rules and required checks; do not bypass them or change repository protections. If blocked, report the blocker and use the host's PR watcher when appropriate.
+Agents may implement, verify, push their feature branch, and open a PR without another permission prompt. Then present the PR and wait for the user's explicit confirmation to merge that PR. No additional person's code review or independent subagent verdict is required by project policy, but the user's merge confirmation is required. A request to implement, push, open a PR, or get checks green is not merge authorization. Do not merge, enable auto-merge, or enqueue a merge before confirmation. Research, review, and verification helpers remain optional. Respect actual GitHub rules and required checks; do not bypass them or change repository protections.
 
-This policy supersedes inherited pstack requirements for independent shipping reviewers, operator-only merges, mandatory panels, and stacked PR bases. Create the PR, merge when ready, and confirm it landed on `main`.
+This policy supersedes inherited pstack requirements for independent shipping reviewers, mandatory panels, and stacked PR bases, and revokes earlier standing authorization to merge automatically. Create the PR and report its validation results. Merge only after explicit user confirmation for that PR, then confirm it landed on `main`.
 
 ## Agent workflow
 
