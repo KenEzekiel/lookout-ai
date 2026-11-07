@@ -38,7 +38,7 @@ Local capture now exists at `/device`, but connecting its capture identity to co
 
 [UI integration tests](../../../apps/app/tests/integration/rules.test.tsx) drive complete routes through MSW HTTP boundaries. They cover template/custom creation, edit/disable/reload, source setup, empty/error states, preserved drafts, recipient validation, and device configuration denial. Both suites run in `pnpm verify`.
 
-Production-browser QA uses separate owner/device sessions and real local D1 without HTTP mocks. The PR records the tested revision, observed steps, desktop/mobile screenshots, and any gaps. Saved source/rule settings do not establish capture, alert delivery, or stale incident-report rejection.
+Production-build Chromium QA used separate owner/device sessions and real local D1 without HTTP mocks. It verified fall/crash/custom creation, reload persistence, recipient-validation recovery, automatic edit/disable version delivery, revocation, keyboard navigation, and a 390-pixel layout without horizontal overflow. The existing capture station remained accessible. No page errors or failed network requests were observed. [Saved templates](../../qa/rule-configuration/saved-templates.png), [recipient validation](../../qa/rule-configuration/recipient-validation.png), [device versions](../../qa/rule-configuration/device-versions.png), and [mobile editor](../../qa/rule-configuration/mobile-editor.png) record the observed states. The PR identifies the tested revision. Saved source/rule settings do not establish capture, alert delivery, or stale incident-report rejection.
 
 ## Decisions and sources
 
