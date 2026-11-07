@@ -3,12 +3,18 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as dotenv } from "dotenv";
 import { z } from "zod";
-import { BoundaryError } from "../session/domain.js";
+import { BoundaryError, defaultLimits } from "../session/domain.js";
 import { identitySchema } from "./slack.js";
 
 export const oracleRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const configSchema = z.object({
   workspace: z.string().min(1),
+  maxConcurrentSessions: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(defaultLimits.maxSessions)
+    .default(defaultLimits.maxConcurrentSessions),
   slack: z.object({
     botToken: z.string().regex(/^xoxb-/),
     appToken: z.string().regex(/^xapp-/),
@@ -36,6 +42,7 @@ export async function loadConfig(): Promise<Config> {
   dotenv({ path: join(oracleRoot, ".env"), quiet: true });
   const candidate = {
     workspace: process.env.ORACLE_WORKSPACE,
+    maxConcurrentSessions: process.env.ORACLE_MAX_CONCURRENT_SESSIONS,
     slack: {
       botToken: process.env.SLACK_BOT_TOKEN,
       appToken: process.env.SLACK_APP_TOKEN,

@@ -6,7 +6,7 @@ import test, { type TestContext } from "node:test";
 import { promisify } from "node:util";
 import { createOracle } from "../dispatcher/index.js";
 import { createSessionStore } from "../session/index.js";
-import { BoundaryError, defaultLimits } from "../session/domain.js";
+import { defaultLimits } from "../session/domain.js";
 import { createT3Runner } from "../session/run.js";
 import { createWorkspace } from "../session/workspace.js";
 import { deferred, directory, input, testNow } from "./helpers.js";
@@ -68,7 +68,7 @@ test("sync includes latest main and preserves Oracle commits and the primary che
   assert.equal(await git(primary, "rev-parse", "HEAD"), mainCommit);
   assert.equal(await git(primary, "branch", "--show-current"), "main");
   const workspace = workspaceFor(worktree);
-  const task = await workspace.run(() => workspace.task(input().address));
+  const task = await workspace.task(input().address);
   assert.equal(await git(task, "rev-parse", "HEAD"), mainCommit);
 });
 
@@ -87,12 +87,9 @@ test("the runtime refuses a switched branch even when main is current", async (t
   const workspace = workspaceFor(worktree);
   await git(worktree, "checkout", "-b", "feature/other-task");
   await assert.rejects(workspace.sync(), { code: "workspace_branch_changed" });
-  await assert.rejects(
-    workspace.run(async () => assert.fail("coding must not start")),
-    {
-      code: "workspace_branch_changed",
-    },
-  );
+  await assert.rejects(workspace.task(input().address), {
+    code: "workspace_branch_changed",
+  });
   assert.equal(await git(worktree, "branch", "--show-current"), "feature/other-task");
 });
 
@@ -100,12 +97,9 @@ test("the runtime refuses uncommitted files even when main is current", async (t
   const { worktree } = await fixture(t);
   const workspace = workspaceFor(worktree);
   await writeFile(join(worktree, "unfinished.txt"), "preserve this work\n");
-  await assert.rejects(
-    workspace.run(async () => assert.fail("coding must not start")),
-    {
-      code: "workspace_sync_dirty",
-    },
-  );
+  await assert.rejects(workspace.task(input().address), {
+    code: "workspace_sync_dirty",
+  });
   assert.equal(await readFile(join(worktree, "unfinished.txt"), "utf8"), "preserve this work\n");
 });
 
@@ -120,6 +114,12 @@ test("Slack coding uses separate feature worktrees while runtime sync and follow
     now: () => testNow,
   });
   let sends = 0;
+  const entered = deferred<void>();
+  const release = deferred<void>();
+  const secondFinished = deferred<void>();
+  let initialTurn = true;
+  const first = input("First task");
+  const second = input("Second task");
   const runner = createT3Runner({
     sessions,
     projectId: "project",
@@ -166,7 +166,14 @@ test("Slack coding uses separate feature worktrees while runtime sync and follow
         sends++;
         return { threadId, runId: `run-${sends}`, delivery: "started" };
       },
-      finish: async () => ({ kind: "completed", reply: '{"kind":"reply","text":"Task complete"}' }),
+      finish: async ({ threadId }) => {
+        if (threadId === "thread-0" && initialTurn) {
+          initialTurn = false;
+          entered.resolve();
+          await release.promise;
+        }
+        return { kind: "completed", reply: '{"kind":"reply","text":"Task complete"}' };
+      },
       stopAndDrain: async () => {},
     },
   });
@@ -175,18 +182,24 @@ test("Slack coding uses separate feature worktrees while runtime sync and follow
     sessions,
     limits: defaultLimits,
     now: () => testNow,
-    runner: { run: (args) => workspace.run(() => runner.run(args)) },
-    publish: async (_, text) => {
+    runner,
+    publish: async (address, text) => {
       replies.push(text);
+      if (address.rootTs === second.address.rootTs) secondFinished.resolve();
     },
   });
-  t.after(() => oracle.close());
-  const first = input("First task");
-  const firstPath = await workspace.run(() => workspace.task(first.address));
+  t.after(async () => {
+    release.resolve();
+    await oracle.close();
+  });
+  const firstPath = await workspace.task(first.address);
   await oracle.receive(first);
-  await oracle.idle();
+  await entered.promise;
   await advance("new verified main\n");
-  await oracle.receive(input("Second task"));
+  await oracle.receive(second);
+  await secondFinished.promise;
+  assert.equal(sends, 2);
+  release.resolve();
   await oracle.idle();
   await oracle.receive(input("Continue first task", { address: first.address, route: "thread" }));
   await oracle.idle();
@@ -199,20 +212,6 @@ test("Slack coding uses separate feature worktrees while runtime sync and follow
   assert.equal(await git(worktree, "rev-parse", "HEAD"), await git(primary, "rev-parse", "HEAD"));
   assert.equal(await git(worktree, "status", "--porcelain"), "");
   assert.equal(await git(primary, "status", "--porcelain"), "");
-});
-
-test("uncertain backend shutdown prevents queued Git updates", async (t) => {
-  const { worktree, advance } = await fixture(t);
-  const workspace = workspaceFor(worktree);
-  await assert.rejects(
-    workspace.run(async () => {
-      throw new BoundaryError("backend_work_uncertain");
-    }),
-    { code: "backend_work_uncertain" },
-  );
-  await advance("must not reach active checkout\n");
-  await assert.rejects(workspace.sync(), { code: "backend_work_uncertain" });
-  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "initial\n");
 });
 
 test("dirty updates and merge conflicts preserve files and leave no merge in progress", async (t) => {
@@ -253,11 +252,11 @@ for (const scenario of ["untracked", "conflict"] as const) {
       limits: defaultLimits,
       now: () => testNow,
       runner: {
-        run: () =>
-          workspace.run(async () => {
-            coding++;
-            return { kind: "reply", text: "Resumed after workspace repair" };
-          }),
+        run: async ({ input: request }) => {
+          await workspace.task(request.address);
+          coding++;
+          return { kind: "reply", text: "Resumed after workspace repair" };
+        },
       },
       publish: async (_, text) => {
         messages.push(text);
@@ -301,25 +300,20 @@ for (const scenario of ["untracked", "conflict"] as const) {
   });
 }
 
-test("background sync waits for a complete coding turn and the next turn starts current", async (t) => {
+test("runtime sync proceeds independently and never updates an existing task checkout", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   const workspace = workspaceFor(worktree);
-  const started = deferred<void>();
-  const release = deferred<void>();
-  const turn = workspace.run(async () => {
-    started.resolve();
-    await release.promise;
-    assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "initial\n");
-  });
-  await started.promise;
-  await advance("updated while coding\n");
-  const syncing = workspace.sync();
-  release.resolve();
-  await turn;
-  await syncing;
-  await workspace.run(async () => {
-    assert.equal(await git(worktree, "rev-parse", "HEAD"), await git(primary, "rev-parse", "HEAD"));
-  });
+  const first = input("Active task");
+  const task = await workspace.task(first.address);
+  await writeFile(join(task, "unfinished.txt"), "active task work\n");
+  await advance("updated runtime\n");
+  await workspace.sync();
+  assert.equal(await readFile(join(task, "file.txt"), "utf8"), "initial\n");
+  assert.equal(await readFile(join(task, "unfinished.txt"), "utf8"), "active task work\n");
+  assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "updated runtime\n");
+  const next = await workspace.task(input("Next task").address);
+  assert.equal(await git(next, "rev-parse", "HEAD"), await git(primary, "rev-parse", "HEAD"));
+  assert.equal(await workspace.task(first.address), task);
 });
 
 test("unverified main stays out of the workspace until CI succeeds for its exact commit", async (t) => {
@@ -338,14 +332,7 @@ test("unverified main stays out of the workspace until CI succeeds for its exact
   const commit = await git(primary, "rev-parse", "HEAD");
   assert.deepEqual(await workspace.sync(), { kind: "waiting_for_ci", commit });
   assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "initial\n");
-  let ran = false;
-  await assert.rejects(
-    workspace.run(async () => {
-      ran = true;
-    }),
-    { code: "workspace_main_unverified" },
-  );
-  assert.equal(ran, false);
+  await assert.rejects(workspace.task(input().address), { code: "workspace_main_unverified" });
   verified = true;
   assert.deepEqual(await workspace.sync(), { kind: "updated", commit });
   assert.equal(await readFile(join(worktree, "file.txt"), "utf8"), "verified update\n");
@@ -416,15 +403,15 @@ test(
       now: () => testNow,
       retryIntervalMs: 10,
       runner: {
-        run: async () =>
-          workspace.run(async () => {
-            assert.equal(
-              await git(worktree, "rev-parse", "HEAD"),
-              await git(primary, "rev-parse", "HEAD"),
-            );
-            coding++;
-            return { kind: "reply", text: "Completed after verified sync" };
-          }),
+        run: async ({ input: request }) => {
+          const task = await workspace.task(request.address);
+          assert.equal(
+            await git(task, "rev-parse", "HEAD"),
+            await git(primary, "rev-parse", "HEAD"),
+          );
+          coding++;
+          return { kind: "reply", text: "Completed after verified sync" };
+        },
       },
       publish: async (_, text) => {
         messages.push(text);

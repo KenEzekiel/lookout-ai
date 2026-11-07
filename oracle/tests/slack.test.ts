@@ -98,6 +98,7 @@ test("membership verification accepts teammates and refuses external people and 
     },
     idle: async () => {},
     retryPending: () => {},
+    drain: async () => {},
     close: async () => {},
   };
   const transport = createSlackTransport({
