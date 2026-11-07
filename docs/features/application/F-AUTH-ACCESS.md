@@ -18,7 +18,7 @@ Open `/` for registration, sign-in, create-or-join onboarding, and workspace acc
 
 Better Auth owns accounts and human sessions. D1 owns application workspace membership, invitations, devices, and pending pairing. `principal` resolves visitor, unassigned-user, member, or device identities. `member` protects human handlers and its owner check protects administration. `monitoringDevice` protects device handlers. Consumers derive workspace scope from these identities and include it in resource queries.
 
-All existing access handlers use this boundary. Source configuration, assessment relay, incident reports, evidence uploads, notifications, and MCP remain planned and are not wired or verified yet. These gaps keep this record partial; a paired screen is not evidence of active monitoring. Those consumers must enforce the delivered identities and add endpoint coverage as they arrive.
+All existing access handlers use this boundary. The local capture route requires a device principal, carries its workspace and device IDs in local samples and video handles, and stops on revocation when the principal check fails. Source configuration, assessment relay, incident reports, evidence uploads, notifications, and MCP remain planned and are not wired or verified yet. These gaps keep this record partial; a paired screen alone is not evidence of active monitoring. Those consumers must enforce the delivered identities and add endpoint coverage as they arrive.
 
 ## Implementation
 

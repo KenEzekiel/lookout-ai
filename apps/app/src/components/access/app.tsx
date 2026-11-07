@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { type Principal, principalSchema } from "@/lib/access";
 import { mutate, request, message } from "@/lib/api";
 import { Account } from "./account";
+import { DeviceScreen } from "@/components/device-screen";
 import { Onboarding } from "./onboarding";
 import { Workspace } from "./workspace";
 import { Monitor, PairBrowser } from "./monitor";
@@ -10,9 +11,11 @@ import { ActionForm } from "./forms";
 
 export function AccessApp({
   pairing = false,
+  capture = false,
   invitation,
 }: {
   pairing?: boolean;
+  capture?: boolean;
   invitation?: string;
 }) {
   const [actor, setActor] = useState<Principal>();
@@ -44,6 +47,9 @@ export function AccessApp({
       clearInterval(timer);
     };
   }, []);
+  if (capture && actor?.kind === "device" && !error) {
+    return <DeviceScreen deviceId={actor.deviceId} workspaceId={actor.workspaceId} />;
+  }
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-5 py-8 md:px-8 md:py-12">
       <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
@@ -60,6 +66,11 @@ export function AccessApp({
           <Link to="/monitor" className="underline underline-offset-4">
             Pair a monitoring browser
           </Link>
+          {actor?.kind === "device" && (
+            <Link to="/device" className="underline underline-offset-4">
+              Capture station
+            </Link>
+          )}
           {actor && (actor.kind === "member" || actor.kind === "unassigned-user") && (
             <ActionForm
               submit="Sign out"

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DeviceRouteImport } from './routes/device'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as MonitorRouteImport } from './routes/monitor'
 import { Route as ApiAccessSplatRouteImport } from './routes/api/access/$'
@@ -18,6 +19,11 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeviceRoute = DeviceRouteImport.update({
+  id: '/device',
+  path: '/device',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JoinRoute = JoinRouteImport.update({
@@ -43,6 +49,7 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/api/access/$': typeof ApiAccessSplatRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/api/access/$': typeof ApiAccessSplatRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/device': typeof DeviceRoute
   '/join': typeof JoinRoute
   '/monitor': typeof MonitorRoute
   '/api/access/$': typeof ApiAccessSplatRoute
@@ -65,14 +74,23 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/join' | '/monitor' | '/api/access/$' | '/api/auth/$'
+  fullPaths:
+    '/' | '/device' | '/join' | '/monitor' | '/api/access/$' | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/join' | '/monitor' | '/api/access/$' | '/api/auth/$'
-  id: '__root__' | '/' | '/join' | '/monitor' | '/api/access/$' | '/api/auth/$'
+  to: '/' | '/device' | '/join' | '/monitor' | '/api/access/$' | '/api/auth/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/device'
+    | '/join'
+    | '/monitor'
+    | '/api/access/$'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DeviceRoute: typeof DeviceRoute
   JoinRoute: typeof JoinRoute
   MonitorRoute: typeof MonitorRoute
   ApiAccessSplatRoute: typeof ApiAccessSplatRoute
@@ -86,6 +104,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/device': {
+      id: '/device'
+      path: '/device'
+      fullPath: '/device'
+      preLoaderRoute: typeof DeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/join': {
@@ -121,6 +146,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DeviceRoute: DeviceRoute,
   JoinRoute: JoinRoute,
   MonitorRoute: MonitorRoute,
   ApiAccessSplatRoute: ApiAccessSplatRoute,
