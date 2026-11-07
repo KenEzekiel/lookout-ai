@@ -1,5 +1,7 @@
 # Verify a change
 
+Identify affected codes in the [feature map](features/README.md), including consumers of changed contracts. Verify their required wiring and regression cases, and update the affected records in the same PR. `pnpm check:features` validates record structure and references and runs checker integration tests. It cannot establish behavior or completeness.
+
 Run `pnpm install --frozen-lockfile`.
 Run `pnpm verify` before opening a PR. CI runs the same command on every PR to `main`.
 

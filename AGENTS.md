@@ -24,6 +24,14 @@ Edit the files in `.agents/` directly. They are the maintained source, not gener
 
 Validate harness edits with `python3 scripts/check-harness.py` and the relevant helper's own checks. Runtime tools and dependencies must be checked when the associated workflow is actually used.
 
+## Feature compatibility
+
+Before planning or implementing Lookout work, consult `docs/features/README.md` and the relevant `F-*.md` records. Records are grouped by product area. Use `rg --files docs/features` to discover them and read an area together with `cat docs/features/<area>/F-*.md`. Read dependencies and find consumers with a reverse-reference search before changing a shared contract. Oracle is outside this inventory.
+
+Use stable descriptive feature codes without numbers in issues you create or update and in PR descriptions. Record every new or changed product behavior and implementation decision in the affected feature file in the same PR. Include actual source locations, decision sources, required wiring, and verification evidence. Update affected consumers when their contracts change. Do not mark a feature implemented while required connections or verification are missing.
+
+Preserve existing behavior unless the task authorizes changing it. Explain intentional changes and regression checks in the PR. If no Lookout feature is affected, state why. Follow the PR template even when using a CLI body. Keep one file per feature and no shared counter, central inventory, or chronological feature log. Run `pnpm check:features`; structural validation does not replace integration or journey verification.
+
 ## Application conventions and verification
 
 Run `pnpm verify` before opening an application PR. Follow `docs/verification.md` for code boundaries and test setup.
