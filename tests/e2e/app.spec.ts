@@ -9,8 +9,10 @@ test("home page renders without browser errors", async ({ page }) => {
   const response = await page.goto("/");
   expect(response?.status()).toBe(200);
   await expect(page).toHaveTitle("Lookout");
-  await expect(page.getByRole("heading", { name: "Welcome back", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Be there for the moments/ })).toBeVisible();
   await page.reload();
+  await expect(page.getByRole("heading", { name: /Be there for the moments/ })).toBeVisible();
+  await page.getByRole("link", { name: "Get started" }).click();
   await expect(page.getByRole("heading", { name: "Welcome back", exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

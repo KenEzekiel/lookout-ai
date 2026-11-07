@@ -20,7 +20,7 @@ beforeEach(() => {
   principal = { kind: "visitor" };
   server.use(http.get("/api/access/principal", () => HttpResponse.json(principal)));
 });
-async function open(path = "/") {
+async function open(path = "/devices") {
   const router = getRouter();
   router.update({
     history: createMemoryHistory({ initialEntries: [path] }),
