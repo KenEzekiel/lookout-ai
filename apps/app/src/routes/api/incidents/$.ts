@@ -7,6 +7,7 @@ async function handle(request: Request) {
     endIncidentSession,
     reportIncident,
     incidentInbox,
+    incomingIncidents,
     incidentDetail,
     commandIncident,
   } = await import("@/server/incidents");
@@ -16,6 +17,7 @@ async function handle(request: Request) {
     if (request.method === "POST" && path === "sessions/end") return endIncidentSession(request);
     if (request.method === "POST" && path === "reports") return reportIncident(request);
     if (request.method === "GET" && path === "inbox") return incidentInbox(request);
+    if (request.method === "GET" && path === "alerts") return incomingIncidents(request);
     const [area, id, ...rest] = path.split("/");
     if (id && rest.length === 0) {
       if (request.method === "GET" && area === "detail") return incidentDetail(request, id);

@@ -130,6 +130,19 @@ export async function incidentInbox(request: Request) {
     incidentInboxSchema.parse({ incidents: rows.results.map((row) => recordSchema.parse(row)) }),
   );
 }
+export async function incomingIncidents(request: Request) {
+  const actor = await member(request);
+  const rows = await env.DB.prepare(
+    `SELECT ${columns} FROM incident WHERE workspace_id=?1 AND status='open'
+      AND EXISTS (SELECT 1 FROM json_each(context,'$.rule.definition.recipientIds') WHERE value=?2)
+      ORDER BY received_at,id LIMIT 100`,
+  )
+    .bind(actor.workspaceId, actor.userId)
+    .all();
+  return json(
+    incidentInboxSchema.parse({ incidents: rows.results.map((row) => recordSchema.parse(row)) }),
+  );
+}
 export async function incidentDetail(request: Request, id: string) {
   const actor = await member(request);
   const row = await env.DB.prepare(`SELECT ${columns} FROM incident WHERE id=? AND workspace_id=?`)
