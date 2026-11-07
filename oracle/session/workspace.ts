@@ -1,8 +1,9 @@
 import { execFile } from "node:child_process";
-import { realpath } from "node:fs/promises";
-import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { appendFile, realpath } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { BoundaryError } from "./domain.js";
+import { type Address, BoundaryError, keyOf } from "./domain.js";
 import { mainIsVerified } from "./checks.js";
 
 const execute = promisify(execFile);
@@ -11,15 +12,17 @@ type Update = { kind: "current" | "updated" | "waiting_for_ci"; commit: string }
 
 export function createWorkspace(options: {
   root: string;
+  branch: string;
   verifyMain?: (commit: string) => Promise<boolean>;
 }) {
   const { root } = options;
   let pending = Promise.resolve();
   let uncertain = false;
-  const git = async (...args: string[]): Promise<string> => {
-    const { stdout } = await execute("git", ["-C", root, ...args], { timeout: 30_000 });
+  const gitAt = async (cwd: string, ...args: string[]): Promise<string> => {
+    const { stdout } = await execute("git", ["-C", cwd, ...args], { timeout: 30_000 });
     return stdout.trim();
   };
+  const git = (...args: string[]) => gitAt(root, ...args);
   const serial = <T>(operation: () => Promise<T>): Promise<T> => {
     const result = pending.then(operation);
     pending = result.then(
@@ -35,15 +38,16 @@ export function createWorkspace(options: {
     const branch = await git("symbolic-ref", "--short", "HEAD");
     if (directory === common || branch === "main")
       throw new BoundaryError("workspace_must_be_isolated");
+    if (branch !== options.branch) throw new BoundaryError("workspace_branch_changed");
     await git("fetch", "origin", "main");
     const commit = await git("rev-parse", "origin/main");
+    if (await git("status", "--porcelain")) throw new BoundaryError("workspace_sync_dirty");
     const missing = await git("rev-list", "--count", `HEAD..${commit}`);
     if (missing === "0") return { kind: "current", commit };
     const verified = await (options.verifyMain?.(commit) ?? mainIsVerified({ root, commit })).catch(
       () => false,
     );
     if (!verified) return { kind: "waiting_for_ci", commit };
-    if (await git("status", "--porcelain")) throw new BoundaryError("workspace_sync_dirty");
     try {
       await git("merge", "--no-edit", commit);
     } catch (error) {
@@ -55,6 +59,41 @@ export function createWorkspace(options: {
   };
   return {
     sync: () => serial(sync),
+    async task(address: Address): Promise<string> {
+      const common = await realpath(resolve(root, await git("rev-parse", "--git-common-dir")));
+      const primary = dirname(common);
+      const key = createHash("sha256").update(keyOf(address)).digest("hex");
+      const path = join(primary, ".worktree", `oracle-task-${key}`);
+      const branch = `oracle-task/${key}`;
+      const records = (await git("worktree", "list", "--porcelain", "-z")).split("\0\0");
+      if (!records.some((record) => record.split("\0").includes(`worktree ${path}`))) {
+        try {
+          await gitAt(primary, "check-ignore", "--quiet", ".worktree/probe");
+        } catch (error) {
+          if (!(error instanceof Error) || !("code" in error) || error.code !== 1) throw error;
+          const exclude = resolve(root, await git("rev-parse", "--git-path", "info/exclude"));
+          await appendFile(exclude, "\n/.worktree/\n");
+        }
+        let exists = false;
+        try {
+          await git("show-ref", "--verify", "--quiet", `refs/heads/${branch}`);
+          exists = true;
+        } catch (error) {
+          if (!(error instanceof Error) || !("code" in error) || error.code !== 1) throw error;
+        }
+        await git(
+          "worktree",
+          "add",
+          ...(exists
+            ? [path, branch]
+            : ["-b", branch, path, await git("merge-base", "HEAD", "origin/main")]),
+        );
+      }
+      const taskBranch = await gitAt(path, "symbolic-ref", "--short", "HEAD");
+      if (taskBranch === "main" || taskBranch === options.branch)
+        throw new BoundaryError("task_workspace_invalid");
+      return await realpath(path);
+    },
     run: <T>(operation: () => Promise<T>): Promise<T> =>
       serial(async () => {
         const update = await sync();

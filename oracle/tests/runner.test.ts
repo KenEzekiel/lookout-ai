@@ -57,7 +57,7 @@ test("requests, history, progress and replies preserve names, paths and credenti
     projectId: "project",
     instanceId: "instance",
     model: "model",
-    workspace: "/workspace/oracle",
+    workspace: async () => "/workspace/oracle",
     policy: async () => policy,
     context: async () => ({
       kind: "available",
@@ -147,70 +147,77 @@ test("a failed status indicator cannot prevent the final answer", async (t) => {
   assert.deepEqual(faults, ["slack_status_unavailable", "slack_status_unavailable"]);
 });
 
-test("saved main-checkout conversations resume in worktree threads with their history", async (t) => {
-  const sessions = createSessionStore({
-    directory: await directory(t),
-    limits: defaultLimits,
-    now: () => testNow,
-  });
-  await sessions.recover();
-  const first = input("Original request");
-  await sessions.admit(first);
-  await sessions.claim(first);
-  await sessions.linkThread(first.address, "old-main-thread");
-  await sessions.complete(first, { kind: "reply", text: "Original answer" });
-  const messages: string[] = [];
-  const runner = createT3Runner({
-    sessions,
-    projectId: "project",
-    instanceId: "instance",
-    model: "model",
-    workspace: "/workspace/oracle",
-    policy: async () => "Operating rules",
-    context: async () => ({ kind: "unavailable" }),
-    profiles: async () => ({ users: [], unresolved: [], mappings: "available", truncated: false }),
-    client: {
-      launch: async ({ workspace }) => {
-        assert.equal(workspace, "/workspace/oracle");
-        return { threadId: "new-worktree-thread", projectId: "project", runId: null };
-      },
-      read: async ({ threadId }) => ({
-        threadId,
-        projectId: "project",
-        status: "idle",
-        activeRunId: null,
-        latestRunId: null,
-        pendingRequestCount: 0,
-        worktreePath: threadId === "old-main-thread" ? null : "/workspace/oracle",
+for (const previousWorkspace of [null, "/workspace/runtime"]) {
+  test(`saved ${previousWorkspace ?? "main"} conversations resume in task threads with their history`, async (t) => {
+    const sessions = createSessionStore({
+      directory: await directory(t),
+      limits: defaultLimits,
+      now: () => testNow,
+    });
+    await sessions.recover();
+    const first = input("Original request");
+    await sessions.admit(first);
+    await sessions.claim(first);
+    await sessions.linkThread(first.address, "old-shared-thread");
+    await sessions.complete(first, { kind: "reply", text: "Original answer" });
+    const messages: string[] = [];
+    const runner = createT3Runner({
+      sessions,
+      projectId: "project",
+      instanceId: "instance",
+      model: "model",
+      workspace: async () => "/workspace/task",
+      policy: async () => "Operating rules",
+      context: async () => ({ kind: "unavailable" }),
+      profiles: async () => ({
+        users: [],
+        unresolved: [],
+        mappings: "available",
+        truncated: false,
       }),
-      send: async ({ threadId, message }) => {
-        assert.equal(threadId, "new-worktree-thread");
-        assert.ok(message.includes("Original request"));
-        assert.ok(message.includes("Original answer"));
-        return { threadId, runId: "run", delivery: "started" };
+      client: {
+        launch: async ({ workspace }) => {
+          assert.equal(workspace, "/workspace/task");
+          return { threadId: "new-worktree-thread", projectId: "project", runId: null };
+        },
+        read: async ({ threadId }) => ({
+          threadId,
+          projectId: "project",
+          status: "idle",
+          activeRunId: null,
+          latestRunId: null,
+          pendingRequestCount: 0,
+          worktreePath: threadId === "old-shared-thread" ? previousWorkspace : "/workspace/task",
+        }),
+        send: async ({ threadId, message }) => {
+          assert.equal(threadId, "new-worktree-thread");
+          assert.ok(message.includes("Original request"));
+          assert.ok(message.includes("Original answer"));
+          return { threadId, runId: "run", delivery: "started" };
+        },
+        finish: async () => ({ kind: "completed", reply: '{"kind":"reply","text":"Resumed"}' }),
+        stopAndDrain: async () => {},
       },
-      finish: async () => ({ kind: "completed", reply: '{"kind":"reply","text":"Resumed"}' }),
-      stopAndDrain: async () => {},
-    },
+    });
+    const oracle = await createOracle({
+      sessions,
+      runner,
+      limits: defaultLimits,
+      now: () => testNow,
+      publish: async (_, text) => {
+        messages.push(text);
+      },
+    });
+    await oracle.receive(input("Continue", { address: first.address, route: "thread" }));
+    await oracle.idle();
+    assert.deepEqual(messages, ["Resumed"]);
+    assert.equal(sessions.snapshot(first.address)?.threadId, "new-worktree-thread");
+    await assert.rejects(
+      sessions.linkThread(first.address, "unexpected-thread"),
+      /thread_identity_changed/,
+    );
   });
-  const oracle = await createOracle({
-    sessions,
-    runner,
-    limits: defaultLimits,
-    now: () => testNow,
-    publish: async (_, text) => {
-      messages.push(text);
-    },
-  });
-  await oracle.receive(input("Continue", { address: first.address, route: "thread" }));
-  await oracle.idle();
-  assert.deepEqual(messages, ["Resumed"]);
-  assert.equal(sessions.snapshot(first.address)?.threadId, "new-worktree-thread");
-  await assert.rejects(
-    sessions.linkThread(first.address, "unexpected-thread"),
-    /thread_identity_changed/,
-  );
-});
+}
 
 test("a backend that binds the wrong workspace never receives a coding message", async (t) => {
   const sessions = createSessionStore({
@@ -225,7 +232,7 @@ test("a backend that binds the wrong workspace never receives a coding message",
     projectId: "project",
     instanceId: "instance",
     model: "model",
-    workspace: "/workspace/oracle",
+    workspace: async () => "/workspace/oracle",
     policy: async () => "Rules",
     context: async () => ({ kind: "unavailable" }),
     profiles: async () => ({ users: [], unresolved: [], mappings: "available", truncated: false }),

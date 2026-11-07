@@ -51,6 +51,8 @@ export async function loadConfig(): Promise<Config> {
   const parsed = configSchema.safeParse(candidate);
   if (!parsed.success) throw new BoundaryError("configuration_missing_or_invalid");
   parsed.data.workspace = await realpath(resolve(oracleRoot, parsed.data.workspace));
+  if (parsed.data.workspace !== (await realpath(join(oracleRoot, ".."))))
+    throw new BoundaryError("workspace_runtime_mismatch");
   return parsed.data;
 }
 

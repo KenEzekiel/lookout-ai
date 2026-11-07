@@ -4,10 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @lookout/app dev",
-    "build": "pnpm --filter @lookout/app build",
+    "build": "pnpm --filter @lookout/app build && pnpm --filter @lookout/pitchdeck build",
     "preview": "pnpm --filter @lookout/app preview",
     "typecheck": "pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.checks.json",
-    "lint": "oxlint --deny-warnings apps oracle tests playwright.config.ts scripts/*.mjs .dependency-cruiser.cjs",
+    "lint": "oxlint --deny-warnings apps packages oracle tests playwright.config.ts scripts/*.mjs .dependency-cruiser.cjs",
     "lint:fix": "pnpm lint --fix",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
@@ -19,6 +19,7 @@
     "qa:browser": "pnpm build && playwright test",
     "oracle": "pnpm --filter @lookout/oracle start",
     "oracle:service": "node scripts/oracle-service.mjs",
+    "pitchdeck": "pnpm --filter @lookout/pitchdeck dev",
     "check:features": "python3 scripts/check-features.py && python3 -m unittest discover -s tests/features -p \"test_*.py\"",
     "features:list": "python3 scripts/check-features.py --list"
   },
