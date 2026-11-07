@@ -475,7 +475,7 @@ export function RuleSummary({
   return (
     <article
       aria-label={rule.definition.name}
-      className="grid gap-4 rounded-xl border border-border bg-card p-6"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6"
     >
       <div className="flex flex-wrap justify-between gap-3">
         <h3 className="font-semibold">{rule.definition.name}</h3>
@@ -517,7 +517,7 @@ export function RuleSummary({
           </dd>
         </div>
       </dl>
-      <div className="flex flex-wrap gap-3">
+      <div className="mt-auto flex flex-wrap gap-3">
         <Button
           variant="outline"
           icon={Pencil}
