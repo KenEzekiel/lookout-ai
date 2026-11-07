@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { type Principal, principalSchema } from "@/lib/access";
 import { mutate, request, message } from "@/lib/api";
 import { RuleWorkspace } from "@/components/rules/workspace";
+import { IncidentDetail, IncidentInbox } from "@/components/incidents/workspace";
 import { DeviceScreen } from "@/components/device-screen";
 import { Account } from "./account";
 import { Brand } from "./brand";
@@ -15,12 +16,16 @@ export function AccessApp({
   pairing = false,
   capture = false,
   triggers = false,
+  incidents = false,
+  incidentId,
   invitation,
   view = "devices",
 }: {
   pairing?: boolean;
   capture?: boolean;
   triggers?: boolean;
+  incidents?: boolean;
+  incidentId?: string;
   invitation?: string;
   view?: "devices" | "team";
 }) {
@@ -91,18 +96,25 @@ export function AccessApp({
               <Link
                 to="/"
                 search={{ view: "devices" }}
-                aria-current={!triggers && view === "devices" ? "page" : undefined}
-                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${!triggers && view === "devices" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
+                aria-current={!triggers && !incidents && view === "devices" ? "page" : undefined}
+                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${!triggers && !incidents && view === "devices" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
               >
                 Devices
               </Link>
               <Link
                 to="/"
                 search={{ view: "team" }}
-                aria-current={!triggers && view === "team" ? "page" : undefined}
-                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${!triggers && view === "team" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
+                aria-current={!triggers && !incidents && view === "team" ? "page" : undefined}
+                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${!triggers && !incidents && view === "team" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
               >
                 Team
+              </Link>
+              <Link
+                to="/incidents"
+                aria-current={incidents ? "page" : undefined}
+                className={`inline-flex h-11 items-center border-b-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-full ${incidents ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
+              >
+                Incidents
               </Link>
               <Link
                 to="/triggers"
@@ -185,6 +197,14 @@ export function AccessApp({
               await navigate({ to: "/", search: { view: "devices" }, replace: true });
             }}
           />
+        ) : incidents ? (
+          <section className="py-8 sm:py-12">
+            {incidentId ? (
+              <IncidentDetail key={actor.workspaceId + incidentId} id={incidentId} />
+            ) : (
+              <IncidentInbox key={actor.workspaceId} />
+            )}
+          </section>
         ) : triggers ? (
           <section className="py-8 sm:py-12">
             <RuleWorkspace key={actor.workspaceId} />

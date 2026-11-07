@@ -20,6 +20,8 @@ Use the capture session and rule version in reports. Preserve the event interval
 
 F-AI-RELAY provides a [transport contract](../../../apps/app/src/lib/assessment.ts). Decisions returns match and uncertainty probabilities; the device owns thresholds. Review uses GPT-6.1 Terra with medium reasoning and returns `positive`, `rejected`, or `need_more_evidence`. Transport/refusal failures remain `unavailable`, never a negative observation. The endpoint authorizes the stored source and enabled rule version from F-RULE-CONFIG. No assessment loop is wired to this helper yet. Pass the shared rule/version and source references, apply configured duration locally, and preserve capture-epoch and request context to discard late results.
 
+F-INCIDENT-RESPONSE now provides [session, report, and receipt schemas](../../../apps/app/src/lib/incidents.ts) and `/api/incidents/sessions`, `/api/incidents/sessions/end`, and `/api/incidents/reports`. The future loop must start a server session for its configured source, use the current rule ID/version, and reuse one event ID and event time for retries. Store the returned incident ID for evidence. Capture lifecycle and assessment are not yet connected to those endpoints, and observation enrichment remains unimplemented.
+
 ## Implementation
 
 Not implemented in the current application. Add actual source links when implementation lands.

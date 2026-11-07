@@ -18,6 +18,8 @@ The delivered F-AUTH-ACCESS contract distinguishes human members from monitoring
 
 Reuse incident authorization, evidence access, and acknowledgment semantics. Agent action must stop escalation and appear in the operator view.
 
+The [incident contract](../../../apps/app/src/lib/incidents.ts) now publishes response versions, ownership, and timeline. Its HTTP handlers currently authorize human members only. Future external-agent authentication must map to the same workspace boundary and use the shared versioned response service. No MCP endpoint or agent principal is implemented.
+
 ## Implementation
 
 Not implemented in the current application. Add actual source links when implementation lands.
