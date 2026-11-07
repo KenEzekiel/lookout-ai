@@ -18,6 +18,7 @@ test("thread context and model progress reach the same conversation without a ca
   const statuses: string[] = [];
   let reply = '{"kind":"reply","text":"The reply handler is fixed."}';
   let progress = "I will trace the reply handler.";
+  let policy = "Operating rules";
   const client = {
     launch: async () => ({ threadId: "thread", projectId: "project", runId: null }),
     send: async ({ message }) => {
@@ -45,7 +46,7 @@ test("thread context and model progress reach the same conversation without a ca
     projectId: "project",
     instanceId: "instance",
     model: "model",
-    policy: "Operating rules",
+    policy: async () => policy,
     disclosure,
     context: async () => ({
       kind: "available",
@@ -84,15 +85,17 @@ test("thread context and model progress reach the same conversation without a ca
   assert.equal(sessions.snapshot(first.address)?.deliveries[0]?.kind, "progress");
 
   reply = '{"kind":"silent"}';
+  policy = "Updated operating rules";
   progress = "private-test-marker";
   await oracle.receive(input("Follow up", { address: first.address }));
   await oracle.idle();
   assert.ok(prompts[1]?.includes('"role":"assistant","text":"The reply handler is fixed."'));
+  assert.ok(prompts[1]?.startsWith("Updated operating rules\n"));
   assert.equal(
     sent.some(({ text }) => text.includes(progress)),
     false,
   );
-  assert.equal(sent.at(-1)?.text, "The turn could not finish. Send a fresh request to continue.");
+  assert.match(sent.at(-1)?.text ?? "", /did not pass the disclosure policy/);
 
   progress = "I will check the follow-up.";
   await oracle.receive(input("Please answer", { address: first.address }));

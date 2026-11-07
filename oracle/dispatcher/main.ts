@@ -8,6 +8,7 @@ import { connectT3 } from "../session/t3.js";
 import { loadDisclosure } from "../tools/disclosure.js";
 import { loadConfig, loadIdentity, oracleRoot } from "./config.js";
 import { createOracle, type Oracle } from "./index.js";
+import { watchSource } from "./reload.js";
 import { connectSlack } from "./slack.js";
 
 const log = (code: string): void => {
@@ -18,8 +19,11 @@ let slack: Awaited<ReturnType<typeof connectSlack>> | undefined;
 let release: (() => Promise<void>) | undefined;
 let unsafeToRelease = false;
 let closing: Promise<void> | undefined;
+let stopWatching: (() => void) | undefined;
+let reloading = false;
 const shutdown = (): Promise<void> => {
   closing ??= (async () => {
+    stopWatching?.();
     try {
       await oracle?.close();
     } catch {
@@ -64,9 +68,6 @@ async function main(): Promise<void> {
     config.slack.appToken,
     config.t3.token,
   ]);
-  const policy = disclosure.assert(
-    await readFile(join(oracleRoot, "session", "operating.md"), "utf8"),
-  );
   const client = await connectT3({ endpoint: config.t3.endpoint, token: config.t3.token });
   const sessions = createSessionStore({
     directory: join(oracleRoot, ".state", "sessions"),
@@ -75,7 +76,7 @@ async function main(): Promise<void> {
   const runner = createT3Runner({
     client,
     sessions,
-    policy,
+    policy: () => readFile(join(oracleRoot, "session", "operating.md"), "utf8"),
     disclosure,
     context: slack.context,
     projectId: config.t3.projectId,
@@ -92,7 +93,31 @@ async function main(): Promise<void> {
     onFault,
   });
   await slack.listen(oracle);
+  stopWatching = await watchSource({
+    root: oracleRoot,
+    onFault: () => log("reload_watch_failed"),
+    onChange: () => {
+      if (closing || reloading) return;
+      reloading = true;
+      log("oracle_reload_requested");
+      void (async () => {
+        await oracle?.idle();
+        if (closing) return;
+        await slack?.close();
+        await oracle?.idle();
+        await shutdown();
+        if (!unsafeToRelease && !process.exitCode) process.exitCode = 75;
+      })().catch(() => {
+        log("reload_failed");
+        process.exitCode = 1;
+        void shutdown().catch(() => log("shutdown_failed"));
+      });
+    },
+  });
   log("oracle_listening");
+  process.stderr.write(
+    `${JSON.stringify({ event: "oracle_backend", instanceId: config.t3.instanceId, model: config.t3.model })}\n`,
+  );
 }
 
 process.once("SIGINT", () => {

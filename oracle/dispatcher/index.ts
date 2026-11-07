@@ -34,6 +34,8 @@ export interface Oracle {
 
 type QueuedTurn = { input: Incoming; generation: number; ready: Promise<void> };
 const failureReply = "The turn could not finish. Send a fresh request to continue.";
+const disclosureReply =
+  "Oracle could not process this turn because its content did not pass the disclosure policy. Remove private names or sensitive details and try again, or ask a maintainer to review the policy.";
 
 export async function createOracle(deps: {
   sessions: SessionStore;
@@ -123,8 +125,9 @@ export async function createOracle(deps: {
           await sessions.complete(input, { kind: "silent" }, "cancelled");
           return;
         }
-        outcome = { kind: "reply", text: failureReply };
-        deps.onFault?.("turn_failed");
+        const refused = error instanceof BoundaryError && error.code === "disclosure_refused";
+        outcome = { kind: "reply", text: refused ? disclosureReply : failureReply };
+        deps.onFault?.(refused ? "disclosure_refused" : "turn_failed");
       }
       await sessions.complete(input, outcome);
       assertActive(controller.signal);

@@ -319,11 +319,17 @@ test("unsafe runner replies and raw failures become generic messages", async (t)
   await oracle.idle();
   await oracle.receive(input("Throw"));
   await oracle.idle();
+  await oracle.receive(input("plum-private-marker"));
+  await oracle.idle();
   assert.equal(
     outputs.some((text) => text.includes("plum-private-marker")),
     false,
   );
-  assert.equal(outputs.filter((text) => text.includes("could not finish")).length, 2);
+  assert.equal(outputs.filter((text) => text.includes("could not finish")).length, 1);
+  assert.equal(
+    outputs.filter((text) => text.includes("did not pass the disclosure policy")).length,
+    2,
+  );
 });
 
 test("shutdown clears processing for both active and queued conversations", async (t) => {
