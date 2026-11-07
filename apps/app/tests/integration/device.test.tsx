@@ -1,4 +1,4 @@
-// @vitest-environment ./tests/support/browser-environment.ts
+// @vitest-environment device
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
