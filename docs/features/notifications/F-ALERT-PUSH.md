@@ -14,7 +14,7 @@ Delivery is best effort. No native call UI, continuous ringtone, silent-mode byp
 
 ## Entry points
 
-Every member screen has a **Background alerts** disclosure with **Enable alerts** and **Turn off background alerts** controls. Permission is requested only after a click. iPhone and iPad users must add Lookout to the Home Screen in Safari and open it there on a supported OS. The manifest and PNG icons support installation; no authenticated content is cached for offline use.
+The shared workspace layout keeps the **Background alerts** disclosure mounted across Devices, Team, Triggers, inbox, and detail navigation. Every member screen has a **Background alerts** disclosure with **Enable alerts** and **Turn off background alerts** controls. Permission is requested only after a click. iPhone and iPad users must add Lookout to the Home Screen in Safari and open it there on a supported OS. The manifest and PNG icons support installation; no authenticated content is cached for offline use.
 
 ## Wiring and compatibility
 
