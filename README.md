@@ -29,16 +29,19 @@ pnpm dev
 
 The development command selects port 3000. Open `http://localhost:3000` once the server reports it is ready. The Vite configuration includes Cloudflare's local Workers integration.
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm check` | Check formatting, lint application code, and generate route types before TypeScript checking. |
-| `pnpm build` | Build the application. |
-| `pnpm preview` | Preview the build on port 3000. |
-| `pnpm format` | Apply formatting. |
-| `pnpm lint:fix` | Apply available lint fixes. |
-| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset. |
+| Command                                    | Purpose                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------ |
+| `pnpm check`                               | Check formatting, lint, comments, TypeScript, and dependency boundaries. |
+| `pnpm test`                                | Run Vitest UI integration tests with jsdom and MSW.                      |
+| `pnpm verify`                              | Run all PR checks, integration tests, and the production build.          |
+| `pnpm qa:browser`                          | Run optional Playwright smoke tests for manual QA of the built app.      |
+| `pnpm build`                               | Build the application.                                                   |
+| `pnpm preview`                             | Preview the build on port 3000.                                          |
+| `pnpm format`                              | Apply formatting.                                                        |
+| `pnpm lint:fix`                            | Apply available lint fixes.                                              |
+| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset.                       |
 
-There is no application test script yet. Generated route files and vendored agent tooling are excluded from the application formatting/lint scope. See [package scripts](package.json), [app scripts](apps/app/package.json), and [formatter configuration](.oxfmtrc.json) for exact behavior.
+CI runs `pnpm verify`. Playwright stays outside CI. For manual browser QA, install Chromium once with `pnpm exec playwright install chromium`. See [verification conventions](docs/verification.md) for mocking rules, temporary database requirements, and the comment ban. Generated route files and vendored agent tooling are excluded from the application formatting/lint scope. See [package scripts](package.json), [app scripts](apps/app/package.json), and [formatter configuration](.oxfmtrc.json) for exact behavior.
 
 ## Cloudflare deployment
 

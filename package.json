@@ -6,16 +6,27 @@
     "dev": "pnpm --filter @lookout/app dev",
     "build": "pnpm --filter @lookout/app build",
     "preview": "pnpm --filter @lookout/app preview",
-    "typecheck": "pnpm --filter @lookout/app typecheck",
-    "lint": "oxlint --deny-warnings apps",
+    "typecheck": "pnpm --filter @lookout/app typecheck && tsc --noEmit -p tsconfig.checks.json",
+    "lint": "oxlint --deny-warnings apps tests playwright.config.ts scripts/*.mjs .dependency-cruiser.cjs",
     "lint:fix": "pnpm lint --fix",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck"
+    "check": "pnpm format:check && pnpm lint && pnpm check:comments && pnpm typecheck && pnpm check:deps",
+    "check:comments": "node scripts/check-comments.mjs",
+    "check:deps": "node scripts/check-dependencies.mjs",
+    "verify": "pnpm check && python3 scripts/check-harness.py && pnpm test && pnpm build",
+    "test": "pnpm --filter @lookout/app test",
+    "qa:browser": "pnpm build && playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/node": "26.6.6",
+    "dependency-cruiser": "18.7.2",
+    "oxc-parser": "0.157.0",
     "oxfmt": "0.77.0",
-    "oxlint": "1.92.0"
+    "oxlint": "1.92.0",
+    "postcss": "8.5.32",
+    "typescript": "6.0.3"
   },
   "engines": {
     "node": ">=22.14.0"

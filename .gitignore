@@ -13,3 +13,5 @@ dist/
 .dev.vars.*
 !.dev.vars.example
 *.tsbuildinfo
+playwright-report/
+test-results/
