@@ -16,7 +16,7 @@ Visitors open Lookout to sign in or register. Access and capture headers share t
 
 Shared controls use the [interaction motion styles](../../../apps/app/src/styles.css): enabled buttons give subtle press feedback, overlays use reversible opacity/transform transitions, and new feedback appears briefly. Navigation and typing remain immediate. The active workspace underline slides between destinations in 220 ms through Motion shared layout, including browser history and incident detail navigation. Reduced motion moves it immediately. Dialogs enter in 180 ms and exit in 120 ms; menus use 120 ms. Reduced motion disables CSS animation and transitions, including existing control effects. No animation delays an action or changes focus management.
 
-Devices separates an owner-only **This browser** card from the **Connected devices** list. The card explains local capture and cross-tab sign-out. Device rows pair authorization status with a primary Live view action and secondary owner-only removal. The layout wraps at narrow widths and reuses the shared Button and Badge components.
+Devices separates an owner-only **This browser** card from the **Connected devices** list. The card explains local capture and cross-tab sign-out. Device rows pair authorization status with a primary Live view action and secondary owner-only removal. The paired-device list leads browser setup in the reading order, with a count of all registered records, including removed access. Monitoring health remains above the paired-device list. The browser card sits beside the list on wide screens and follows it on narrow screens. Raised surfaces, larger device names, icon tiles, and a blue Paired badge distinguish device identity, authorization, and actions. The layout wraps at narrow widths and reuses the shared Button and Badge components.
 
 ## Entry points
 
@@ -28,7 +28,7 @@ Open `/`, `/devices`, `/team`, `/join`, `/monitor`, `/device`, `/triggers`, `/in
 
 ## Wiring and compatibility
 
-Member screens now mount [incoming alerts](../../../apps/app/src/components/incidents/incoming-alerts.tsx) for F-ALERT-INAPP. Visitors, unassigned users, paired devices, and pairing screens do not subscribe. The alert view and sound controls appear before each screen's content; opening or silencing never changes ownership. [Complete-screen alert tests](../../../apps/app/tests/integration/incoming-alerts.test.tsx) cover the shared shell integration. Device status copy distinguishes missing automatic reports from working operator alert delivery.
+Member screens now mount [incoming alerts](../../../apps/app/src/components/incidents/incoming-alerts.tsx) for F-ALERT-INAPP. Visitors, unassigned users, paired devices, and pairing screens do not subscribe. The alert view and sound controls appear before each screen's content; opening or silencing never changes ownership. [Complete-screen alert tests](../../../apps/app/tests/integration/incoming-alerts.test.tsx) cover the shared shell integration. Device copy explains that pairing grants workspace access and capture must run before Live view. Authorization never claims active monitoring.
 
 Member screens also mount [background-alert setup](../../../apps/app/src/components/incidents/push-setup.tsx) for F-ALERT-PUSH. The public manifest and root links provide Home Screen metadata. The service worker caches no authenticated pages. [Setup integration tests](../../../apps/app/tests/integration/push.test.tsx) cover consent, platform guidance, and recovery. Notification clicks use the existing protected incident URL.
 
@@ -68,6 +68,8 @@ The Horizon access redesign passed `pnpm verify` and the three Chromium end-to-e
 
 [Route integration tests](../../../apps/app/tests/integration/app.test.tsx) cover the home redirect, direct Devices and Team links, visitor denial, persistent header and access connection, path navigation, browser back and forward, and unknown-route fallback. [Capture UI tests](../../../apps/app/tests/integration/device.test.tsx) cover paired-device entry and visitor denial. Run `pnpm test`. [Access browser journeys](../../../tests/e2e/access.spec.ts) exercise entry, joining, and monitoring-mode navigation against the built app.
 
+The Devices layout integration coverage in [access tests](../../../apps/app/tests/integration/access.test.tsx) exercises first-device pairing from the empty state, the registered-device count, authorization labels, and list-before-browser reading order. Existing tests retain removal confirmation, owner/operator permissions, activation cancellation, load retry, and Live view recovery. Manual production-build verification and evidence for this layout are recorded in [PR #90](https://github.com/KenEzekiel/lookout-ai/pull/90); do not infer remote capture health from a Paired badge.
+
 ## Decisions and sources
 
 [Issue #86](https://github.com/KenEzekiel/lookout-ai/issues/86) adds device-mode entry in the shared member header while retaining the owner-only **This browser** card introduced by [PR #84](https://github.com/KenEzekiel/lookout-ai/pull/84). Model the Domain keeps role-dependent header entry in one component using the existing `Member` shape. Both owner shortcuts use the existing activation dialog and endpoint. Owner-approved operator pairing, capture entry, and device restrictions retain their existing endpoints and permissions.
@@ -87,6 +89,8 @@ The merge with main preserves F-RULE-CONFIG navigation and device configuration 
 The user approved the Horizon cobalt/graphite identity and focused access-screen mockup in the implementation conversation. This PR implements that direction while preserving the newly merged capture route. The shared identity belongs to the access shell and is reused by the capture header.
 
 [Product direction](../../../PRD.md), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), and [service roadmap](../../architecture/roadmap.md).
+
+Ken requested improved design and layout for `/devices` in the Slack conversation for the current PR. Synthesis decision: keep the existing schema-derived team snapshot, Workspace state, dialogs, and API calls. Make the device list primary and browser activation secondary. The merge resolution preserves the Monitoring health panel above the list, the Paired devices heading, manual Refresh, server-sent list updates, and shared page-title typography from main. The [workspace screen](../../../apps/app/src/components/access/workspace.tsx) owns the layout. No shared signature, session, capture, or peer contract changes.
 
 ## Open questions
 
