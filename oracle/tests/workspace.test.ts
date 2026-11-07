@@ -107,6 +107,76 @@ test("dirty updates and merge conflicts preserve files and leave no merge in pro
   await assert.rejects(git(worktree, "rev-parse", "--verify", "MERGE_HEAD"));
 });
 
+for (const scenario of ["untracked", "conflict"] as const) {
+  test(`Slack explains the ${scenario} workspace blocker and a fresh request runs after repair`, async (t) => {
+    const { worktree, advance } = await fixture(t);
+    const workspace = workspaceFor(worktree);
+    const localPath = join(worktree, scenario === "untracked" ? "draft.txt" : "file.txt");
+    await writeFile(localPath, "unfinished work\n");
+    if (scenario === "conflict") await git(worktree, "commit", "-am", "local work");
+    const before = await git(worktree, "rev-parse", "HEAD");
+    await advance("remote change\n");
+    const sessions = createSessionStore({
+      directory: await directory(t),
+      limits: defaultLimits,
+      now: () => testNow,
+    });
+    const messages: string[] = [];
+    const faults: string[] = [];
+    let coding = 0;
+    const oracle = await createOracle({
+      sessions,
+      limits: defaultLimits,
+      now: () => testNow,
+      runner: {
+        run: () =>
+          workspace.run(async () => {
+            coding++;
+            return { kind: "reply", text: "Resumed after workspace repair" };
+          }),
+      },
+      publish: async (_, text) => {
+        messages.push(text);
+      },
+      onFault: (code) => {
+        faults.push(code);
+      },
+    });
+    t.after(() => oracle.close());
+    const request = input("Continue the Slack task");
+    assert.equal(await oracle.receive(request), "accepted");
+    await oracle.idle();
+    assert.equal(coding, 0);
+    assert.equal(await git(worktree, "rev-parse", "HEAD"), before);
+    assert.equal(await readFile(localPath, "utf8"), "unfinished work\n");
+    await assert.rejects(git(worktree, "rev-parse", "--verify", "MERGE_HEAD"));
+    assert.equal(messages.length, 1);
+    assert.match(
+      messages[0] ?? "",
+      scenario === "untracked" ? /uncommitted changes/ : /merge conflict/,
+    );
+    assert.match(messages[0] ?? "", /maintainer/);
+    assert.match(messages[0] ?? "", /fresh request/);
+    assert.deepEqual(faults, [
+      scenario === "untracked" ? "workspace_sync_dirty" : "workspace_sync_conflict",
+    ]);
+    assert.equal(sessions.snapshot(request.address)?.deliveries[0]?.state, "sent");
+    if (scenario === "conflict") {
+      await assert.rejects(git(worktree, "merge", "origin/main"));
+      await writeFile(localPath, "unfinished work\nremote change\n");
+    }
+    await git(worktree, "add", ".");
+    await git(worktree, "commit", "-m", "save work and resolve blocker");
+    await oracle.receive(input("Continue", { address: request.address }));
+    await oracle.idle();
+    assert.equal(coding, 1);
+    assert.equal(messages.at(-1), "Resumed after workspace repair");
+    assert.equal(messages.length, 2);
+    assert.equal(await git(worktree, "status", "--porcelain"), "");
+    assert.match(await readFile(localPath, "utf8"), /unfinished work/);
+  });
+}
+
 test("background sync waits for a complete coding turn and the next turn starts current", async (t) => {
   const { primary, worktree, advance } = await fixture(t);
   const workspace = workspaceFor(worktree);
