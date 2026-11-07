@@ -6,6 +6,8 @@ Depends on: F-AUTH-ACCESS
 
 ## Behavior
 
+The camera direction selector offers rear and front camera preferences using the shared Select. Rear is preferred on the capture screen. Switching during capture releases the previous stream and starts a new capture epoch, resetting assessment and peer sessions through the existing lifecycle. Switching while stopped only changes the next-start preference. The browser receives an ideal facingMode constraint, allowing single-camera devices to fall back. Permission and startup errors retain Stop/retry behavior. Physical lens selection still requires device verification.
+
 Start and Stop use shared default Button sizing, typography, and decorative play/stop icons. Open capture station uses the same button styling while retaining navigation-link semantics.
 
 Source startup shows a labeled indicator over the reserved video area and explains the camera permission prompt or local-file wait. The status says Connecting source while startup is pending, and Stop remains available.
@@ -38,6 +40,8 @@ The incident service now has server-owned per-source session leases. The local c
 
 ## Verification
 
+Complete-route integration coverage now checks rear-camera preference, switching to front camera, release of the old track, a new capture epoch, preference-only changes while stopped, and permission-error recovery. Production-browser evidence for this change is recorded in its PR; physical front/rear lens selection remains unverified.
+
 [Loading journey integration tests](../../../apps/app/tests/integration/loading.test.tsx) cover delayed access, lists, configuration, navigation away, submission failure, and refresh retention. [Incident integration tests](../../../apps/app/tests/integration/incidents.test.tsx) cover pending responses and replay loading, buffering, failure, and retry. Existing feature tests remain the regression checks for this consumer. Browser observations and evidence for the current change belong in its PR.
 
 [UI integration tests](../../../apps/app/tests/integration/device.test.tsx) cover paired access, local-video playback states, stop/restart, permission refusal, camera absence, and disconnection. Production-build Chromium QA used an isolated workspace and paired device. It exercised a generated local video, a simulated camera, track release on Stop, seek, revocation during capture, and a narrow layout with no browser errors or failed requests. A separate 37-second camera run loaded each retained segment after rollover. [Real-browser clip checks](../../../tests/clip/clip.spec.ts) verify seekable MP4 extraction and a synthetic receipt-to-upload handoff in Chromium. A physical camera indicator check, operator replay, and live assessment-driven upload remain unverified. The local device screen never uploads untriggered footage.
@@ -47,6 +51,8 @@ The dropdown migration retains the existing capture integration coverage. Produc
 Dropdown panels open outside the trigger with a six-pixel gap and matching width. Four-pixel padding separates the rounded options from the panel border; the selected row no longer overlays the trigger. This corrects the visual alignment reported in PR #59. The preview keeps its minimum height within the available container width, so its aspect ratio cannot force horizontal overflow on a 320-pixel screen.
 
 ## Decisions and sources
+
+The current PR implements the user’s hackathon request for richer phone assessment visibility and rear-camera switching. The existing controller owns typed latest-result data; the UI formats it without changing backend contracts.
 
 Kenneth requested a button consistency audit and clearer icons. [Capture controls](../../../apps/app/src/components/device-screen.tsx) and the [capture entry link](../../../apps/app/src/components/access/monitor.tsx) reuse F-APP-SHELL sizing. The existing capture lifecycle, identity, and media behavior remain unchanged.
 

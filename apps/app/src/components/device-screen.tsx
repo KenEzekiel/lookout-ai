@@ -40,6 +40,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
   }, []);
   const [snapshot, setSnapshot] = useState<CaptureSnapshot>(initialCaptureSnapshot);
   const [sourceChoice, setSourceChoice] = useState<SourceChoice>("camera");
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("environment");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const running = snapshot.state === "running";
   const paused = snapshot.state === "paused";
@@ -75,7 +76,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
   }
 
   function start() {
-    if (sourceChoice === "camera") void sessionRef.current?.startCamera();
+    if (sourceChoice === "camera") void sessionRef.current?.startCamera(cameraFacing);
     else if (selectedFile) void sessionRef.current?.startFile(selectedFile);
   }
 
@@ -136,7 +137,7 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
 
             <div
               className={cn(
-                "relative isolate aspect-[1.35] min-h-[260px] w-full overflow-hidden rounded-[18px]",
+                "relative isolate aspect-video min-h-[180px] w-full overflow-hidden rounded-[18px]",
                 "border border-white/10 bg-[radial-gradient(ellipse_at_65%_25%,#354b50,#172126_60%,#10171b)]",
                 "shadow-[0_22px_60px_#0003] sm:aspect-[1.56] sm:min-h-[420px]",
               )}
@@ -220,7 +221,14 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
             className="grid min-w-0 gap-4 md:grid-cols-2 lg:mt-11 lg:flex lg:flex-col"
             aria-label="Capture controls and status"
           >
-            <section className={cn(panelClass, "md:row-span-2 lg:row-auto")}>
+            <section className={panelClass}>
+              <MonitoringControls
+                session={sessionRef}
+                snapshot={snapshot}
+                onController={onMonitoringController}
+              />
+            </section>
+            <section className={panelClass}>
               <div className="flex items-center gap-2.5 text-muted-foreground">
                 <Activity size={16} />
                 <h2 className="text-sm font-semibold text-foreground">Capture controls</h2>
@@ -283,6 +291,33 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                   </SelectContent>
                 </Select>
               </div>
+              {sourceChoice === "camera" && (
+                <div className="mt-4 flex flex-col gap-2">
+                  <label className="text-xs text-muted-foreground" htmlFor="camera-facing">
+                    Camera direction
+                  </label>
+                  <Select<"user" | "environment">
+                    value={cameraFacing}
+                    items={{ environment: "Rear camera", user: "Front camera" }}
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      setCameraFacing(value);
+                      if (running || starting) void sessionRef.current?.startCamera(value);
+                    }}
+                  >
+                    <SelectTrigger id="camera-facing" className={selectClass}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="environment">Rear camera</SelectItem>
+                      <SelectItem value="user">Front camera</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Switching restarts capture. If unavailable, your browser uses another camera.
+                  </p>
+                </div>
+              )}
               {sourceChoice === "file" && (
                 <div className="motion-reveal mt-4 flex flex-col gap-2">
                   <label className="text-xs text-muted-foreground" htmlFor="video-file">
@@ -326,11 +361,6 @@ export function DeviceScreen({ deviceId, workspaceId }: CaptureIdentity) {
                   </Button>
                 )}
               </div>
-              <MonitoringControls
-                session={sessionRef}
-                snapshot={snapshot}
-                onController={onMonitoringController}
-              />
               {hasError && (
                 <p role="alert" className="mt-3 text-xs text-critical">
                   {snapshot.error}

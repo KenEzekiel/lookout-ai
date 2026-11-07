@@ -6,6 +6,8 @@ Depends on: F-SOURCE-CAPTURE, F-RULE-CONFIG, F-AI-RELAY, F-INCIDENT-RESPONSE
 
 ## Behavior
 
+The phone capture station puts live AI assessment before setup controls, below a compact video preview. Each enabled rule shows its condition, severity, version, match and uncertainty percentages, 70% review threshold, duration requirement, frame count, source interval, response time, and result receipt time. Scores are labeled as the latest completed AI estimates and remain visible during refresh or degradation. No percentage is shown before a successful assessment. The latest review verdict and explanation remain visible, including positive reviews after reporting. Stop, source replacement, and camera switching clear the displayed run. These are display-only additions to the existing device-owned state; inference thresholds and incident decisions are unchanged.
+
 A paired operational device selects an assigned source at the capture station. Capture can run as preview without an assignment. With a compatible camera or replay source, enabled rules drive remote assessment, candidate review, and incident reporting. Source selection stops capture so a running input cannot silently acquire another source identity. Replay remains labeled.
 
 A Decisions match probability of at least 0.70 creates a candidate without repeated-positive gating. The uncertainty probability does not veto a positive candidate. An optional duration requires successive positive observations across that source-time duration; an unavailable or uncertain observation, pause, configuration interruption, or gap longer than five source seconds restarts duration accumulation. Duration-free fall and crash rules can reach review on their first positive observation.
@@ -38,6 +40,8 @@ Event time is the wall-clock capture time of the first candidate-window frame, l
 
 ## Verification
 
+Complete-route integration coverage now checks displayed match and uncertainty percentages, confirmed review explanations, first-result waiting, retained last-completed scores during provider failure, and clearing scores after Stop or camera switching. Production-browser evidence for this change is recorded in its PR.
+
 [Complete-route integration tests](../../../apps/app/tests/integration/device.test.tsx) exercise real capture and monitoring code with browser media input and MSW HTTP boundaries. They cover positive delivery, stable retry payloads, dismissed receipts without duplicate reports, rejected/more-evidence/unavailable review outcomes, slow inference with one pending request, Stop, disabled-rule and seek cancellation, configured duration, and deliberate rearming with a new event identity. Existing relay and incident API integration suites retain real Worker/D1 coverage.
 
 `pnpm verify` passed after integration with the dashboard routes and durable follow-up on main. Contained production-build Chromium QA on `fbf4508` used isolated D1, real application endpoints, simulated camera input, and mocked external inference. It observed assigned-source keyboard selection, reviewed reporting, one persisted incident despite repeated positives after dismissal, delayed-provider degradation, Stop cancellation/session end, and a 390-pixel layout without overflow. There were no console errors; the stopped assessment was the only aborted browser request. Inbox and dismissal checks used the real API rather than the operator UI. A follow-up production-browser run on `ea0f9c4` verified the merged evidence receipt schema, rejected and more-evidence reviews without incidents, source-kind mismatch, unavailable-provider recovery, and delayed-assessment cancellation on Stop or rule disable. The 390-pixel layout had no overflow; only expected provider/cancellation errors were observed. The follow-up did not repeat keyboard navigation or sustained deduplication. [PR #81](https://github.com/KenEzekiel/lookout-ai/pull/81) records both runs. The nine screenshots and two recordings are published as verified GitHub attachments in PR #81. The installed GitHub CLI was upgraded to 2.103.3 to enable attachment uploads.
@@ -45,6 +49,8 @@ Event time is the wall-clock capture time of the first candidate-window frame, l
 Required before claiming implemented: permitted fall, harmless, and crash footage with live provider responses. No local provider credential was available; the private secret request timed out. Mocked inference proves control behavior, not detection accuracy. Per-run results, latency, screenshots, video, and blockers belong in the PR. Run `pnpm verify`.
 
 ## Decisions and sources
+
+The current PR implements the user’s hackathon request for richer phone assessment visibility and rear-camera switching. The existing controller owns typed latest-result data; the UI formats it without changing backend contracts.
 
 [Issue #21](https://github.com/KenEzekiel/lookout-ai/issues/21), [experience design](../../architecture/design.md), [visual design](../../../DESIGN.md), [fall evidence](../../../experiments/decisions-falls/README.md), and [crash evidence](../../../experiments/decisions-crashes/README.md).
 

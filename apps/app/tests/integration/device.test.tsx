@@ -23,6 +23,7 @@ const originals = {
 
 let cameraError: DOMException | null;
 let tracksStopped: number;
+let cameraRequests: (MediaStreamConstraints | undefined)[];
 let recordersStopped: number;
 let urlsRevoked: number;
 let endCameraTrack: () => void;
@@ -56,6 +57,7 @@ beforeEach(() => {
     ),
   );
   cameraError = null;
+  cameraRequests = [];
   tracksStopped = 0;
   recordersStopped = 0;
   urlsRevoked = 0;
@@ -77,7 +79,8 @@ beforeEach(() => {
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: {
-      getUserMedia: async () => {
+      getUserMedia: async (constraints?: MediaStreamConstraints) => {
+        cameraRequests.push(constraints);
         if (cameraError) throw cameraError;
         return {
           getTracks: () => [track],
@@ -157,6 +160,28 @@ test("a camera starts, retains samples, and releases its tracks on Stop", async 
   expect(tracksStopped).toBe(1);
   expect(recordersStopped).toBe(1);
   expect(screen.getByText("Samples retained").parentElement).toHaveTextContent("0");
+});
+
+test("switching rear and front cameras releases the previous capture and starts a new run", async () => {
+  await renderDevice();
+  await userEvent.click(screen.getByRole("button", { name: "Start" }));
+  expect(cameraRequests.at(-1)).toEqual({
+    video: { facingMode: { ideal: "environment" } },
+    audio: false,
+  });
+  await userEvent.click(screen.getByLabelText("Camera direction"));
+  await userEvent.click(await screen.findByRole("option", { name: "Front camera" }));
+  await waitFor(() => expect(screen.getByText("Capture run").parentElement).toHaveTextContent("2"));
+  expect(tracksStopped).toBe(1);
+  expect(cameraRequests.at(-1)).toEqual({ video: { facingMode: { ideal: "user" } }, audio: false });
+  await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+  await userEvent.click(screen.getByLabelText("Camera direction"));
+  await userEvent.click(await screen.findByRole("option", { name: "Rear camera" }));
+  expect(cameraRequests).toHaveLength(2);
+  cameraError = new DOMException("Denied", "NotAllowedError");
+  await userEvent.click(screen.getByRole("button", { name: "Start" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Allow access in your browser");
+  expect(screen.getByRole("button", { name: "Start" })).toBeEnabled();
 });
 
 test("a local video starts and seeking or restarting creates a new capture epoch", async () => {
@@ -260,6 +285,7 @@ function monitoringApi({
   const sessionId = crypto.randomUUID();
   let rule = { ...monitoringRule, definition: { ...monitoringRule.definition, durationSeconds } };
   let probability = 0.9;
+  let assessmentUnavailable = false;
   server.use(
     http.get("/api/config/device", () =>
       HttpResponse.json({ sources: [configuredSource], rules: [rule] }),
@@ -285,6 +311,8 @@ function monitoringApi({
       expect(image.type).toBe("image/jpeg");
       expect(new Uint8Array(await image.arrayBuffer())).toEqual(new Uint8Array([0, 0, 0]));
       observations.push(metadata.observation);
+      if (metadata.observation.stage === "assessment" && assessmentUnavailable)
+        return HttpResponse.json({ kind: "unavailable", reason: "provider_error" });
       if (metadata.observation.stage === "assessment")
         return HttpResponse.json({
           kind: "assessment",
@@ -324,6 +352,9 @@ function monitoringApi({
   );
   return {
     reports,
+    unavailable: () => {
+      assessmentUnavailable = true;
+    },
     observations,
     ended,
     sessionId,
@@ -354,6 +385,12 @@ test("a confirmed candidate reports one stable event, retries delivery and does 
   await screen.findByText(/request unavailable/, {}, { timeout: 4000 });
   video.currentTime = 1;
   await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+  expect(screen.getByText("90.0%")).toBeVisible();
+  expect(screen.getByText("10.0%")).toBeVisible();
+  expect(screen.getByText("Latest review · Confirmed")).toBeVisible();
+  expect(screen.getByText("Reviewed supplied footage.")).toBeVisible();
+  expect(screen.getByText("Frames assessed").parentElement).toHaveTextContent("1");
+  expect(screen.getByText("Result received")).toBeVisible();
   expect(api.reports).toHaveLength(2);
   expect(api.reports[1]).toEqual(api.reports[0]);
   expect(api.reports[0]?.eventTime).toBeLessThanOrEqual(Date.now());
@@ -371,7 +408,26 @@ test("a confirmed candidate reports one stable event, retries delivery and does 
   await userEvent.click(screen.getByRole("button", { name: "Stop" }));
   await waitFor(() => expect(api.ended).toEqual([api.sessionId]));
   expect(screen.getByText("AI monitoring stopped.")).toBeVisible();
+  expect(screen.queryByText("90.0%")).not.toBeInTheDocument();
 }, 15000);
+
+test("assessment failure retains labeled last-completed scores until camera switching clears the run", async () => {
+  const api = monitoringApi();
+  const video = await startMonitoring();
+  await screen.findByText("Latest incident reported", {}, { timeout: 4000 });
+  api.unavailable();
+  video.currentTime = 1;
+  await screen.findByText(/Assessment unavailable: provider_error/, {}, { timeout: 4000 });
+  expect(screen.getByText("90.0%")).toBeVisible();
+  expect(
+    screen.getByText("Latest completed assessment. AI estimates, not confirmation."),
+  ).toBeVisible();
+  await userEvent.click(screen.getByLabelText("Camera direction"));
+  await userEvent.click(await screen.findByRole("option", { name: "Front camera" }));
+  await waitFor(() => expect(screen.queryByText("90.0%")).not.toBeInTheDocument());
+  expect(screen.queryByText("Latest incident reported")).not.toBeInTheDocument();
+  expect(screen.getByText(/Waiting for the first assessment/)).toBeVisible();
+});
 
 for (const outcome of ["rejected", "need_more_evidence", "unavailable"] as const) {
   test(`review ${outcome} remains distinct and never reports an incident`, async () => {
@@ -416,6 +472,8 @@ test("a delayed assessment stays bounded and Stop invalidates its late positive 
   await waitFor(() => expect(requests).toBe(1));
   video.currentTime = 9;
   await screen.findByText(/assessment is behind capture/, {}, { timeout: 6500 });
+  expect(screen.getByText(/Waiting for the first assessment/)).toBeVisible();
+  expect(screen.queryByText("90.0%")).not.toBeInTheDocument();
   expect(requests).toBe(1);
   await userEvent.click(screen.getByRole("button", { name: "Stop" }));
   release();

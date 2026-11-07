@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { request } from "./api";
-import { createAssessmentClient } from "./assessment";
+import { createAssessmentClient, type AssessmentResult } from "./assessment";
 import { type CaptureSession, type FrameSample } from "./capture-session";
 import { captureSessionSchema, reportReceiptSchema } from "./incidents";
 import { type Rule } from "./rules";
@@ -12,7 +12,16 @@ type EventWindow = {
   to: number;
   frames: FrameSample[];
 };
+type AssessmentObservation = Extract<AssessmentResult, { kind: "assessment" }> & {
+  receivedAt: number;
+  latencyMs: number;
+  frameCount: number;
+  from: number;
+  to: number;
+};
 type RuleState = {
+  assessment: AssessmentObservation | null;
+  review: Extract<AssessmentResult, { kind: "review" }> | null;
   rule: Rule;
   lastFrame: string | null;
   clearSince: number | null;
@@ -26,7 +35,15 @@ type RuleState = {
 };
 export type MonitoringStatus = {
   notice: string;
-  rules: { id: string; name: string; version: number; notice: string }[];
+  rules: {
+    id: string;
+    name: string;
+    version: number;
+    notice: string;
+    definition: Rule["definition"];
+    assessment: AssessmentObservation | null;
+    review: RuleState["review"];
+  }[];
   latest: { eventTime: number; from: number; to: number; incidentId: string } | null;
 };
 
@@ -73,6 +90,8 @@ export class DeviceMonitoring {
             (state) => state.rule.id === rule.id && state.rule.version === rule.version,
           ) ?? {
             rule,
+            assessment: null,
+            review: null,
             lastFrame: null,
             clearSince: null,
             positiveSince: null,
@@ -138,11 +157,14 @@ export class DeviceMonitoring {
     if (!this.disposed)
       this.publish({
         notice,
-        rules: this.states.map(({ rule, notice }) => ({
+        rules: this.states.map(({ rule, notice, assessment, review }) => ({
           id: rule.id,
           name: rule.definition.name,
           version: rule.version,
           notice,
+          definition: rule.definition,
+          assessment,
+          review,
         })),
         latest: this.latest,
       });
@@ -216,6 +238,7 @@ export class DeviceMonitoring {
       }
       state.lastFrame = last.id;
       this.emit("Assessing assigned rules…");
+      const startedAt = Date.now();
       const result = await this.assess(
         {
           rule: { id: state.rule.id, version: state.rule.version },
@@ -235,6 +258,14 @@ export class DeviceMonitoring {
         this.emit("Monitoring degraded. Assessment will retry with fresh frames.");
         return;
       }
+      state.assessment = {
+        ...result,
+        receivedAt: Date.now(),
+        latencyMs: Date.now() - startedAt,
+        frameCount: samples.length,
+        from: first.mediaTimeMs,
+        to: last.mediaTimeMs,
+      };
       if (result.matchProbability >= 0.7) {
         state.clearSince = null;
         if (state.event.kind === "held") {
@@ -248,6 +279,7 @@ export class DeviceMonitoring {
             state.positiveSince = null;
           }
           if (state.event.kind === "armed") {
+            state.review = null;
             state.event = {
               kind: "observing",
               window: {
@@ -279,6 +311,7 @@ export class DeviceMonitoring {
           state.clearSince ??= last.mediaTimeMs;
           if (last.mediaTimeMs - state.clearSince >= 3000) {
             state.event = { kind: "armed" };
+            state.review = null;
             state.clearSince = null;
             state.notice = "Scene cleared. Armed for a new event.";
           } else state.notice = "Checking that the scene stays clear before rearming.";
@@ -351,6 +384,7 @@ export class DeviceMonitoring {
       signal,
     );
     if (!this.current(revision)) return;
+    if (result.kind === "review") state.review = result;
     if (result.kind !== "review") {
       state.notice = `Review unavailable: ${result.kind === "unavailable" ? result.reason : "invalid_result"}. Candidate retained.`;
       this.emit("Monitoring degraded. Candidate review will retry.");
