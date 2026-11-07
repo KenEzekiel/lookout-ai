@@ -20,6 +20,13 @@ Read the [PRD](PRD.md) for agreed behavior, demo outcomes, priorities, and open 
 
 The current design keeps video on the capture device and uploads an event clip when an incident is confirmed. Responders can replay it later. See the [experience design](docs/architecture/design.md) and [component spec](docs/architecture/tech-spec.md) for the proposed flow and responsibilities.
 
+## Experiments
+
+The [Decisions fall-detection experiment](experiments/decisions-falls/README.md)
+contains a reproducible video-frame runner and recorded results from eight clips.
+It is separate from the product application; it does not implement incident
+verification or phone notifications.
+
 ## Develop
 
 The pnpm workspace contains the full-stack application, `@lookout/app`, in `apps/app`, and the Oracle engineering factory, `@lookout/oracle`, in `oracle`. The application uses TanStack Start, React, TypeScript, and Cloudflare Workers, with Tailwind CSS and shadcn/ui using Base UI. Motion for React is installed for interaction transitions. [DESIGN.md](DESIGN.md) records the dark theme and component guidance.

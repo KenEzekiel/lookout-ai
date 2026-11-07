@@ -1,0 +1,107 @@
+{
+  "completed_requests": 46,
+  "errors": 0,
+  "expected_requests": 46,
+  "threshold": 0.7,
+  "model_ids": ["gpt-6-luna"],
+  "input_tokens": 109802,
+  "cached_tokens": 0,
+  "cache_write_tokens": 93840,
+  "estimated_cost_usd": 0.013326200000000012,
+  "average_request_cost_usd": 0.00028970000000000027,
+  "projected_hour_at_1rps_usd": 1.042920000000001,
+  "latency_seconds": {
+    "median": 0.6207933334994777,
+    "p95_nearest_rank": 1.389345124999636,
+    "min": 0.4377345420007259,
+    "max": 2.70379524999953
+  },
+  "clip_results": [
+    {
+      "clip": "fall-chair",
+      "expected": "fall",
+      "windows": 4,
+      "candidate_windows": 3,
+      "peak_probability": 0.95,
+      "first_candidate_video_seconds": 4.5,
+      "source_onset_seconds": 3.4,
+      "nominal_delay_seconds": 1.1
+    },
+    {
+      "clip": "fall-walking",
+      "expected": "fall",
+      "windows": 3,
+      "candidate_windows": 1,
+      "peak_probability": 0.87,
+      "first_candidate_video_seconds": 4.5,
+      "source_onset_seconds": 1.8,
+      "nominal_delay_seconds": 2.7
+    },
+    {
+      "clip": "fall-person2",
+      "expected": "fall",
+      "windows": 5,
+      "candidate_windows": 2,
+      "peak_probability": 0.83,
+      "first_candidate_video_seconds": 5.5,
+      "source_onset_seconds": 2.7,
+      "nominal_delay_seconds": 2.8
+    },
+    {
+      "clip": "fall-backward",
+      "expected": "fall",
+      "windows": 7,
+      "candidate_windows": 1,
+      "peak_probability": 0.81,
+      "first_candidate_video_seconds": 5.5,
+      "source_onset_seconds": 3.3,
+      "nominal_delay_seconds": 2.2
+    },
+    {
+      "clip": "normal-bed",
+      "expected": "no_fall",
+      "windows": 5,
+      "candidate_windows": 0,
+      "peak_probability": 0.0,
+      "first_candidate_video_seconds": null,
+      "source_onset_seconds": null,
+      "nominal_delay_seconds": null
+    },
+    {
+      "clip": "normal-pickup",
+      "expected": "no_fall",
+      "windows": 4,
+      "candidate_windows": 0,
+      "peak_probability": 0.0,
+      "first_candidate_video_seconds": null,
+      "source_onset_seconds": null,
+      "nominal_delay_seconds": null
+    },
+    {
+      "clip": "normal-exercise",
+      "expected": "no_fall",
+      "windows": 10,
+      "candidate_windows": 0,
+      "peak_probability": 0.02,
+      "first_candidate_video_seconds": null,
+      "source_onset_seconds": null,
+      "nominal_delay_seconds": null
+    },
+    {
+      "clip": "normal-floor",
+      "expected": "no_fall",
+      "windows": 8,
+      "candidate_windows": 0,
+      "peak_probability": 0.05,
+      "first_candidate_video_seconds": null,
+      "source_onset_seconds": null,
+      "nominal_delay_seconds": null
+    }
+  ],
+  "limitations": [
+    "One run, 8 selected clips, 2 participants; not a general accuracy benchmark.",
+    "Offline sequential requests; no real-time concurrency, second model, or calling measured.",
+    "Source onsets are coarse; nominal delay excludes API, capture, upload, verification latency and warm-up effects.",
+    "Costs calculated from API token usage with standard rate and cache-write surcharge, not billing invoice."
+  ]
+}
