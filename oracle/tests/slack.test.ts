@@ -13,23 +13,63 @@ const event = {
   ts: "1900000000.000001",
   text: "<@UORACLE1> inspect <@UOTHER1>",
 };
-const stopClick = {
-  type: "block_actions",
-  team: { id: identity.team_id },
-  user: { id: "UTEAMMATE1" },
-  channel: { id: event.channel },
-  message: { user: identity.user_id, thread_ts: event.ts },
-  actions: [
-    {
-      type: "button",
-      action_id: "oracle_stop",
-      value: event.ts,
-      action_ts: "1900000000.000004",
-    },
-  ],
+const stoppedEvent = {
+  type: "agent_session_stopped",
+  channel: event.channel,
+  thread_ts: event.ts,
+  user: "UTEAMMATE1",
+  event_ts: "1900000000.000004",
+  streaming_message_ts: [],
 };
 const route = (wire: unknown, owns = false, listener: "mention" | "message" = "message") =>
   routeSlack({ event: wire, listener, identity, teamId: identity.team_id, owns: () => owns });
+
+test("native stop on an old thread uses the current event timestamp", async (t) => {
+  const address = { channel: event.channel, rootTs: "1700000000.000001" };
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  const oracle = await createOracle({
+    sessions,
+    limits: defaultLimits,
+    now: () => testNow,
+    publish: async () => {},
+    runner: { run: async () => ({ kind: "silent" }) },
+  });
+  t.after(() => oracle.close());
+  await oracle.receive({
+    address,
+    ts: event.ts,
+    actor: event.user,
+    text: "Inspect",
+    route: "direct",
+  });
+  await oracle.idle();
+  const transport = createSlackTransport({
+    identity,
+    onFault: () => {},
+    call: async (method, args) => {
+      assert.equal(method, "users.info");
+      return { user: { id: args.user, team_id: identity.team_id, is_bot: false, deleted: false } };
+    },
+  });
+  await transport.receive({
+    event: { ...stoppedEvent, thread_ts: address.rootTs },
+    listener: "agent_session_stopped",
+    teamId: identity.team_id,
+    oracle,
+  });
+  assert.equal(sessions.snapshot(address)?.stopped, true);
+  assert.deepEqual(sessions.snapshot(address)?.events.at(-1)?.input, {
+    address,
+    ts: stoppedEvent.event_ts,
+    actor: stoppedEvent.user,
+    text: "stop",
+    route: "thread",
+  });
+});
 
 test("mention and message listeners produce the same canonical input", () => {
   assert.deepEqual(route(event, false, "mention"), route(event));
@@ -207,50 +247,30 @@ test("Slack results and status updates retain the originating thread", async () 
   await transport.setStatus(address, "processing");
   await transport.publish(address, "The handler is fixed.");
   await transport.setStatus(address, "active");
-  const control = calls.find(({ method }) => method === "chat.postMessage")?.args;
-  assert.deepEqual(control?.blocks, [
-    {
-      type: "section",
-      text: { type: "mrkdwn", text: "Oracle received your request." },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          action_id: "oracle_stop",
-          text: { type: "plain_text", text: "Stop Oracle" },
-          style: "danger",
-          value: address.rootTs,
-        },
-      ],
-    },
-  ]);
   assert.deepEqual(
     calls.map(({ method }) => method),
-    [
-      "agents.sessions.setStatus",
-      "chat.postMessage",
-      "chat.postMessage",
-      "agents.sessions.setStatus",
-    ],
+    ["agents.sessions.setStatus", "chat.postMessage", "agents.sessions.setStatus"],
   );
   assert.ok(calls.every(({ args }) => args.thread_ts === event.ts));
   assert.equal(calls[1]?.args.channel, event.channel);
-  assert.equal(calls[2]?.args.text, "The handler is fixed.");
-  assert.equal(calls[3]?.args.status, "active");
+  assert.equal(calls[1]?.args.text, "The handler is fixed.");
+  assert.equal(calls[2]?.args.status, "active");
+  assert.ok(calls.every(({ args }) => args.blocks === undefined));
 });
 
-test("a stop button cancels running and queued thread work while other threads continue", async (t) => {
+test("native stop cancels running and queued work while another thread keeps running", async (t) => {
   const sessions = createSessionStore({
     directory: await directory(t),
     limits: defaultLimits,
     now: () => testNow,
   });
   const started = deferred<void>();
+  const otherStarted = deferred<void>();
+  const finishOther = deferred<void>();
   const runs: string[] = [];
   const messages: { method: string; args: Record<string, unknown> }[] = [];
   let activeSignal: AbortSignal | undefined;
+  let otherSignal: AbortSignal | undefined;
   const transport = createSlackTransport({
     identity,
     onFault: () => {},
@@ -272,24 +292,47 @@ test("a stop button cancels running and queued thread work while other threads c
         runs.push(input.text);
         if (input.text === "First") {
           activeSignal = signal;
-          assert.ok(messages.some(({ args }) => args.blocks));
+          assert.ok(messages.some(({ args }) => args.status === "processing"));
+          assert.equal(
+            messages.some(({ method }) => method === "chat.postMessage"),
+            false,
+          );
           started.resolve();
           await untilAborted(signal);
           return { kind: "reply", text: "Late result" };
+        }
+        if (input.text === "Other thread") {
+          otherSignal = signal;
+          otherStarted.resolve();
+          await finishOther.promise;
         }
         return { kind: "reply", text: input.text };
       },
     },
   });
-  t.after(() => oracle.close());
+  t.after(() => {
+    finishOther.resolve();
+    return oracle.close();
+  });
   const receive = (wire: unknown) =>
     transport.receive({ event: wire, teamId: identity.team_id, listener: "message", oracle });
+  const stop = () =>
+    transport.receive({
+      event: stoppedEvent,
+      teamId: identity.team_id,
+      listener: "agent_session_stopped",
+      oracle,
+    });
   await receive({ ...event, text: "<@UORACLE1> First" });
   await started.promise;
   await receive({ ...event, text: "Queued", ts: "1900000000.000002", thread_ts: event.ts });
   await receive({ ...event, text: "<@UORACLE1> Other thread", ts: "1900000000.000003" });
-  await transport.receiveAction({ body: stopClick, oracle });
-  await transport.receiveAction({ body: stopClick, oracle });
+  await otherStarted.promise;
+  await stop();
+  await stop();
+  assert.equal(activeSignal?.aborted, true);
+  assert.equal(otherSignal?.aborted, false);
+  finishOther.resolve();
   await oracle.idle();
   assert.equal(activeSignal?.aborted, true);
   assert.deepEqual(runs, ["First", "Other thread"]);
@@ -307,6 +350,14 @@ test("a stop button cancels running and queued thread work while other threads c
   const confirmations = replies.filter(({ args }) => String(args.text).startsWith("Stopped."));
   assert.equal(confirmations.length, 1);
   assert.equal(confirmations[0]?.args.thread_ts, event.ts);
+  assert.ok(
+    messages.some(
+      ({ method, args }) =>
+        method === "agents.sessions.setStatus" &&
+        args.thread_ts === event.ts &&
+        args.status === "active",
+    ),
+  );
   await receive({
     ...event,
     text: "Unmentioned follow-up",
@@ -320,12 +371,12 @@ test("a stop button cancels running and queued thread work while other threads c
     thread_ts: event.ts,
   });
   await oracle.idle();
-  await transport.receiveAction({ body: stopClick, oracle });
+  await stop();
   assert.deepEqual(runs, ["First", "Other thread", "Resume"]);
   assert.equal(sessions.snapshot({ channel: event.channel, rootTs: event.ts })?.stopped, false);
 });
 
-test("stop actions reject foreign members, bots, malformed payloads and unowned threads", async () => {
+test("native stop events reject foreign members, bots, malformed payloads and unowned threads", async () => {
   const received: Incoming[] = [];
   const oracle: Oracle = {
     owns: (address) => address.channel === event.channel && address.rootTs === event.ts,
@@ -354,23 +405,26 @@ test("stop actions reject foreign members, bots, malformed payloads and unowned 
       };
     },
   });
+  const receive = (wire: unknown, teamId = identity.team_id) =>
+    transport.receive({ event: wire, teamId, listener: "agent_session_stopped", oracle });
   for (const extra of [
-    { type: "view_submission" },
-    { team: { id: "TFOREIGN1" } },
-    { user: { id: "UFOREIGN1" } },
-    { user: { id: "UBOT1" } },
-    { user: { id: "UDELETED1" } },
-    { user: { id: "USTRANGER1" } },
-    { channel: { id: "COTHER1" } },
-    { message: { user: "UOTHER1", thread_ts: event.ts } },
-    { message: { user: identity.user_id, thread_ts: "1900000000.000002" } },
-    { actions: [{ ...stopClick.actions[0], action_id: "unrelated" }] },
-    { actions: [{ ...stopClick.actions[0], action_ts: "invalid" }] },
-    { actions: [] },
+    { type: "block_actions" },
+    { user: "UFOREIGN1" },
+    { user: "UBOT1" },
+    { user: "UDELETED1" },
+    { user: "USTRANGER1" },
+    { user: identity.user_id },
+    { user: undefined },
+    { channel: "COTHER1" },
+    { thread_ts: "1900000000.000002" },
+    { thread_ts: "invalid" },
+    { event_ts: "invalid" },
+    { event_ts: undefined },
   ])
-    await transport.receiveAction({ body: { ...stopClick, ...extra }, oracle });
+    await receive({ ...stoppedEvent, ...extra });
+  await receive(stoppedEvent, "TFOREIGN1");
   assert.deepEqual(received, []);
-  await transport.receiveAction({ body: stopClick, oracle });
+  await receive(stoppedEvent);
   assert.deepEqual(received, [
     {
       address: { channel: event.channel, rootTs: event.ts },
@@ -382,7 +436,7 @@ test("stop actions reject foreign members, bots, malformed payloads and unowned 
   ]);
 });
 
-test("the stop control is still posted when Slack's native status API is unavailable", async () => {
+test("native status failures do not post custom stop controls", async () => {
   const calls: string[] = [];
   const transport = createSlackTransport({
     identity,
@@ -397,5 +451,5 @@ test("the stop control is still posted when Slack's native status API is unavail
     transport.setStatus({ channel: event.channel, rootTs: event.ts }, "processing"),
     /missing_scope/,
   );
-  assert.deepEqual(calls, ["agents.sessions.setStatus", "chat.postMessage"]);
+  assert.deepEqual(calls, ["agents.sessions.setStatus"]);
 });

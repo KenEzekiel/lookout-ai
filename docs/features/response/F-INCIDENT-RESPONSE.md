@@ -42,7 +42,9 @@ The idempotency key is device, session, event ID, and rule ID. The producer must
 
 [Real-handler API tests](../../../apps/app/tests/api/access.test.ts) use the built Worker, isolated D1, and committed migrations. The incident cases passed locally and cover concurrent retries, persisted reads, immutable source/rule context, idempotency collisions, stale or disabled rules, stale and expired sessions, invalid event times, device revocation, origin checks, workspace and membership boundaries, acknowledgment ownership, competing operators, stale commands, terminal states, and distinct dismissal.
 
-[Complete-screen UI tests](../../../apps/app/tests/integration/incidents.test.tsx) passed locally through MSW HTTP boundaries. They cover inbox and detail loading, empty and failed reads, reload recovery, opening without acknowledgment, pending evidence, acknowledge then resolve, dismissal, stale-action recovery, and device exclusion. Browser journey verification and final `pnpm verify` results are recorded in the PR before readiness.
+[Complete-screen UI tests](../../../apps/app/tests/integration/incidents.test.tsx) passed locally through MSW HTTP boundaries. They cover inbox and detail loading, empty and failed reads, reload recovery, opening without acknowledgment, pending evidence, acknowledge then resolve, dismissal, stale-action recovery, current navigation, and device exclusion.
+
+`pnpm verify` passed with 28 UI integration tests and 18 real-handler API tests. Interactive Chromium QA against the production Worker and isolated D1 exercised account creation, joining, pairing, trigger creation, empty inbox, duplicate synthetic delivery, persistence after refresh, two-operator ownership conflicts, reload recovery, cross-session resolution, separate dismissal, keyboard incident entry, and a 390-pixel mobile layout. A temporary HTTP 503 interception verified inbox failure and recovery; successful report and response paths used real handlers without mocks. Screenshots, video, tested revision, and results are recorded in the PR.
 
 ## Decisions and sources
 

@@ -38,6 +38,7 @@ export function RuleEditor({
       </p>
       <ActionForm
         submit="Save trigger"
+        pendingLabel="Saving trigger…"
         action={async (data) => {
           const parsed = ruleInputSchema.safeParse({
             sourceId: data.get("sourceId"),
@@ -288,6 +289,7 @@ export function RuleSummary({
         {rule.enabled && (
           <ActionForm
             submit={`Disable ${rule.definition.name}`}
+            pendingLabel="Disabling trigger…"
             action={async () => {
               onDisabled(
                 await request("/api/config/rules/disable", ruleSchema, {

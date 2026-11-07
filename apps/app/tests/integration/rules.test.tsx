@@ -242,3 +242,17 @@ test("a paired device displays received versions, refreshes disabled rules and h
   expect(await screen.findByRole("alert")).toHaveTextContent("Device access revoked");
   expect(screen.queryByRole("region", { name: "Device configuration" })).not.toBeInTheDocument();
 });
+
+test("members navigate between workspace access and triggers with one active destination", async () => {
+  server.use(http.get("/api/access/team", () => HttpResponse.json({ members: [], devices: [] })));
+  const user = await open("/");
+  expect(await screen.findByRole("heading", { name: "Devices" })).toBeVisible();
+  await user.click(screen.getByRole("link", { name: "Triggers" }));
+  expect(await screen.findByRole("heading", { name: "Triggers" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "Triggers" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "Devices" })).not.toHaveAttribute("aria-current");
+  await user.click(screen.getByRole("link", { name: "Team" }));
+  expect(await screen.findByRole("heading", { name: "Team" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "Team" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "Triggers" })).not.toHaveAttribute("aria-current");
+});

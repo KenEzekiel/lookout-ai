@@ -140,6 +140,11 @@ test("inbox shows loading, an empty state, a request failure and recovery", asyn
 
 test("an operator opens an incident, acknowledges ownership with evidence pending and resolves separately", async () => {
   const user = await open();
+  expect(await screen.findByRole("link", { name: "Incidents" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  expect(screen.getByRole("link", { name: "Devices" })).not.toHaveAttribute("aria-current");
   const event = await screen.findByRole("link", { name: /Possible fall/ });
   expect(event).toHaveTextContent("Replayed footage");
   expect(event).toHaveTextContent("No owner yet");
@@ -233,7 +238,7 @@ test("paired devices cannot access operator incident controls", async () => {
   };
   server.use(http.get("/api/config/device", () => HttpResponse.json({ sources: [], rules: [] })));
   await open("/incidents/fall");
-  expect(await screen.findByText("Monitoring device paired")).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "Device connected" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "Incident inbox" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Acknowledge" })).not.toBeInTheDocument();
 });

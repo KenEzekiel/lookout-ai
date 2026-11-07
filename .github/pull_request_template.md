@@ -31,7 +31,7 @@ For frontend journeys, use the structure below and follow `docs/verification.md`
 
 - Embed screenshots from the manual QA run with captions identifying the step or state and observed result.
 - Embed or link a demo video when screenshots cannot adequately show the behavior.
-- Use attachments or stable URLs accessible to reviewers. Verify that the media renders or opens from this description.
+- Upload GitHub PR attachments from ignored or temporary files. Do not commit QA media or use raw repository URLs. Verify that each attachment opens from the saved description.
 
 #### Gaps and blockers
 

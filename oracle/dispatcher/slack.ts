@@ -29,38 +29,35 @@ const eventSchema = z.object({
   bot_profile: z.unknown().optional(),
   subtype: z.unknown().optional(),
 });
-const stopActionId = "oracle_stop";
-const stopActionSchema = z.object({
-  type: z.literal("block_actions"),
-  team: z.object({ id: identitySchema.shape.team_id }),
-  user: z.object({ id: userIdSchema }),
-  channel: z.object({ id: addressSchema.shape.channel }),
-  message: z.object({
-    user: userIdSchema,
-    thread_ts: addressSchema.shape.rootTs,
-  }),
-  actions: z.tuple([
-    z.object({
-      type: z.literal("button"),
-      action_id: z.literal(stopActionId),
-      value: addressSchema.shape.rootTs,
-      action_ts: incomingSchema.shape.ts,
-    }),
-  ]),
+const stoppedEventSchema = z.object({
+  type: z.literal("agent_session_stopped"),
+  channel: addressSchema.shape.channel,
+  thread_ts: addressSchema.shape.rootTs,
+  user: userIdSchema,
+  event_ts: incomingSchema.shape.ts,
 });
+type SlackListener = "mention" | "message" | "agent_session_stopped";
 
 export function routeSlack(args: {
   event: unknown;
-  listener: "mention" | "message";
+  listener: SlackListener;
   identity: Identity;
   teamId: unknown;
   owns: Oracle["owns"];
 }): Incoming | undefined {
+  if (args.teamId !== args.identity.team_id) return;
+  if (args.listener === "agent_session_stopped") {
+    const parsed = stoppedEventSchema.safeParse(args.event);
+    if (!parsed.success) return;
+    const event = parsed.data;
+    const address = { channel: event.channel, rootTs: event.thread_ts };
+    if (event.user === args.identity.user_id || !args.owns(address)) return;
+    return { address, ts: event.event_ts, actor: event.user, text: "stop", route: "thread" };
+  }
   const parsed = eventSchema.safeParse(args.event);
   if (!parsed.success) return;
   const event = parsed.data;
   if (
-    args.teamId !== args.identity.team_id ||
     (event.team !== undefined && event.team !== args.identity.team_id) ||
     (event.user_team !== undefined && event.user_team !== args.identity.team_id) ||
     event.user === args.identity.user_id ||
@@ -116,33 +113,11 @@ export function createSlackTransport(options: {
     async receive(args: {
       event: unknown;
       teamId: unknown;
-      listener: "mention" | "message";
+      listener: SlackListener;
       oracle: Oracle;
     }): Promise<void> {
       const input = routeSlack({ ...args, identity, owns: args.oracle.owns });
       if (input && (await directory.isMember(input.actor))) await args.oracle.receive(input);
-    },
-    async receiveAction(args: { body: unknown; oracle: Oracle }): Promise<void> {
-      const parsed = stopActionSchema.safeParse(args.body);
-      if (!parsed.success) return;
-      const body = parsed.data;
-      const action = body.actions[0];
-      const address = { channel: body.channel.id, rootTs: action.value };
-      if (
-        body.team.id !== identity.team_id ||
-        body.message.user !== identity.user_id ||
-        body.message.thread_ts !== address.rootTs ||
-        !args.oracle.owns(address) ||
-        !(await directory.isMember(body.user.id))
-      )
-        return;
-      await args.oracle.receive({
-        address,
-        ts: action.action_ts,
-        actor: body.user.id,
-        text: "stop",
-        route: "thread",
-      });
     },
     async publish(address: Incoming["address"], text: string): Promise<void> {
       await call("chat.postMessage", {
@@ -154,42 +129,11 @@ export function createSlackTransport(options: {
       });
     },
     async setStatus(address: Incoming["address"], status: "processing" | "active"): Promise<void> {
-      const updates = [
-        call("agents.sessions.setStatus", {
-          channel_id: address.channel,
-          thread_ts: address.rootTs,
-          status,
-        }),
-      ];
-      if (status === "processing")
-        updates.push(
-          call("chat.postMessage", {
-            channel: address.channel,
-            thread_ts: address.rootTs,
-            text: "Oracle received your request. Stop Oracle to cancel work in this thread.",
-            blocks: [
-              {
-                type: "section",
-                text: { type: "mrkdwn", text: "Oracle received your request." },
-              },
-              {
-                type: "actions",
-                elements: [
-                  {
-                    type: "button",
-                    action_id: stopActionId,
-                    text: { type: "plain_text", text: "Stop Oracle" },
-                    style: "danger",
-                    value: address.rootTs,
-                  },
-                ],
-              },
-            ],
-            unfurl_links: false,
-            unfurl_media: false,
-          }),
-        );
-      await Promise.all(updates);
+      await call("agents.sessions.setStatus", {
+        channel_id: address.channel,
+        thread_ts: address.rootTs,
+        status,
+      });
     },
     async context(input: Incoming): Promise<ThreadContext> {
       try {
@@ -318,9 +262,15 @@ export async function connectSlack(options: {
           transport.receive({ event, teamId: body.team_id, listener: "message", oracle }),
         );
       });
-      app.action(stopActionId, async ({ ack, body }) => {
-        await ack();
-        await receive(() => transport.receiveAction({ body, oracle }));
+      app.event("agent_session_stopped", async ({ event, body }) => {
+        await receive(() =>
+          transport.receive({
+            event,
+            teamId: body.team_id,
+            listener: "agent_session_stopped",
+            oracle,
+          }),
+        );
       });
       await app.start();
     },

@@ -2,6 +2,20 @@
 
 This is the design reference for Lookout AI. It covers the operator workspace and the operational-device screen. [PRD.md](PRD.md) owns the agreed product behavior when a visual example differs from it. The approved mockup is a visual study, and its image stays outside this repository.
 
+## Approved identity and access screens
+
+The approved identity is **Horizon**: a rising semicircle above a separate horizontal line, paired with the lowercase `lookout` wordmark. Use the shared [Brand component](apps/app/src/components/access/brand.tsx) in both access and capture headers and the [SVG favicon](apps/app/public/favicon.svg). The generated concept sheet was a direction study; these scalable assets are the implementation. The user approved this direction and the access mockup in the implementation conversation for this PR.
+
+Use cobalt `#3459E6` for primary actions, graphite `#1A1A1D` for the canvas, warm white `#F7F6F2` for foregrounds, and periwinkle `#829AFF` for the mark and links on dark backgrounds. Amber remains an incident color. Access screens use restrained 8 px controls, 12 px list containers, and 24–30 px headings. Keep Geist Variable. Forms sit directly on the canvas; dialogs are raised surfaces.
+
+The access shell has a small wordmark, the workspace name without a dropdown, Devices, Team, and Triggers navigation links, and account sign-out. Devices is the default destination; the `view` search parameter preserves Team navigation through reload and browser history. On narrow screens navigation wraps below the header, workspace names can wrap, and row actions remain readable.
+
+Sign-in offers a secondary **Set up this device** link for password-free pairing. Signup explains the current password-reset limitation beside the password field. New accounts get one workspace-creation form and a secondary invitation-code action. Invitation links lead to joining directly; invalid links or codes have recovery actions without losing the account.
+
+Devices lists authorization, not remote capture health. **Add device** opens a code-entry dialog and explains which device displays the code. **Use this device instead** opens a confirmation with a device name and explicitly states that all human sessions in that browser are signed out. Team lists people and roles; only owners see invitation and removal actions. Removing a member or device requires confirmation. Invitation results provide a copyable link and code with expiry, including a manual-copy fallback.
+
+Paired devices show **Device connected** and **Open capture station**. Capture is available locally after the main-branch capture integration; AI detection and alerts remain unconnected. Do not imply that authorization means capture is running. All actions use specific pending labels and retain entered fields after a failed request.
+
 ## Product character
 
 Lookout helps a camera owner notice an event, inspect evidence, and own the response. The operational device needs a calm, legible status screen for long-running capture. The operator needs a clear workspace when an alert interrupts someone. The two clients have separate controls and permissions, even when they share visual components and deployment infrastructure.
@@ -53,13 +67,13 @@ These are proposed tokens for implementation. Check their real combinations in t
 | Role           | Candidate | Use                                              |
 | -------------- | --------- | ------------------------------------------------ |
 | Canvas         | `#1A1A1D` | Outer app background.                            |
-| Surface        | `#262629` | Incident panel and evidence cards.               |
+| Surface        | `#242428` | Incident panel and evidence cards.               |
 | Raised surface | `#303035` | Hovered and selected controls.                   |
-| Primary text   | `#F6F5F7` | Titles, actions, and key values.                 |
+| Primary text   | `#F7F6F2` | Titles, actions, and key values.                 |
 | Secondary text | `#C5C4CA` | Descriptions.                                    |
 | Muted text     | `#AEB2BC` | Timestamps and supporting metadata.              |
-| Action blue    | `#2563EB` | Filled primary buttons with white text.          |
-| Signal blue    | `#3B82F6` | Active navigation and the playhead.              |
+| Action blue    | `#3459E6` | Filled primary buttons with white text.          |
+| Signal blue    | `#829AFF` | Active navigation and the playhead.              |
 | Incident amber | `#F3AA43` | Incident point, annotation, and attention state. |
 | Critical red   | `#F17870` | Critical severity and failed actions.            |
 | Resolved green | `#5FD0A1` | Confirmed completion and healthy monitoring.     |

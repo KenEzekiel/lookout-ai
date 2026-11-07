@@ -61,7 +61,7 @@ export function RuleWorkspace() {
           </p>
         </div>
         <div className="flex gap-3">
-          <ActionForm submit="Reload triggers" action={reload} />
+          <ActionForm submit="Reload triggers" pendingLabel="Reloading triggers…" action={reload} />
           <Button
             disabled={!configuration?.sources.length}
             onClick={() => {
@@ -104,6 +104,7 @@ export function RuleWorkspace() {
             </ul>
             <ActionForm
               submit="Add source"
+              pendingLabel="Adding source…"
               action={async (data) => {
                 const source = await request("/api/config/sources", sourceSchema, {
                   name: data.get("name"),
