@@ -315,6 +315,13 @@ test("trigger dialogs focus the editor and restore the opening button on cancel 
   await user.click(screen.getByRole("button", { name: "Cancel editing" }));
   await waitFor(() => expect(edit).toHaveFocus());
   expect(configuration.rules).toEqual([fall]);
+  await user.click(create);
+  await user.clear(screen.getByLabelText("Incident name"));
+  await user.type(screen.getByLabelText("Incident name"), "Unsaved draft");
+  await user.click(screen.getByRole("button", { name: "Cancel editing" }));
+  await waitFor(() => expect(create).toHaveFocus());
+  await user.click(create);
+  expect(screen.getByLabelText("Incident name")).toHaveValue("");
 });
 
 test("a first trigger adds its source inline, reviews exclusions and saves disabled", async () => {

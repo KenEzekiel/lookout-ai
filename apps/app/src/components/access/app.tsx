@@ -6,6 +6,7 @@ import { mutate, request, message } from "@/lib/api";
 import { RuleWorkspace } from "@/components/rules/workspace";
 import { IncidentDetail, IncidentInbox } from "@/components/incidents/workspace";
 import { IncomingAlerts } from "@/components/incidents/incoming-alerts";
+import { PushSetup } from "@/components/incidents/push-setup";
 import { DeviceScreen } from "@/components/device-screen";
 import { Account } from "./account";
 import { Brand } from "./brand";
@@ -165,7 +166,10 @@ export function AccessApp({
       </header>
       <main id="main-content" className="mx-auto max-w-6xl px-5 sm:px-8">
         {!error && actor?.kind === "member" && !pairing && (
-          <IncomingAlerts key={actor.workspaceId + actor.userId} actor={actor} />
+          <>
+            <IncomingAlerts key={actor.workspaceId + actor.userId} actor={actor} />
+            <PushSetup key={`push-${actor.workspaceId}-${actor.userId}`} />
+          </>
         )}
         {error ? (
           <Panel title="We couldn’t open your workspace">

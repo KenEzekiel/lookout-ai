@@ -14,6 +14,8 @@ Triggers save enabled or disabled. Every edit, disable, or re-enable increments 
 
 Source type, source assignment, and severity use the existing [shadcn Select](../../../apps/app/src/components/ui/select.tsx) built on Base UI. Controls display human-readable labels, submit the existing values, and support keyboard selection, Escape dismissal, and focus return. Native browser dropdowns remain replaced; the optional custom-condition exclusions extend the shared rule contract.
 
+Dropdown and dialog transitions can reverse during rapid interaction. Select chevrons and the Sources disclosure indicate open state; newly expanded definition guidance enters briefly. Reduced motion removes movement and transition delays. Keyboard selection, Escape focus return, trigger/menu geometry, and submitted values are preserved.
+
 ## Entry points
 
 The four editor sections cover incident definition, source, recipients, and review. New trigger remains available when no sources exist; sources can be created inline without losing the definition draft. Adding a source persists it independently of saving or cancelling a trigger. The editor retains the focused dialog from PR #62 and the in-app dropdowns from PR #59. Timing and urgency are expandable; enabled state changes the Save enabled/Save disabled action. Review shows condition, exclusions, recipients, severity, duration, and follow-up. Saving does not start assessment or delivery.

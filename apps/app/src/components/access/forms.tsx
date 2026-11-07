@@ -90,7 +90,9 @@ export function ActionForm({
         size={size}
         icon={pending ? LoaderCircle : icon}
       >
-        {pending ? pendingLabel : submit}
+        <span key={pending ? "pending" : "idle"} className="motion-feedback">
+          {pending ? pendingLabel : submit}
+        </span>
       </Button>
     </form>
   );

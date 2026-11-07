@@ -198,6 +198,39 @@ export const source = sqliteTable(
     check("source_kind", sql`${table.kind} IN ('camera','replay')`),
   ],
 );
+export const pushSubscription = sqliteTable(
+  "push_subscription",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => session.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    expiresAt: integer("expires_at"),
+  },
+  (table) => [index("push_session").on(table.sessionId)],
+);
+export const pushDelivery = sqliteTable(
+  "push_delivery",
+  {
+    incidentId: text("incident_id")
+      .notNull()
+      .references(() => incident.id, { onDelete: "cascade" }),
+    subscriptionId: text("subscription_id").notNull(),
+    status: text("status", { enum: ["attempting", "accepted", "failed", "expired"] }).notNull(),
+    attemptedAt: integer("attempted_at").notNull(),
+    responseStatus: integer("response_status"),
+  },
+  (table) => [uniqueIndex("one_initial_push").on(table.incidentId, table.subscriptionId)],
+);
 export const monitoringRule = sqliteTable(
   "monitoring_rule",
   {

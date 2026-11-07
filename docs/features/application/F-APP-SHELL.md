@@ -10,6 +10,8 @@ Action buttons share a 40-pixel minimum height, 16-pixel icons, and consistent s
 
 Visitors open Lookout to sign in or register. Access and capture headers share the approved Horizon SVG mark; the document uses its matching favicon. Workspace members navigate between Devices (default) and Team using a URL search parameter, with reload and browser history support. Forms and lists adapt to narrow screens. Authenticated people see onboarding or workspace access controls. Devices see their restricted authorization status and a link to local capture. Members can also open trigger configuration from the Triggers link, with exactly one current navigation destination. Unknown routes still show Not Found. This is not yet a monitoring dashboard.
 
+Shared controls use the [interaction motion styles](../../../apps/app/src/styles.css): enabled buttons give subtle press feedback, overlays use reversible opacity/transform transitions, and new feedback appears briefly. Navigation and typing remain immediate. Dialogs enter in 180 ms and exit in 120 ms; menus use 120 ms. Reduced motion disables CSS animation and transitions, including existing control effects. No animation delays an action or changes focus management.
+
 ## Entry points
 
 The shared member navigation also opens `/incidents` and `/incidents/$incidentId` through the existing access gate. Devices do not receive incident response controls. [Incident routes and screens](../../../apps/app/src/components/incidents/workspace.tsx) use the existing theme, buttons, and responsive layout.
@@ -19,6 +21,8 @@ Open `/`, `/join`, `/monitor`, `/device`, `/triggers`, `/incidents`, an incident
 ## Wiring and compatibility
 
 Member screens now mount [incoming alerts](../../../apps/app/src/components/incidents/incoming-alerts.tsx) for F-ALERT-INAPP. Visitors, unassigned users, paired devices, and pairing screens do not subscribe. The alert view and sound controls appear before each screen's content; opening or silencing never changes ownership. [Complete-screen alert tests](../../../apps/app/tests/integration/incoming-alerts.test.tsx) cover the shared shell integration. Device status copy distinguishes missing automatic reports from working operator alert delivery.
+
+Member screens also mount [background-alert setup](../../../apps/app/src/components/incidents/push-setup.tsx) for F-ALERT-PUSH. The public manifest and root links provide Home Screen metadata. The service worker caches no authenticated pages. [Setup integration tests](../../../apps/app/tests/integration/push.test.tsx) cover consent, platform guidance, and recovery. Notification clicks use the existing protected incident URL.
 
 The shell uses the completed account/session portion of F-AUTH-ACCESS through same-origin HTTP requests. A paired device can reach capture from its access screen; visitors and human members do not see capture controls. The capture screen still does not assess incidents.
 

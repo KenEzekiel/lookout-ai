@@ -345,7 +345,16 @@ export function IncidentDetail({ id }: { id: string }) {
                   Alert delivery
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  No background notification delivery recorded.
+                  {
+                    {
+                      "not-sent": "No background notification delivery recorded.",
+                      attempting: "Background notification delivery is being attempted.",
+                      accepted:
+                        "A push service accepted a notification. Device display is not confirmed.",
+                      failed:
+                        "Background notification attempts failed. Check Lookout directly for updates.",
+                    }[incident.notificationStatus]
+                  }
                 </p>
                 {incident.status === "open" && (
                   <p className="mt-2 text-sm text-muted-foreground">

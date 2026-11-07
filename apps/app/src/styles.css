@@ -149,3 +149,130 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  :root {
+    --motion-fast: 120ms;
+    --motion-enter: 180ms;
+    --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="select-content"],
+  [data-slot="tooltip-content"] {
+    transition-property: transform, opacity;
+    transition-duration: var(--motion-enter);
+    transition-timing-function: var(--motion-ease);
+  }
+
+  [data-slot="select-content"],
+  [data-slot="tooltip-content"] {
+    transition-duration: var(--motion-fast);
+  }
+
+  :is(
+    [data-slot="dialog-overlay"],
+    [data-slot="dialog-content"],
+    [data-slot="select-content"],
+    [data-slot="tooltip-content"]
+  ):is([data-starting-style], [data-ending-style]) {
+    opacity: 0;
+  }
+
+  :is(
+    [data-slot="dialog-overlay"],
+    [data-slot="dialog-content"],
+    [data-slot="select-content"],
+    [data-slot="tooltip-content"]
+  )[data-ending-style] {
+    transition-duration: var(--motion-fast);
+  }
+
+  @starting-style {
+    [data-slot="dialog-overlay"],
+    [data-slot="dialog-content"] {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    [data-slot="button"] {
+      transition:
+        transform var(--motion-fast) var(--motion-ease),
+        opacity var(--motion-fast) ease-out;
+    }
+
+    [data-slot="button"]:not(:disabled):not([aria-disabled="true"]):active {
+      transform: scale(0.98);
+    }
+
+    [data-slot="select-chevron"],
+    [data-slot="disclosure-chevron"] {
+      transition: transform var(--motion-enter) var(--motion-ease);
+    }
+
+    [data-slot="select-trigger"][aria-expanded="true"] [data-slot="select-chevron"],
+    details[open] [data-slot="disclosure-chevron"] {
+      transform: rotate(180deg);
+    }
+
+    @starting-style {
+      [data-slot="dialog-content"] {
+        transform: translateY(6px) scale(0.98);
+      }
+    }
+
+    [data-slot="dialog-content"]:is([data-starting-style], [data-ending-style]) {
+      transform: translateY(6px) scale(0.98);
+    }
+
+    :is([data-slot="select-content"], [data-slot="tooltip-content"]):is(
+      [data-starting-style],
+      [data-ending-style]
+    ) {
+      transform: scale(0.98);
+    }
+
+    .motion-reveal,
+    details[open] > :not(summary) {
+      animation: reveal-content var(--motion-enter) var(--motion-ease) both;
+    }
+
+    .motion-feedback,
+    [role="alert"],
+    output {
+      animation: reveal-feedback var(--motion-fast) ease-out both;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@keyframes reveal-content {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes reveal-feedback {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 1;
+  }
+}
