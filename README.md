@@ -27,6 +27,8 @@ Read the [PRD](PRD.md) for agreed behavior, demo outcomes, priorities, and open 
 
 The current design keeps video on the capture device and uploads an event clip when an incident is confirmed. Responders can replay it later. See the [experience design](docs/architecture/design.md) and [component spec](docs/architecture/tech-spec.md) for the proposed flow and responsibilities.
 
+The [feature map](docs/features/README.md) records stable capability codes, implementation status, compatibility contracts, and verification requirements. Run `pnpm features:list` to discover features before changing Lookout behavior.
+
 ## Experiments
 
 The [Decisions fall-detection experiment](experiments/decisions-falls/README.md)
