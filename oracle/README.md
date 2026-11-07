@@ -17,6 +17,19 @@ Oxlint, and Oxfmt tooling and shared lockfile. From the repository root, run
 `pnpm oracle` to start the dispatcher and `pnpm check` to verify the monorepo.
 Tests use fake T3 and Slack adapters and a local HTTP fixture.
 
+Run the service from `.worktree/oracle` on its own branch. Set `ORACLE_WORKSPACE`
+in that checkout's `oracle/.env` to the absolute worktree path. T3 binds new
+threads to that existing worktree. Saved conversations from the main checkout
+continue in replacement threads with their persisted Slack history.
+
+The workspace owner fetches and merges `origin/main` before every coding turn
+and every 30 seconds while idle. Sync and complete coding turns share one queue,
+so Git never updates files during a turn. Local commits survive merges. Dirty
+files defer an update, and conflicting merges are aborted. Resolve either case
+in Oracle's worktree before sending a fresh request. The primary checkout and
+the `main` branch are reserved for the maintainer. Oracle refuses either as its
+coding workspace. Feature changes still use short-lived branches and PRs.
+
 The dispatcher sets Slack's processing status while work is queued or running and
 clears it when the conversation has no work left. Oracle writes request-specific
 acknowledgments and progress as structured messages. Only those messages and the

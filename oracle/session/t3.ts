@@ -46,6 +46,7 @@ const readResult = z.object({
     activeRunId: id.nullable(),
     latestRunId: id.nullable(),
     pendingRequestCount: z.number().int().nonnegative(),
+    worktreePath: id.nullable(),
   }),
   recentRuns: z.array(z.object({ runId: id, status })),
   items: z.array(
@@ -218,6 +219,7 @@ export class T3Client {
     message?: string;
     requestId: string;
     modelSelection: { instanceId: string; model: string };
+    workspace: string;
   }): Promise<z.infer<typeof launchResult>> {
     return launchResult.parse(
       await this.transport.call("t3_thread_launch", {
@@ -226,7 +228,7 @@ export class T3Client {
         ...(input.message === undefined ? {} : { message: input.message }),
         modelSelection: input.modelSelection,
         clientRequestId: input.requestId,
-        workspaceStrategy: { type: "root" },
+        workspaceStrategy: { type: "existing_worktree", worktreePath: input.workspace },
       }),
     );
   }

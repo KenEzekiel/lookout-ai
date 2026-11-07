@@ -35,7 +35,7 @@ export async function readOptionalJson(path: string): Promise<unknown> {
 export async function loadConfig(): Promise<Config> {
   dotenv({ path: join(oracleRoot, ".env"), quiet: true });
   const candidate = {
-    workspace: process.env.ORACLE_WORKSPACE ?? resolve(oracleRoot, ".."),
+    workspace: process.env.ORACLE_WORKSPACE,
     slack: {
       botToken: process.env.SLACK_BOT_TOKEN,
       appToken: process.env.SLACK_APP_TOKEN,

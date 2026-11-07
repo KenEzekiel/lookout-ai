@@ -29,6 +29,7 @@ export function createT3Runner(options: {
   projectId: string;
   instanceId: string;
   model: string;
+  workspace: string;
   policy: () => Promise<string>;
   context: (input: Incoming) => Promise<ThreadContext>;
 }): TurnRunner {
@@ -40,10 +41,11 @@ export function createT3Runner(options: {
       throw new BoundaryError("backend_work_uncertain");
     }
   };
-  const inspect = async (threadId: string): Promise<void> => {
+  const inspect = async (threadId: string) => {
     const thread = await client.read({ threadId });
     if (thread.projectId !== options.projectId) throw new BoundaryError("thread_project_changed");
     if (thread.activeRunId !== null || !terminal.has(thread.status)) await drain(threadId);
+    return thread;
   };
   return {
     async recover() {
@@ -59,23 +61,28 @@ export function createT3Runner(options: {
       assertActive(signal);
       const policy = await options.policy();
       assertActive(signal);
-      let threadId = sessions.snapshot(input.address)?.threadId ?? null;
+      const previousThreadId = sessions.snapshot(input.address)?.threadId ?? null;
+      let threadId = previousThreadId;
+      if (threadId !== null && (await inspect(threadId)).worktreePath !== options.workspace)
+        threadId = null;
       if (threadId === null) {
         const created = await client.launch({
           projectId: options.projectId,
           title: `Oracle ${input.address.rootTs}`,
-          requestId: requestId(`thread:${keyOf(input.address)}`),
+          requestId: requestId(`thread:${keyOf(input.address)}:${options.workspace}`),
           modelSelection: { instanceId: options.instanceId, model: options.model },
+          workspace: options.workspace,
         });
         if (created.projectId !== options.projectId || created.runId !== null) {
           await drain(created.threadId);
           throw new BoundaryError("thread_creation_invalid");
         }
-        await sessions.linkThread(input.address, created.threadId);
+        await sessions.linkThread(input.address, created.threadId, previousThreadId);
         threadId = created.threadId;
       }
       assertActive(signal);
-      await inspect(threadId);
+      if ((await inspect(threadId)).worktreePath !== options.workspace)
+        throw new BoundaryError("thread_workspace_changed");
       assertActive(signal);
       const thread = await options.context(input);
       assertActive(signal);

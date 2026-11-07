@@ -62,7 +62,7 @@ export interface SessionStore {
   delivery(address: Address, kind: "progress" | "result" | "stop", text: string): Promise<string>;
   settle(address: Address, id: string, state: "sent" | "uncertain"): Promise<void>;
   snapshot(address: Address): Readonly<Document> | undefined;
-  linkThread(address: Address, threadId: string): Promise<void>;
+  linkThread(address: Address, threadId: string, previousThreadId?: string | null): Promise<void>;
   threads(): readonly { address: Address; threadId: string }[];
 }
 
@@ -299,10 +299,14 @@ export function createSessionStore(options: {
       const document = documents.get(keyOf(address));
       return document ? structuredClone(document) : undefined;
     },
-    linkThread: (address, threadId) =>
+    linkThread: (address, threadId, previousThreadId = null) =>
       transact(async () => {
         const document = copy(address);
-        if (document.threadId !== null && document.threadId !== threadId)
+        if (
+          document.threadId !== null &&
+          document.threadId !== threadId &&
+          document.threadId !== previousThreadId
+        )
           throw new BoundaryError("thread_identity_changed");
         document.threadId = threadId;
         await save(document);

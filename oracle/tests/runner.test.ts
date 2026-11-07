@@ -42,6 +42,7 @@ test("requests, history, progress and replies preserve names, paths and credenti
       activeRunId: null,
       latestRunId: "run",
       pendingRequestCount: 0,
+      worktreePath: "/workspace/oracle",
     }),
     finish: async ({ onProgress }) => {
       await onProgress?.(progress);
@@ -55,6 +56,7 @@ test("requests, history, progress and replies preserve names, paths and credenti
     projectId: "project",
     instanceId: "instance",
     model: "model",
+    workspace: "/workspace/oracle",
     policy: async () => policy,
     context: async () => ({
       kind: "available",
@@ -141,4 +143,118 @@ test("a failed status indicator cannot prevent the final answer", async (t) => {
   await oracle.idle();
   assert.deepEqual(messages, ["Checked."]);
   assert.deepEqual(faults, ["slack_status_unavailable", "slack_status_unavailable"]);
+});
+
+test("saved main-checkout conversations resume in worktree threads with their history", async (t) => {
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  await sessions.recover();
+  const first = input("Original request");
+  await sessions.admit(first);
+  await sessions.claim(first);
+  await sessions.linkThread(first.address, "old-main-thread");
+  await sessions.complete(first, { kind: "reply", text: "Original answer" });
+  const messages: string[] = [];
+  const runner = createT3Runner({
+    sessions,
+    projectId: "project",
+    instanceId: "instance",
+    model: "model",
+    workspace: "/workspace/oracle",
+    policy: async () => "Operating rules",
+    context: async () => ({ kind: "unavailable" }),
+    client: {
+      launch: async ({ workspace }) => {
+        assert.equal(workspace, "/workspace/oracle");
+        return { threadId: "new-worktree-thread", projectId: "project", runId: null };
+      },
+      read: async ({ threadId }) => ({
+        threadId,
+        projectId: "project",
+        status: "idle",
+        activeRunId: null,
+        latestRunId: null,
+        pendingRequestCount: 0,
+        worktreePath: threadId === "old-main-thread" ? null : "/workspace/oracle",
+      }),
+      send: async ({ threadId, message }) => {
+        assert.equal(threadId, "new-worktree-thread");
+        assert.ok(message.includes("Original request"));
+        assert.ok(message.includes("Original answer"));
+        return { threadId, runId: "run", delivery: "started" };
+      },
+      finish: async () => ({ kind: "completed", reply: '{"kind":"reply","text":"Resumed"}' }),
+      stopAndDrain: async () => {},
+    },
+  });
+  const oracle = await createOracle({
+    sessions,
+    runner,
+    limits: defaultLimits,
+    now: () => testNow,
+    publish: async (_, text) => {
+      messages.push(text);
+    },
+  });
+  await oracle.receive(input("Continue", { address: first.address, route: "thread" }));
+  await oracle.idle();
+  assert.deepEqual(messages, ["Resumed"]);
+  assert.equal(sessions.snapshot(first.address)?.threadId, "new-worktree-thread");
+  await assert.rejects(
+    sessions.linkThread(first.address, "unexpected-thread"),
+    /thread_identity_changed/,
+  );
+});
+
+test("a backend that binds the wrong workspace never receives a coding message", async (t) => {
+  const sessions = createSessionStore({
+    directory: await directory(t),
+    limits: defaultLimits,
+    now: () => testNow,
+  });
+  let sends = 0;
+  const replies: string[] = [];
+  const runner = createT3Runner({
+    sessions,
+    projectId: "project",
+    instanceId: "instance",
+    model: "model",
+    workspace: "/workspace/oracle",
+    policy: async () => "Rules",
+    context: async () => ({ kind: "unavailable" }),
+    client: {
+      launch: async () => ({ threadId: "wrong-thread", projectId: "project", runId: null }),
+      read: async () => ({
+        threadId: "wrong-thread",
+        projectId: "project",
+        status: "idle",
+        activeRunId: null,
+        latestRunId: null,
+        pendingRequestCount: 0,
+        worktreePath: null,
+      }),
+      send: async () => {
+        sends++;
+        return { threadId: "wrong-thread", runId: "run", delivery: "started" };
+      },
+      finish: async () => ({ kind: "completed", reply: null }),
+      stopAndDrain: async () => {},
+    },
+  });
+  const oracle = await createOracle({
+    sessions,
+    runner,
+    limits: defaultLimits,
+    now: () => testNow,
+    publish: async (_, text) => {
+      replies.push(text);
+    },
+  });
+  await oracle.receive(input());
+  await oracle.idle();
+  assert.equal(sends, 0);
+  assert.deepEqual(replies, ["The turn could not finish. Send a fresh request to continue."]);
 });
