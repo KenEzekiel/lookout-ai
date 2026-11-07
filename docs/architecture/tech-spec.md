@@ -61,4 +61,16 @@ Retain the existing React/TanStack Start app foundation. Separate client routes 
 
 Both demos must follow operational device → server → operator. Verify no server-retained footage for non-triggered periods, and no model API key in browser code. Confirm a trigger produces one incident, its clip replays on the operator device, and alerting does not wait for upload. Check rule updates, revoked device access, stale reports, duplicate uploads, operator permissions and cross-device acknowledgment. Measure latency before claiming A is faster.
 
-This is documentation only. No implementation, device or delivery tests have been run. The Lookout team maintains these boundaries as the components evolve.
+The access implementation and its verification boundary are described below. Monitoring and delivery remain planned. The Lookout team maintains these boundaries as the components evolve.
+
+## Implemented access boundary
+
+The access slice uses Better Auth for email/password accounts and human sessions, Drizzle schema definitions, and Cloudflare D1 with committed SQL migrations. Application-owned workspace, membership, invitation, device, and pairing tables enforce the demo policy in the PRD. The Better Auth organization plugin is not enabled because its email-bound invitations differ from the accepted bearer links and codes.
+
+`apps/app/src/lib/access.ts` defines the principal union. `server/access.ts` resolves visitors, unassigned people, workspace members, and monitoring devices. Each protected handler rechecks the current session, membership, or device revocation record. Later operator handlers use `member`; owner-only operations use its owner check. Monitoring handlers use `monitoringDevice` and derive the workspace from that identity. Resource queries must include that workspace ID. The demo grants devices all sources in that workspace, replacing the earlier per-source assignment requirement for this slice.
+
+`server/workspaces.ts` owns create/join, invitation redemption, and removal. D1 batches and constraints make workspace creation and single-use invitation redemption atomic. `server/devices.ts` owns pairing and revocation. A pairing browser holds a private HttpOnly claim cookie in addition to the visible code. Owner approval does not disclose its credential. Only the original browser can claim it. The device cookie has a rolling browser-supported lifetime; clearing browser storage or leaving it unused beyond that lifetime requires re-pairing. The database identity remains until revoked.
+
+Route adapters load server modules within server handlers. Shared components call same-origin HTTP endpoints. Mutation handlers validate Origin. Credentials stay in HttpOnly cookies, device token hashes stay in D1, and short-code endpoints enforce database-backed attempt limits. No additional auth service or generalized permission framework is introduced.
+
+The current UI confirms device authorization only. Source capture, AI decisions, incident responses, and source configuration remain later slices. The access tests prove that devices cannot call the existing human administration handlers. Each new incident or monitoring handler must add its own integration coverage at the same boundary.

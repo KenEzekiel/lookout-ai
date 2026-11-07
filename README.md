@@ -21,7 +21,7 @@ The hackathon demos target a **prerecorded car crash** and a **person falling in
 
 Configure a rule → observe footage → verify a candidate → open an incident → alert the owner → acknowledge and stop escalation.
 
-**Current source status:** the repository contains the application scaffold, agent harness, and design foundation. The home page is a placeholder. Incident monitoring, AI assessment, evidence storage, notifications, authentication, and MCP are planned, not implemented in this snapshot.
+**Current source status:** email/password accounts, workspace creation and invitations, owner/operator access, device pairing, and revocation are implemented. Incident monitoring, AI assessment, evidence storage, notifications, and MCP remain planned. The monitoring screen reports authorization, not active capture.
 
 Read the [PRD](PRD.md) for agreed behavior, demo outcomes, priorities, and open decisions. It is the source of truth for product direction. This README owns development setup and repository orientation.
 
@@ -43,24 +43,26 @@ The pnpm workspace contains the full-stack application, `@lookout/app`, in `apps
 Use Node.js **24.18.0**, pinned in [.node-version](.node-version), and pnpm **10.33.4**, pinned in [package.json](package.json).
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
+cp apps/app/.dev.vars.example apps/app/.dev.vars
+pnpm --filter @lookout/app exec wrangler d1 migrations apply DB --local
 pnpm dev
 ```
 
-The development command selects port 3000. Open `http://localhost:3000` once the server reports it is ready. The Vite configuration includes Cloudflare's local Workers integration.
+Before starting, replace the example secret in `apps/app/.dev.vars` with a random value of at least 32 characters. Keep it stable across restarts. The development command selects port 3000. Open `http://localhost:3000` once the server reports it is ready. The Vite configuration includes Cloudflare's local Workers integration.
 
-| Command                                    | Purpose                                                             |
-| ------------------------------------------ | ------------------------------------------------------------------- |
-| `pnpm check`                               | Check styles, comments, workspace types, boundaries, and tests.     |
-| `pnpm oracle`                              | Start the Oracle engineering dispatcher.                            |
-| `pnpm test`                                | Run app integration tests and Oracle tests.                         |
-| `pnpm verify`                              | Run all PR checks, integration tests, and the production build.     |
-| `pnpm qa:browser`                          | Run optional Playwright smoke tests for manual QA of the built app. |
-| `pnpm build`                               | Build the application.                                              |
-| `pnpm preview`                             | Preview the build on port 3000.                                     |
-| `pnpm format`                              | Apply formatting.                                                   |
-| `pnpm lint:fix`                            | Apply available lint fixes.                                         |
-| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset.                  |
+| Command                                    | Purpose                                                                |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| `pnpm check`                               | Check styles, comments, workspace types, boundaries, and tests.        |
+| `pnpm oracle`                              | Start the Oracle engineering dispatcher.                               |
+| `pnpm test`                                | Run UI integration tests and Oracle tests.                             |
+| `pnpm verify`                              | Run all PR checks, integration tests, and the production build.        |
+| `pnpm qa:browser`                          | Run Playwright smoke and access journeys against an isolated database. |
+| `pnpm build`                               | Build the application.                                                 |
+| `pnpm preview`                             | Preview the build on port 3000.                                        |
+| `pnpm format`                              | Apply formatting.                                                      |
+| `pnpm lint:fix`                            | Apply available lint fixes.                                            |
+| `pnpm --filter @lookout/app ui add button` | Add a UI component using the app's Base UI preset.                     |
 
 CI runs `pnpm verify`. Playwright stays outside CI. For manual browser QA, install Chromium once with `pnpm exec playwright install chromium`. See [verification conventions](docs/verification.md) for mocking rules, temporary database requirements, and the comment ban. Generated route files and vendored agent tooling are excluded from the application formatting/lint scope. See [package scripts](package.json), [app scripts](apps/app/package.json), and [formatter configuration](.oxfmtrc.json) for exact behavior.
 
@@ -94,9 +96,11 @@ pnpm --filter @lookout/app exec wrangler login
 pnpm --filter @lookout/app deploy
 ```
 
-Add service bindings to the Worker configuration as services are selected. Run `pnpm --filter @lookout/app cf-typegen` after changing bindings. Local secrets belong in `apps/app/.dev.vars`, which Git ignores; use Wrangler secrets for production values. Do not commit credentials.
+The committed D1 database ID is a local-development placeholder. Before an authorized deployment, create the `lookout-access` D1 database, replace its ID in `apps/app/wrangler.jsonc`, set `APP_URL` to the exact deployed HTTPS origin, and set `BETTER_AUTH_SECRET` with `wrangler secret put`. Apply the committed migrations with `wrangler d1 migrations apply DB --remote` before deploying. Use a separate database for staging. Password hashing has been exercised locally in Workers; check the target account’s CPU allowance during deployment verification.
 
-These commands are defined in the repository. Their runtime behavior and deployment have not been re-tested as part of this documentation revision.
+Add other service bindings as services are selected. Run `pnpm --filter @lookout/app cf-typegen` after changing bindings. Local secrets belong in `apps/app/.dev.vars`, which Git ignores; use Wrangler secrets for production values. Do not commit credentials.
+
+Local Worker integration and browser journeys exercise the built application. Cloud provisioning and deployment have not been performed for this access slice.
 
 ## Working together
 

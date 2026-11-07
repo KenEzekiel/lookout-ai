@@ -14,8 +14,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command:
-      "pnpm --filter @lookout/app exec vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    command: "pnpm --filter @lookout/app qa:serve",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: false,
     timeout: 60_000,

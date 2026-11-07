@@ -8,11 +8,12 @@ Run `pnpm verify` before opening a PR. CI runs the same command on every PR to `
 - `pnpm check` runs Oxfmt, Oxlint, the comment ban, strict TypeScript, dependency-cruiser, and workspace tests.
 - `pnpm test` runs Vitest UI integration tests with React Testing Library and jsdom, plus Oracle tests.
 - `pnpm build` checks the production client and Worker bundles.
+- `pnpm --filter @lookout/app test:api` runs API integration tests against that build. `pnpm verify` runs this after building.
 - `pnpm qa:browser` runs optional browser smoke tests for manual QA of the production build. Install Chromium first with `pnpm exec playwright install chromium`.
 - `python3 scripts/check-harness.py` validates the repository's agent tooling.
 
 Playwright is outside CI. Manual browser verification is required for frontend feature implementations and frontend bug fixes that affect a user journey.
-Its repeatable smoke tests supplement interactive manual QA. It owns its preview server on port 4173 and refuses to reuse an existing process.
+Its repeatable smoke and access-journey tests supplement interactive manual QA. It owns a local HTTP server on port 4173 and refuses to reuse an existing process. `apps/app/tests/support/browser-server.mjs` forwards requests to the built Worker through Wrangler’s test harness, applies real migrations to isolated D1 storage, and generates an ephemeral auth secret. It does not use the development database.
 Focused tests fail even locally. Retries are disabled so intermittent failures stay visible.
 Local browser QA retains traces and screenshots after failures. Open traces with `pnpm exec playwright show-trace <path>`.
 
@@ -41,6 +42,7 @@ Dependency-cruiser rejects cycles, unresolved imports, undeclared packages, and 
 The generated route tree is exempt from cycle checks because TanStack generates a type reference back to the router.
 It also rejects imports from `lib` into routes, components, or server code, from components into routes or server code, and from server code into routes or components.
 Cloudflare bindings belong in `server`. Route adapters must access server code only through TanStack Start server handlers.
+The resolver recognizes the runtime-provided `cloudflare:workers` module explicitly; the separate server-only binding rule still rejects imports outside `server`.
 The import graph cannot prove that an import is used only inside a server handler. Check that boundary when reviewing route changes.
 
 The root TypeScript 6 dependency supports dependency-cruiser's parser. The app retains its TypeScript 7 compiler.
@@ -51,8 +53,8 @@ Do not upgrade the root compiler until dependency-cruiser supports its parser AP
 Use integration or end-to-end tests. Do not add unit tests, shallow component tests, or tests of private helpers.
 Put automated UI integration tests in `apps/app/tests/integration/*.test.tsx`. Render complete screens with real routing and application components.
 Use React Testing Library role-based queries and user-event for interactions.
-The current app has no interactive controls, so its initial tests cover the home route and the not-found screen.
-Add API integration tests in the real server runtime when endpoints arrive. Do not run Worker database tests inside jsdom.
+The UI suite covers account forms, create-or-join onboarding, invitations, device controls, and unavailable access, plus the home and not-found routes.
+API integration tests live in `apps/app/tests/api` under `vitest.api.config.ts`. They call the built Worker over HTTP using Wrangler’s `createTestHarness`. Do not run Worker database tests inside jsdom.
 
 For each changed behavior, cover its successful result and its important failure or permission boundary.
 Assert observable responses, rendered UI, or persisted state. Avoid snapshots of implementation details.
@@ -67,8 +69,7 @@ Do not require production credentials or paid API calls in CI. These semantic te
 
 ## Add persistence tests with the first database feature
 
-The application currently has no database or API endpoints. There is no database integration coverage yet.
-The PR that introduces persistence must add a temporary database fixture using the production database engine and real migrations.
+The access slice uses Cloudflare D1. Its API fixture resets isolated local Worker storage before each test, applies committed migrations, and closes the harness in teardown. It covers real Better Auth handlers, workspace membership, single-use invitations, pairing, and revocation. All later persistence tests must retain this production-engine fixture and real migrations.
 Allocate a unique database or namespace per worker, seed only that test's records, and clean up in teardown even after failures.
 For D1, use an isolated local Worker binding. For Postgres, use a disposable container or CI service database with isolated schemas.
 Never point tests at development or production databases. A mocked repository or SQLite replacement for Postgres does not satisfy this rule.

@@ -14,6 +14,8 @@ Inspect device status in the operator client and local source health in the oper
 
 ## Wiring and compatibility
 
+F-AUTH-ACCESS currently shows paired/revoked authorization, not monitoring health. Reuse its device identity and workspace scope when adding health reports. Do not label an authorized but inactive browser healthy. Capture and assessment health remain unimplemented.
+
 Combine capture status, assessment status, last contact, and applied rule version. Revocation and configuration changes must affect reported readiness.
 
 ## Implementation

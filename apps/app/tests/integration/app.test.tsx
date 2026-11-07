@@ -1,9 +1,12 @@
+import { http, HttpResponse } from "msw";
+import { server } from "../support/server";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
 import { getRouter } from "../../src/router";
 
 test("the home route displays the application", async () => {
+  server.use(http.get("/api/access/principal", () => HttpResponse.json({ kind: "visitor" })));
   const router = getRouter();
   router.update({
     history: createMemoryHistory({ initialEntries: ["/"] }),
@@ -15,6 +18,7 @@ test("the home route displays the application", async () => {
 });
 
 test("an unknown route displays the not-found screen", async () => {
+  server.use(http.get("/api/access/principal", () => HttpResponse.json({ kind: "visitor" })));
   const router = getRouter();
   router.update({
     history: createMemoryHistory({ initialEntries: ["/does-not-exist"] }),

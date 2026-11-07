@@ -10,7 +10,7 @@ module.exports = {
       name: "no-unresolved",
       severity: "error",
       from: {},
-      to: { couldNotResolve: true, pathNot: "\\?url$" },
+      to: { couldNotResolve: true, pathNot: "\\?url$|^cloudflare:workers$" },
     },
     {
       name: "no-production-test-imports",
