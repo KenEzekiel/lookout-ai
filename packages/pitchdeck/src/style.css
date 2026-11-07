@@ -1022,3 +1022,55 @@ h2 {
     padding: 0;
   }
 }
+
+.app-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.app-flow-grid figure {
+  margin: 0;
+  min-width: 0;
+}
+.app-flow-grid figcaption {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.app-flow-grid figcaption span {
+  font-size: 14px;
+}
+.app-shot {
+  width: 100%;
+  height: 210px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 12px;
+}
+.app-shot-video {
+  object-position: center 42%;
+}
+.app-shot-incident {
+  object-position: center 50%;
+}
+.slide-app-flow h2 {
+  font-size: clamp(26px, 3vw, 44px);
+  margin-bottom: 20px;
+}
+@media (max-width: 600px) {
+  .app-flow-grid {
+    grid-template-columns: 1fr;
+  }
+  .app-flow-grid figcaption {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
+[data-view="presenter"] .app-shot {
+  height: 100px;
+}
+
+.slide-app-flow h2 {
+  max-width: none;
+}

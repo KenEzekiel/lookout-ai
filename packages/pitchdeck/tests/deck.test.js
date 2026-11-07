@@ -40,22 +40,22 @@ test("presents the built HTML deck with bounded navigation and a slide picker", 
   expect(screen.getByRole("button", { name: "Previous slide" }).disabled).toBe(true);
   await user.click(screen.getByRole("button", { name: "Next slide" }));
   expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Meet Lookout");
-  await user.selectOptions(screen.getByRole("combobox"), "5");
+  await user.selectOptions(screen.getByRole("combobox"), "6");
   expect(screen.getByRole("button", { name: "Next slide" }).disabled).toBe(true);
-  expect(screen.getByRole("status").textContent).toBe("6 / 6");
+  expect(screen.getByRole("status").textContent).toBe("7 / 7");
   await user.click(screen.getByRole("button", { name: "Previous slide" }));
-  expect(window.location.hash).toBe("#5");
+  expect(window.location.hash).toBe("#6");
 });
 
 test("keyboard navigation supports first, last, and deep links without hijacking controls", async () => {
   window.history.replaceState(null, "", "#3");
   unmount = mountDeck(document);
   const user = userEvent.setup();
-  expect(screen.getByRole("status").textContent).toBe("3 / 6");
+  expect(screen.getByRole("status").textContent).toBe("3 / 7");
   await user.keyboard("{ArrowRight}");
   expect(window.location.hash).toBe("#4");
   await user.keyboard("{End}{ArrowRight}");
-  expect(window.location.hash).toBe("#6");
+  expect(window.location.hash).toBe("#7");
   await user.keyboard("{Home}{ArrowLeft}");
   expect(window.location.hash).toBe("#1");
   screen.getByRole("combobox").focus();
@@ -81,7 +81,7 @@ test("an unavailable fullscreen API leaves navigation usable and explains recove
   await user.click(screen.getByRole("button", { name: "Present" }));
   expect((await screen.findByRole("alert")).textContent).toContain("Fullscreen is unavailable");
   await user.click(screen.getByRole("button", { name: "Next slide" }));
-  expect(screen.getByRole("status").textContent).toBe("2 / 6");
+  expect(screen.getByRole("status").textContent).toBe("2 / 7");
 });
 
 test("invalid and out-of-range links resolve to a real slide", async () => {
@@ -90,7 +90,7 @@ test("invalid and out-of-range links resolve to a real slide", async () => {
   expect(window.location.hash).toBe("#1");
   window.history.replaceState(null, "", "#999");
   window.dispatchEvent(new HashChangeEvent("hashchange"));
-  expect(window.location.hash).toBe("#6");
+  expect(window.location.hash).toBe("#7");
   expect(screen.getAllByRole("group")).toHaveLength(1);
 });
 
@@ -123,7 +123,7 @@ test("blocked audience windows leave the original deck usable", async () => {
 test("the built deck explains the two product clients", async () => {
   unmount = mountDeck(document);
   const user = userEvent.setup();
-  await user.selectOptions(screen.getByRole("combobox"), "3");
+  await user.selectOptions(screen.getByRole("combobox"), "4");
   expect(screen.getByText("Operational device")).toBeTruthy();
   expect(screen.getByText("Operator workspace")).toBeTruthy();
 });
@@ -131,7 +131,7 @@ test("the built deck explains the two product clients", async () => {
 test("the build slide embeds the real Oracle Slack capture and links its source", async () => {
   unmount = mountDeck(document);
   const user = userEvent.setup();
-  await user.selectOptions(screen.getByRole("combobox"), "4");
+  await user.selectOptions(screen.getByRole("combobox"), "5");
   expect(screen.getByRole("heading", { name: /A request in Slack/ })).toBeTruthy();
   expect(screen.getByText("Aji shares issue #19")).toBeTruthy();
   expect(screen.getByText("Oracle reports the checks")).toBeTruthy();
@@ -145,4 +145,14 @@ test("the build slide embeds the real Oracle Slack capture and links its source"
   expect(
     screen.getByRole("link", { name: /Open the source thread/ }).getAttribute("href"),
   ).toContain("slack.com/archives/");
+});
+
+test("the app walkthrough embeds four labeled screenshots", async () => {
+  unmount = mountDeck(document);
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByRole("combobox"), "2");
+  expect(screen.getAllByRole("img")).toHaveLength(4);
+  for (const screenshot of screen.getAllByRole("img"))
+    expect(screenshot.getAttribute("src")).toMatch(/^data:image\/png;base64,/);
+  expect(screen.getByText(/Separate UI captures/)).toBeTruthy();
 });
