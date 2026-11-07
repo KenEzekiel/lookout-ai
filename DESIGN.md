@@ -101,7 +101,7 @@ Prefer "Possible fall in living room" to "Anomaly detected." Say "Calling owner,
 
 ## Motion
 
-Use motion to explain a change, not to make the dashboard busy. The requested library is Motion for React, the current package for what many developers still call Framer Motion. It is not installed in the app. The official [installation guide](https://motion.dev/docs/react-installation) uses the `motion` package and imports from `motion/react`.
+Use motion to explain a change, not to make the dashboard busy. The app now installs Motion for React, the current package for what many developers still call Framer Motion. Its root provider respects the user's reduced-motion setting. The official [installation guide](https://motion.dev/docs/react-installation) uses the `motion` package and imports from `motion/react`.
 
 - Button and control feedback can settle in about 120 to 160 ms.
 - A panel change or new incident card can fade and move a few pixels over about 180 to 240 ms.
@@ -114,11 +114,11 @@ Respect reduced-motion preferences. Motion for React provides `MotionConfig redu
 
 ## Tailwind and implementation map
 
-The app uses Tailwind CSS 4. Its semantic shadcn variables live in `apps/app/src/styles.css`. Put the chosen palette, radii, fonts, and state colors there. Map them through CSS variables and Tailwind's `@theme inline` so utilities and local components share one set of tokens. [Tailwind theme variables](https://tailwindcss.com/docs/theme) describe that mechanism. Avoid scattered one-off hex values in JSX.
+The app uses Tailwind CSS 4. Its semantic shadcn variables live in `apps/app/src/styles.css`. The dark theme now maps the proposed palette, radius, and incident-state colors through CSS variables and Tailwind's `@theme inline`. [Tailwind theme variables](https://tailwindcss.com/docs/theme) describe that mechanism. Keep future color decisions there instead of scattering one-off hex values through JSX.
 
-The app's `apps/app/components.json` selects `base-nova`, CSS variables, and Lucide. Add only the shadcn/ui components the first working screen needs. Build the video player, temporal incident markers, and evidence strip as product components. Introduce Motion when an actual interaction needs it. Adding the package belongs to UI implementation, not this document change.
+The app's `apps/app/components.json` selects `base-nova`, CSS variables, and Lucide. Button, Badge, Select, Dialog, and Tooltip are installed as local shadcn/ui components. Add further components only when a working screen needs them. Build the video player, temporal incident markers, and evidence strip as product components. Use Motion for actual state transitions rather than animating every container.
 
-The current `apps/app/src/routes/index.tsx` remains a placeholder. This document does not install Motion or wire video, incidents, and calls. It records the target so implementation can be reviewed against one source.
+The current `apps/app/src/routes/index.tsx` remains a placeholder. The design setup does not wire video, incidents, or calls. This document records the target so implementation can be reviewed against one source.
 
 ## Preferences to preserve
 

@@ -1,8 +1,10 @@
 # Lookout AI
 
-**Define what matters in a visual feed. Turn it into an incident someone owns.**
+**Let us be on the lookout, so you don’t have to.**
 
-Lookout is an AI-assisted visual monitoring and incident-response project. Users describe events they care about, connect a camera or video source, and configure how to reach the responsible person. The intended flow combines visual assessment, evidence, phone alerts, acknowledgment, and escalation.
+Cameras record. People still have to keep watch.
+
+Lookout is an AI-assisted visual monitoring and incident-response project. Users describe events they care about, connect a camera or video source, and configure how to reach the responsible person. The intended flow combines visual assessment, evidence, client alerts, acknowledgment, and escalation.
 
 Think PagerDuty for visual events. Traffic is one use case; the product is designed around configurable rules rather than a single incident category.
 
@@ -10,15 +12,17 @@ Think PagerDuty for visual events. Traffic is one use case; the product is desig
 
 The hackathon demos target a **prerecorded car crash** and a **person falling in real time**, safely staged with a consenting participant. Both should use the same response flow:
 
-Configure a rule → observe footage → verify a candidate → open an incident → call the owner → acknowledge and stop escalation.
+Configure a rule → observe footage → verify a candidate → open an incident → alert the owner → acknowledge and stop escalation.
 
-**Current source status:** the repository contains the application scaffold and agent harness. The home page is a placeholder. Incident monitoring, AI assessment, evidence storage, notifications, authentication, and MCP are planned, not implemented in this snapshot.
+**Current source status:** the repository contains the application scaffold, agent harness, and design foundation. The home page is a placeholder. Incident monitoring, AI assessment, evidence storage, notifications, authentication, and MCP are planned, not implemented in this snapshot.
 
 Read the [PRD](PRD.md) for agreed behavior, demo outcomes, priorities, and open decisions. It is the source of truth for product direction. This README owns development setup and repository orientation.
 
+The current design keeps video on the capture device and uploads an event clip when an incident is confirmed. Responders can replay it later. See the [experience design](docs/architecture/design.md) and [component spec](docs/architecture/tech-spec.md) for the proposed flow and responsibilities.
+
 ## Develop
 
-The pnpm workspace contains one full-stack application, `@lookout/app`, in `apps/app`. It uses TanStack Start, React, TypeScript, and Cloudflare Workers, with Tailwind CSS and shadcn/ui using Base UI.
+The pnpm workspace contains the full-stack application, `@lookout/app`, in `apps/app`, and the Oracle engineering factory, `@lookout/oracle`, in `oracle`. The application uses TanStack Start, React, TypeScript, and Cloudflare Workers, with Tailwind CSS and shadcn/ui using Base UI. Motion for React is installed for interaction transitions. [DESIGN.md](DESIGN.md) records the dark theme and component guidance.
 
 Use Node.js **24.18.0**, pinned in [.node-version](.node-version), and pnpm **10.33.4**, pinned in [package.json](package.json).
 
