@@ -29,6 +29,14 @@ for (const width of [1440, 390]) {
       await expect(heading).toHaveCSS("font-weight", "600");
       await expect(heading).toHaveCSS("line-height", "36px");
       await expect(heading.locator("+ p")).toHaveCSS("font-size", "15px");
+      if (name === "Incidents") {
+        const reload = page.getByRole("button", { name: "Reload inbox" });
+        await expect(reload).toHaveCSS("height", "40px");
+        await expect(reload).toHaveCSS("font-size", "15px");
+        await expect(reload).toHaveCSS("background-color", "rgb(48, 48, 53)");
+        await reload.click();
+        await expect(page.getByRole("heading", { name: "No incidents yet" })).toBeVisible();
+      }
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);

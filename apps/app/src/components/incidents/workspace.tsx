@@ -84,7 +84,7 @@ export function IncidentInbox() {
             Review what happened and take ownership of the response.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void refresh()}>
+        <Button variant="secondary" className="h-10 px-4" onClick={() => void refresh()}>
           Reload inbox
         </Button>
       </div>
@@ -232,7 +232,8 @@ export function IncidentDetail({ id }: { id: string }) {
           Back to inbox
         </Link>
         <Button
-          variant="outline"
+          variant="secondary"
+          className="h-10 px-4"
           disabled={pending}
           onClick={() => {
             setActionError("");

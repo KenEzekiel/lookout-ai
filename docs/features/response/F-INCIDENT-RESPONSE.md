@@ -38,6 +38,8 @@ The idempotency key is device, session, event ID, and rule ID. The producer must
 
 ## Implementation
 
+Inbox and detail reload actions use the shared secondary Button with a 40 px height and 16 px horizontal padding, matching workspace page actions. This follows the Slack request to include Reload inbox in the design consistency fix. Reload behavior and error recovery remain unchanged; [typography browser journeys](../../../tests/e2e/typography.spec.ts) check the inbox button’s rendered size, surface, and successful reload at desktop and narrow widths.
+
 Inbox and incident detail use the shared 30 px page-title role with level-one headings. Evidence and response panels use the shared 20 px panel-heading role; body/actions and metadata consume the common [app type scale](../../../apps/app/src/styles.css). [Typography browser journeys](../../../tests/e2e/typography.spec.ts) check inbox navigation and text at desktop and narrow widths; existing incident integration tests retain response and permission coverage. This PR changes presentation only, with no incident or notification contract changes.
 
 [Incident service](../../../apps/app/src/server/incidents.ts), [route adapter](../../../apps/app/src/routes/api/incidents/$.ts), [D1 schema](../../../apps/app/src/server/schema.ts), and [real migration](../../../apps/app/migrations/0003_incident_response.sql) implement persistence, authorization, deduplication, sessions, and versioned responses. [The durable follow-up service](../../../apps/app/src/server/incident-follow-up.ts) owns insertion with the same SQL guards and a prearmed recovery alarm; the existing report adapter retains initial push delivery.
