@@ -34,6 +34,8 @@ The shell uses the completed account/session portion of F-AUTH-ACCESS through sa
 
 ## Implementation
 
+The shared [accordion panel](../../../apps/app/src/components/ui/accordion-panel.tsx) uses the base-nova shadcn [collapsible](../../../apps/app/src/components/ui/collapsible.tsx). Its measured height transitions in both directions over 220 ms, including interrupted toggles. Children stay mounted to preserve form values. Reduced motion removes the transition. This implements Ken’s request to animate all disclosure state changes. Production Chromium verification passed all five panels at 320, 390, and 1280 px in normal and reduced-motion modes, including intermediate opening/closing heights, keyboard toggling, rapid reversal, hidden-panel visibility, and retained source drafts. No browser or network errors were recorded. `pnpm verify` passed 84 UI and 70 API tests.
+
 [Workspace navigation](../../../apps/app/src/components/access/workspace-navigation.tsx) renders typed router links and a decorative shared-layout indicator inside the persistent header. Router link state owns both the active styling and indicator; the animation does not delay navigation or change keyboard semantics.
 
 [Trigger route](../../../apps/app/src/routes/_workspace.triggers.tsx) and [rule-screen integration tests](../../../apps/app/tests/integration/rules.test.tsx) add authenticated configuration navigation under F-RULE-CONFIG.
